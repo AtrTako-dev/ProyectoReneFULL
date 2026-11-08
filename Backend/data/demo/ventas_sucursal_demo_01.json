@@ -1,0 +1,1013 @@
+{
+  "metadata": {
+    "conjunto": "sucursal_demo_01",
+    "perfil_demanda": "balanceado",
+    "datos_simulados": true,
+    "moneda": "MXN",
+    "periodo_inicio": "2026-01-01",
+    "periodo_fin": "2026-06-30",
+    "cantidad_registros": 100
+  },
+  "ventas": [
+    {
+      "id_venta": "D01-066",
+      "fecha": "2026-01-01",
+      "producto_id": "B003",
+      "producto": "Jugo de naranja 1 L",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 31.0,
+      "cantidad": 4,
+      "total_mxn": 124.0
+    },
+    {
+      "id_venta": "D01-076",
+      "fecha": "2026-01-01",
+      "producto_id": "H002",
+      "producto": "Shampoo 400 ml",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 72.0,
+      "cantidad": 2,
+      "total_mxn": 144.0
+    },
+    {
+      "id_venta": "D01-028",
+      "fecha": "2026-01-02",
+      "producto_id": "B001",
+      "producto": "Agua 1 L",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 12.0,
+      "cantidad": 3,
+      "total_mxn": 36.0
+    },
+    {
+      "id_venta": "D01-070",
+      "fecha": "2026-01-02",
+      "producto_id": "B004",
+      "producto": "Refresco 600 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 19.5,
+      "cantidad": 2,
+      "total_mxn": 39.0
+    },
+    {
+      "id_venta": "D01-009",
+      "fecha": "2026-01-05",
+      "producto_id": "B005",
+      "producto": "Café soluble 120 g",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 68.0,
+      "cantidad": 2,
+      "total_mxn": 136.0
+    },
+    {
+      "id_venta": "D01-022",
+      "fecha": "2026-01-07",
+      "producto_id": "L004",
+      "producto": "Limpiador multiusos 1 L",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 32.0,
+      "cantidad": 2,
+      "total_mxn": 64.0
+    },
+    {
+      "id_venta": "D01-086",
+      "fecha": "2026-01-09",
+      "producto_id": "B002",
+      "producto": "Agua mineral 600 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 17.5,
+      "cantidad": 1,
+      "total_mxn": 17.5
+    },
+    {
+      "id_venta": "D01-012",
+      "fecha": "2026-01-12",
+      "producto_id": "A002",
+      "producto": "Frijol 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 34.0,
+      "cantidad": 4,
+      "total_mxn": 136.0
+    },
+    {
+      "id_venta": "D01-089",
+      "fecha": "2026-01-12",
+      "producto_id": "D006",
+      "producto": "Yogur individual",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 12.5,
+      "cantidad": 1,
+      "total_mxn": 12.5
+    },
+    {
+      "id_venta": "D01-044",
+      "fecha": "2026-01-13",
+      "producto_id": "B008",
+      "producto": "Bebida deportiva 600 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 23.5,
+      "cantidad": 1,
+      "total_mxn": 23.5
+    },
+    {
+      "id_venta": "D01-038",
+      "fecha": "2026-01-22",
+      "producto_id": "H005",
+      "producto": "Desodorante 150 ml",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 54.0,
+      "cantidad": 2,
+      "total_mxn": 108.0
+    },
+    {
+      "id_venta": "D01-083",
+      "fecha": "2026-01-22",
+      "producto_id": "H004",
+      "producto": "Papel higiénico 4 rollos",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 42.0,
+      "cantidad": 1,
+      "total_mxn": 42.0
+    },
+    {
+      "id_venta": "D01-018",
+      "fecha": "2026-01-25",
+      "producto_id": "D002",
+      "producto": "Yogur 1 L",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 39.0,
+      "cantidad": 4,
+      "total_mxn": 156.0
+    },
+    {
+      "id_venta": "D01-098",
+      "fecha": "2026-01-27",
+      "producto_id": "D004",
+      "producto": "Mantequilla 90 g",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 28.0,
+      "cantidad": 2,
+      "total_mxn": 56.0
+    },
+    {
+      "id_venta": "D01-093",
+      "fecha": "2026-01-29",
+      "producto_id": "H004",
+      "producto": "Papel higiénico 4 rollos",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 42.0,
+      "cantidad": 4,
+      "total_mxn": 168.0
+    },
+    {
+      "id_venta": "D01-029",
+      "fecha": "2026-02-01",
+      "producto_id": "B006",
+      "producto": "Té helado 500 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 18.0,
+      "cantidad": 1,
+      "total_mxn": 18.0
+    },
+    {
+      "id_venta": "D01-088",
+      "fecha": "2026-02-01",
+      "producto_id": "S001",
+      "producto": "Papas fritas 45 g",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 18.0,
+      "cantidad": 1,
+      "total_mxn": 18.0
+    },
+    {
+      "id_venta": "D01-041",
+      "fecha": "2026-02-03",
+      "producto_id": "B008",
+      "producto": "Bebida deportiva 600 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 23.5,
+      "cantidad": 3,
+      "total_mxn": 70.5
+    },
+    {
+      "id_venta": "D01-048",
+      "fecha": "2026-02-04",
+      "producto_id": "H006",
+      "producto": "Toallas sanitarias paquete",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 39.5,
+      "cantidad": 3,
+      "total_mxn": 118.5
+    },
+    {
+      "id_venta": "D01-032",
+      "fecha": "2026-02-06",
+      "producto_id": "S005",
+      "producto": "Chocolate individual",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 15.0,
+      "cantidad": 3,
+      "total_mxn": 45.0
+    },
+    {
+      "id_venta": "D01-019",
+      "fecha": "2026-02-13",
+      "producto_id": "A005",
+      "producto": "Pasta 200 g",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 13.5,
+      "cantidad": 4,
+      "total_mxn": 54.0
+    },
+    {
+      "id_venta": "D01-026",
+      "fecha": "2026-02-13",
+      "producto_id": "D005",
+      "producto": "Crema 200 ml",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 25.0,
+      "cantidad": 4,
+      "total_mxn": 100.0
+    },
+    {
+      "id_venta": "D01-057",
+      "fecha": "2026-02-13",
+      "producto_id": "H003",
+      "producto": "Pasta dental 100 ml",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 38.0,
+      "cantidad": 1,
+      "total_mxn": 38.0
+    },
+    {
+      "id_venta": "D01-065",
+      "fecha": "2026-02-14",
+      "producto_id": "S004",
+      "producto": "Cacahuates 100 g",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 21.0,
+      "cantidad": 3,
+      "total_mxn": 63.0
+    },
+    {
+      "id_venta": "D01-035",
+      "fecha": "2026-02-16",
+      "producto_id": "A002",
+      "producto": "Frijol 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 34.0,
+      "cantidad": 1,
+      "total_mxn": 34.0
+    },
+    {
+      "id_venta": "D01-074",
+      "fecha": "2026-02-17",
+      "producto_id": "H001",
+      "producto": "Jabón de baño",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 18.5,
+      "cantidad": 4,
+      "total_mxn": 74.0
+    },
+    {
+      "id_venta": "D01-015",
+      "fecha": "2026-02-24",
+      "producto_id": "B001",
+      "producto": "Agua 1 L",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 12.0,
+      "cantidad": 2,
+      "total_mxn": 24.0
+    },
+    {
+      "id_venta": "D01-054",
+      "fecha": "2026-02-25",
+      "producto_id": "H006",
+      "producto": "Toallas sanitarias paquete",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 39.5,
+      "cantidad": 2,
+      "total_mxn": 79.0
+    },
+    {
+      "id_venta": "D01-001",
+      "fecha": "2026-02-28",
+      "producto_id": "S004",
+      "producto": "Cacahuates 100 g",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 21.0,
+      "cantidad": 1,
+      "total_mxn": 21.0
+    },
+    {
+      "id_venta": "D01-007",
+      "fecha": "2026-02-28",
+      "producto_id": "H005",
+      "producto": "Desodorante 150 ml",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 54.0,
+      "cantidad": 2,
+      "total_mxn": 108.0
+    },
+    {
+      "id_venta": "D01-027",
+      "fecha": "2026-03-01",
+      "producto_id": "L001",
+      "producto": "Detergente en polvo 1 kg",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 48.0,
+      "cantidad": 3,
+      "total_mxn": 144.0
+    },
+    {
+      "id_venta": "D01-025",
+      "fecha": "2026-03-02",
+      "producto_id": "D006",
+      "producto": "Yogur individual",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 12.5,
+      "cantidad": 3,
+      "total_mxn": 37.5
+    },
+    {
+      "id_venta": "D01-064",
+      "fecha": "2026-03-05",
+      "producto_id": "D001",
+      "producto": "Leche entera 1 L",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 27.0,
+      "cantidad": 1,
+      "total_mxn": 27.0
+    },
+    {
+      "id_venta": "D01-052",
+      "fecha": "2026-03-06",
+      "producto_id": "D003",
+      "producto": "Queso panela 400 g",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 69.0,
+      "cantidad": 1,
+      "total_mxn": 69.0
+    },
+    {
+      "id_venta": "D01-060",
+      "fecha": "2026-03-06",
+      "producto_id": "H001",
+      "producto": "Jabón de baño",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 18.5,
+      "cantidad": 3,
+      "total_mxn": 55.5
+    },
+    {
+      "id_venta": "D01-067",
+      "fecha": "2026-03-06",
+      "producto_id": "S005",
+      "producto": "Chocolate individual",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 15.0,
+      "cantidad": 1,
+      "total_mxn": 15.0
+    },
+    {
+      "id_venta": "D01-085",
+      "fecha": "2026-03-08",
+      "producto_id": "H006",
+      "producto": "Toallas sanitarias paquete",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 39.5,
+      "cantidad": 3,
+      "total_mxn": 118.5
+    },
+    {
+      "id_venta": "D01-008",
+      "fecha": "2026-03-11",
+      "producto_id": "A006",
+      "producto": "Atún en lata",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 19.0,
+      "cantidad": 1,
+      "total_mxn": 19.0
+    },
+    {
+      "id_venta": "D01-011",
+      "fecha": "2026-03-12",
+      "producto_id": "A002",
+      "producto": "Frijol 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 34.0,
+      "cantidad": 1,
+      "total_mxn": 34.0
+    },
+    {
+      "id_venta": "D01-016",
+      "fecha": "2026-03-13",
+      "producto_id": "A008",
+      "producto": "Sal 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 16.0,
+      "cantidad": 4,
+      "total_mxn": 64.0
+    },
+    {
+      "id_venta": "D01-017",
+      "fecha": "2026-03-13",
+      "producto_id": "A005",
+      "producto": "Pasta 200 g",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 13.5,
+      "cantidad": 1,
+      "total_mxn": 13.5
+    },
+    {
+      "id_venta": "D01-033",
+      "fecha": "2026-03-15",
+      "producto_id": "B006",
+      "producto": "Té helado 500 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 18.0,
+      "cantidad": 3,
+      "total_mxn": 54.0
+    },
+    {
+      "id_venta": "D01-078",
+      "fecha": "2026-03-15",
+      "producto_id": "D006",
+      "producto": "Yogur individual",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 12.5,
+      "cantidad": 1,
+      "total_mxn": 12.5
+    },
+    {
+      "id_venta": "D01-095",
+      "fecha": "2026-03-18",
+      "producto_id": "B008",
+      "producto": "Bebida deportiva 600 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 23.5,
+      "cantidad": 3,
+      "total_mxn": 70.5
+    },
+    {
+      "id_venta": "D01-051",
+      "fecha": "2026-03-27",
+      "producto_id": "L003",
+      "producto": "Jabón para trastes 750 ml",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 29.5,
+      "cantidad": 2,
+      "total_mxn": 59.0
+    },
+    {
+      "id_venta": "D01-020",
+      "fecha": "2026-03-29",
+      "producto_id": "H001",
+      "producto": "Jabón de baño",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 18.5,
+      "cantidad": 1,
+      "total_mxn": 18.5
+    },
+    {
+      "id_venta": "D01-053",
+      "fecha": "2026-03-30",
+      "producto_id": "H004",
+      "producto": "Papel higiénico 4 rollos",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 42.0,
+      "cantidad": 4,
+      "total_mxn": 168.0
+    },
+    {
+      "id_venta": "D01-058",
+      "fecha": "2026-03-31",
+      "producto_id": "D004",
+      "producto": "Mantequilla 90 g",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 28.0,
+      "cantidad": 1,
+      "total_mxn": 28.0
+    },
+    {
+      "id_venta": "D01-100",
+      "fecha": "2026-04-02",
+      "producto_id": "B005",
+      "producto": "Café soluble 120 g",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 68.0,
+      "cantidad": 3,
+      "total_mxn": 204.0
+    },
+    {
+      "id_venta": "D01-079",
+      "fecha": "2026-04-03",
+      "producto_id": "B003",
+      "producto": "Jugo de naranja 1 L",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 31.0,
+      "cantidad": 4,
+      "total_mxn": 124.0
+    },
+    {
+      "id_venta": "D01-014",
+      "fecha": "2026-04-04",
+      "producto_id": "B001",
+      "producto": "Agua 1 L",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 12.0,
+      "cantidad": 2,
+      "total_mxn": 24.0
+    },
+    {
+      "id_venta": "D01-092",
+      "fecha": "2026-04-05",
+      "producto_id": "L001",
+      "producto": "Detergente en polvo 1 kg",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 48.0,
+      "cantidad": 4,
+      "total_mxn": 192.0
+    },
+    {
+      "id_venta": "D01-047",
+      "fecha": "2026-04-06",
+      "producto_id": "B008",
+      "producto": "Bebida deportiva 600 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 23.5,
+      "cantidad": 4,
+      "total_mxn": 94.0
+    },
+    {
+      "id_venta": "D01-077",
+      "fecha": "2026-04-06",
+      "producto_id": "A008",
+      "producto": "Sal 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 16.0,
+      "cantidad": 2,
+      "total_mxn": 32.0
+    },
+    {
+      "id_venta": "D01-004",
+      "fecha": "2026-04-07",
+      "producto_id": "S003",
+      "producto": "Galletas saladas",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 17.0,
+      "cantidad": 3,
+      "total_mxn": 51.0
+    },
+    {
+      "id_venta": "D01-037",
+      "fecha": "2026-04-09",
+      "producto_id": "A004",
+      "producto": "Aceite vegetal 1 L",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 46.5,
+      "cantidad": 3,
+      "total_mxn": 139.5
+    },
+    {
+      "id_venta": "D01-075",
+      "fecha": "2026-04-13",
+      "producto_id": "D004",
+      "producto": "Mantequilla 90 g",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 28.0,
+      "cantidad": 2,
+      "total_mxn": 56.0
+    },
+    {
+      "id_venta": "D01-040",
+      "fecha": "2026-04-17",
+      "producto_id": "B004",
+      "producto": "Refresco 600 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 19.5,
+      "cantidad": 1,
+      "total_mxn": 19.5
+    },
+    {
+      "id_venta": "D01-002",
+      "fecha": "2026-04-18",
+      "producto_id": "S004",
+      "producto": "Cacahuates 100 g",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 21.0,
+      "cantidad": 3,
+      "total_mxn": 63.0
+    },
+    {
+      "id_venta": "D01-087",
+      "fecha": "2026-04-18",
+      "producto_id": "A003",
+      "producto": "Azúcar 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 29.0,
+      "cantidad": 4,
+      "total_mxn": 116.0
+    },
+    {
+      "id_venta": "D01-099",
+      "fecha": "2026-04-20",
+      "producto_id": "B006",
+      "producto": "Té helado 500 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 18.0,
+      "cantidad": 1,
+      "total_mxn": 18.0
+    },
+    {
+      "id_venta": "D01-069",
+      "fecha": "2026-04-22",
+      "producto_id": "H003",
+      "producto": "Pasta dental 100 ml",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 38.0,
+      "cantidad": 4,
+      "total_mxn": 152.0
+    },
+    {
+      "id_venta": "D01-059",
+      "fecha": "2026-04-23",
+      "producto_id": "L001",
+      "producto": "Detergente en polvo 1 kg",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 48.0,
+      "cantidad": 3,
+      "total_mxn": 144.0
+    },
+    {
+      "id_venta": "D01-056",
+      "fecha": "2026-04-24",
+      "producto_id": "S005",
+      "producto": "Chocolate individual",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 15.0,
+      "cantidad": 1,
+      "total_mxn": 15.0
+    },
+    {
+      "id_venta": "D01-005",
+      "fecha": "2026-04-26",
+      "producto_id": "H004",
+      "producto": "Papel higiénico 4 rollos",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 42.0,
+      "cantidad": 2,
+      "total_mxn": 84.0
+    },
+    {
+      "id_venta": "D01-071",
+      "fecha": "2026-04-27",
+      "producto_id": "S003",
+      "producto": "Galletas saladas",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 17.0,
+      "cantidad": 4,
+      "total_mxn": 68.0
+    },
+    {
+      "id_venta": "D01-081",
+      "fecha": "2026-04-27",
+      "producto_id": "D001",
+      "producto": "Leche entera 1 L",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 27.0,
+      "cantidad": 4,
+      "total_mxn": 108.0
+    },
+    {
+      "id_venta": "D01-049",
+      "fecha": "2026-04-28",
+      "producto_id": "H004",
+      "producto": "Papel higiénico 4 rollos",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 42.0,
+      "cantidad": 2,
+      "total_mxn": 84.0
+    },
+    {
+      "id_venta": "D01-036",
+      "fecha": "2026-04-30",
+      "producto_id": "A007",
+      "producto": "Harina de trigo 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 24.0,
+      "cantidad": 2,
+      "total_mxn": 48.0
+    },
+    {
+      "id_venta": "D01-097",
+      "fecha": "2026-05-02",
+      "producto_id": "A004",
+      "producto": "Aceite vegetal 1 L",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 46.5,
+      "cantidad": 4,
+      "total_mxn": 186.0
+    },
+    {
+      "id_venta": "D01-006",
+      "fecha": "2026-05-03",
+      "producto_id": "B006",
+      "producto": "Té helado 500 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 18.0,
+      "cantidad": 2,
+      "total_mxn": 36.0
+    },
+    {
+      "id_venta": "D01-010",
+      "fecha": "2026-05-07",
+      "producto_id": "S001",
+      "producto": "Papas fritas 45 g",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 18.0,
+      "cantidad": 4,
+      "total_mxn": 72.0
+    },
+    {
+      "id_venta": "D01-031",
+      "fecha": "2026-05-07",
+      "producto_id": "D001",
+      "producto": "Leche entera 1 L",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 27.0,
+      "cantidad": 1,
+      "total_mxn": 27.0
+    },
+    {
+      "id_venta": "D01-084",
+      "fecha": "2026-05-07",
+      "producto_id": "L005",
+      "producto": "Esponja para cocina",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 12.0,
+      "cantidad": 2,
+      "total_mxn": 24.0
+    },
+    {
+      "id_venta": "D01-096",
+      "fecha": "2026-05-10",
+      "producto_id": "H003",
+      "producto": "Pasta dental 100 ml",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 38.0,
+      "cantidad": 2,
+      "total_mxn": 76.0
+    },
+    {
+      "id_venta": "D01-062",
+      "fecha": "2026-05-14",
+      "producto_id": "B004",
+      "producto": "Refresco 600 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 19.5,
+      "cantidad": 5,
+      "total_mxn": 97.5
+    },
+    {
+      "id_venta": "D01-094",
+      "fecha": "2026-05-16",
+      "producto_id": "A006",
+      "producto": "Atún en lata",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 19.0,
+      "cantidad": 2,
+      "total_mxn": 38.0
+    },
+    {
+      "id_venta": "D01-021",
+      "fecha": "2026-05-17",
+      "producto_id": "D006",
+      "producto": "Yogur individual",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 12.5,
+      "cantidad": 4,
+      "total_mxn": 50.0
+    },
+    {
+      "id_venta": "D01-046",
+      "fecha": "2026-05-18",
+      "producto_id": "D005",
+      "producto": "Crema 200 ml",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 25.0,
+      "cantidad": 4,
+      "total_mxn": 100.0
+    },
+    {
+      "id_venta": "D01-013",
+      "fecha": "2026-05-20",
+      "producto_id": "B003",
+      "producto": "Jugo de naranja 1 L",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 31.0,
+      "cantidad": 2,
+      "total_mxn": 62.0
+    },
+    {
+      "id_venta": "D01-023",
+      "fecha": "2026-05-22",
+      "producto_id": "D003",
+      "producto": "Queso panela 400 g",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 69.0,
+      "cantidad": 2,
+      "total_mxn": 138.0
+    },
+    {
+      "id_venta": "D01-050",
+      "fecha": "2026-05-23",
+      "producto_id": "S005",
+      "producto": "Chocolate individual",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 15.0,
+      "cantidad": 1,
+      "total_mxn": 15.0
+    },
+    {
+      "id_venta": "D01-055",
+      "fecha": "2026-05-25",
+      "producto_id": "B005",
+      "producto": "Café soluble 120 g",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 68.0,
+      "cantidad": 5,
+      "total_mxn": 340.0
+    },
+    {
+      "id_venta": "D01-043",
+      "fecha": "2026-05-27",
+      "producto_id": "D006",
+      "producto": "Yogur individual",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 12.5,
+      "cantidad": 4,
+      "total_mxn": 50.0
+    },
+    {
+      "id_venta": "D01-063",
+      "fecha": "2026-05-27",
+      "producto_id": "H005",
+      "producto": "Desodorante 150 ml",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 54.0,
+      "cantidad": 1,
+      "total_mxn": 54.0
+    },
+    {
+      "id_venta": "D01-030",
+      "fecha": "2026-05-28",
+      "producto_id": "L001",
+      "producto": "Detergente en polvo 1 kg",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 48.0,
+      "cantidad": 4,
+      "total_mxn": 192.0
+    },
+    {
+      "id_venta": "D01-034",
+      "fecha": "2026-05-28",
+      "producto_id": "H005",
+      "producto": "Desodorante 150 ml",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 54.0,
+      "cantidad": 2,
+      "total_mxn": 108.0
+    },
+    {
+      "id_venta": "D01-091",
+      "fecha": "2026-05-30",
+      "producto_id": "H003",
+      "producto": "Pasta dental 100 ml",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 38.0,
+      "cantidad": 4,
+      "total_mxn": 152.0
+    },
+    {
+      "id_venta": "D01-045",
+      "fecha": "2026-05-31",
+      "producto_id": "S003",
+      "producto": "Galletas saladas",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 17.0,
+      "cantidad": 2,
+      "total_mxn": 34.0
+    },
+    {
+      "id_venta": "D01-080",
+      "fecha": "2026-05-31",
+      "producto_id": "B007",
+      "producto": "Leche saborizada 250 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 14.0,
+      "cantidad": 3,
+      "total_mxn": 42.0
+    },
+    {
+      "id_venta": "D01-090",
+      "fecha": "2026-06-07",
+      "producto_id": "H002",
+      "producto": "Shampoo 400 ml",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 72.0,
+      "cantidad": 4,
+      "total_mxn": 288.0
+    },
+    {
+      "id_venta": "D01-042",
+      "fecha": "2026-06-08",
+      "producto_id": "L002",
+      "producto": "Cloro 1 L",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 18.0,
+      "cantidad": 2,
+      "total_mxn": 36.0
+    },
+    {
+      "id_venta": "D01-068",
+      "fecha": "2026-06-08",
+      "producto_id": "B008",
+      "producto": "Bebida deportiva 600 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 23.5,
+      "cantidad": 4,
+      "total_mxn": 94.0
+    },
+    {
+      "id_venta": "D01-061",
+      "fecha": "2026-06-12",
+      "producto_id": "H002",
+      "producto": "Shampoo 400 ml",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 72.0,
+      "cantidad": 3,
+      "total_mxn": 216.0
+    },
+    {
+      "id_venta": "D01-072",
+      "fecha": "2026-06-14",
+      "producto_id": "D001",
+      "producto": "Leche entera 1 L",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 27.0,
+      "cantidad": 1,
+      "total_mxn": 27.0
+    },
+    {
+      "id_venta": "D01-073",
+      "fecha": "2026-06-19",
+      "producto_id": "A006",
+      "producto": "Atún en lata",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 19.0,
+      "cantidad": 1,
+      "total_mxn": 19.0
+    },
+    {
+      "id_venta": "D01-003",
+      "fecha": "2026-06-20",
+      "producto_id": "A005",
+      "producto": "Pasta 200 g",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 13.5,
+      "cantidad": 3,
+      "total_mxn": 40.5
+    },
+    {
+      "id_venta": "D01-024",
+      "fecha": "2026-06-26",
+      "producto_id": "H002",
+      "producto": "Shampoo 400 ml",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 72.0,
+      "cantidad": 1,
+      "total_mxn": 72.0
+    },
+    {
+      "id_venta": "D01-039",
+      "fecha": "2026-06-27",
+      "producto_id": "A004",
+      "producto": "Aceite vegetal 1 L",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 46.5,
+      "cantidad": 4,
+      "total_mxn": 186.0
+    },
+    {
+      "id_venta": "D01-082",
+      "fecha": "2026-06-29",
+      "producto_id": "D001",
+      "producto": "Leche entera 1 L",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 27.0,
+      "cantidad": 2,
+      "total_mxn": 54.0
+    }
+  ]
+}

@@ -1,0 +1,1013 @@
+{
+  "metadata": {
+    "conjunto": "sucursal_demo_03",
+    "perfil_demanda": "mayor_demanda_abarrotes",
+    "datos_simulados": true,
+    "moneda": "MXN",
+    "periodo_inicio": "2026-01-01",
+    "periodo_fin": "2026-06-30",
+    "cantidad_registros": 100
+  },
+  "ventas": [
+    {
+      "id_venta": "D03-036",
+      "fecha": "2026-01-02",
+      "producto_id": "S001",
+      "producto": "Papas fritas 45 g",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 18.0,
+      "cantidad": 1,
+      "total_mxn": 18.0
+    },
+    {
+      "id_venta": "D03-090",
+      "fecha": "2026-01-03",
+      "producto_id": "D004",
+      "producto": "Mantequilla 90 g",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 28.0,
+      "cantidad": 2,
+      "total_mxn": 56.0
+    },
+    {
+      "id_venta": "D03-003",
+      "fecha": "2026-01-06",
+      "producto_id": "H005",
+      "producto": "Desodorante 150 ml",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 54.0,
+      "cantidad": 1,
+      "total_mxn": 54.0
+    },
+    {
+      "id_venta": "D03-060",
+      "fecha": "2026-01-09",
+      "producto_id": "A007",
+      "producto": "Harina de trigo 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 24.0,
+      "cantidad": 2,
+      "total_mxn": 48.0
+    },
+    {
+      "id_venta": "D03-028",
+      "fecha": "2026-01-10",
+      "producto_id": "B007",
+      "producto": "Leche saborizada 250 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 14.0,
+      "cantidad": 3,
+      "total_mxn": 42.0
+    },
+    {
+      "id_venta": "D03-013",
+      "fecha": "2026-01-16",
+      "producto_id": "A003",
+      "producto": "Azúcar 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 29.0,
+      "cantidad": 1,
+      "total_mxn": 29.0
+    },
+    {
+      "id_venta": "D03-034",
+      "fecha": "2026-01-21",
+      "producto_id": "A007",
+      "producto": "Harina de trigo 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 24.0,
+      "cantidad": 3,
+      "total_mxn": 72.0
+    },
+    {
+      "id_venta": "D03-064",
+      "fecha": "2026-01-24",
+      "producto_id": "D006",
+      "producto": "Yogur individual",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 12.5,
+      "cantidad": 2,
+      "total_mxn": 25.0
+    },
+    {
+      "id_venta": "D03-025",
+      "fecha": "2026-01-25",
+      "producto_id": "A008",
+      "producto": "Sal 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 16.0,
+      "cantidad": 2,
+      "total_mxn": 32.0
+    },
+    {
+      "id_venta": "D03-062",
+      "fecha": "2026-01-26",
+      "producto_id": "S001",
+      "producto": "Papas fritas 45 g",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 18.0,
+      "cantidad": 4,
+      "total_mxn": 72.0
+    },
+    {
+      "id_venta": "D03-070",
+      "fecha": "2026-01-27",
+      "producto_id": "D004",
+      "producto": "Mantequilla 90 g",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 28.0,
+      "cantidad": 4,
+      "total_mxn": 112.0
+    },
+    {
+      "id_venta": "D03-099",
+      "fecha": "2026-01-29",
+      "producto_id": "A001",
+      "producto": "Arroz 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 28.5,
+      "cantidad": 3,
+      "total_mxn": 85.5
+    },
+    {
+      "id_venta": "D03-057",
+      "fecha": "2026-02-02",
+      "producto_id": "L004",
+      "producto": "Limpiador multiusos 1 L",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 32.0,
+      "cantidad": 2,
+      "total_mxn": 64.0
+    },
+    {
+      "id_venta": "D03-073",
+      "fecha": "2026-02-02",
+      "producto_id": "L005",
+      "producto": "Esponja para cocina",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 12.0,
+      "cantidad": 3,
+      "total_mxn": 36.0
+    },
+    {
+      "id_venta": "D03-045",
+      "fecha": "2026-02-05",
+      "producto_id": "H002",
+      "producto": "Shampoo 400 ml",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 72.0,
+      "cantidad": 2,
+      "total_mxn": 144.0
+    },
+    {
+      "id_venta": "D03-059",
+      "fecha": "2026-02-06",
+      "producto_id": "L002",
+      "producto": "Cloro 1 L",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 18.0,
+      "cantidad": 2,
+      "total_mxn": 36.0
+    },
+    {
+      "id_venta": "D03-047",
+      "fecha": "2026-02-08",
+      "producto_id": "A001",
+      "producto": "Arroz 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 28.5,
+      "cantidad": 2,
+      "total_mxn": 57.0
+    },
+    {
+      "id_venta": "D03-049",
+      "fecha": "2026-02-08",
+      "producto_id": "S001",
+      "producto": "Papas fritas 45 g",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 18.0,
+      "cantidad": 3,
+      "total_mxn": 54.0
+    },
+    {
+      "id_venta": "D03-044",
+      "fecha": "2026-02-09",
+      "producto_id": "B007",
+      "producto": "Leche saborizada 250 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 14.0,
+      "cantidad": 2,
+      "total_mxn": 28.0
+    },
+    {
+      "id_venta": "D03-043",
+      "fecha": "2026-02-11",
+      "producto_id": "S006",
+      "producto": "Barra de cereal",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 13.5,
+      "cantidad": 1,
+      "total_mxn": 13.5
+    },
+    {
+      "id_venta": "D03-001",
+      "fecha": "2026-02-12",
+      "producto_id": "D001",
+      "producto": "Leche entera 1 L",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 27.0,
+      "cantidad": 3,
+      "total_mxn": 81.0
+    },
+    {
+      "id_venta": "D03-015",
+      "fecha": "2026-02-14",
+      "producto_id": "L005",
+      "producto": "Esponja para cocina",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 12.0,
+      "cantidad": 4,
+      "total_mxn": 48.0
+    },
+    {
+      "id_venta": "D03-023",
+      "fecha": "2026-02-16",
+      "producto_id": "L006",
+      "producto": "Suavizante 850 ml",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 36.0,
+      "cantidad": 4,
+      "total_mxn": 144.0
+    },
+    {
+      "id_venta": "D03-058",
+      "fecha": "2026-02-17",
+      "producto_id": "B005",
+      "producto": "Café soluble 120 g",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 68.0,
+      "cantidad": 1,
+      "total_mxn": 68.0
+    },
+    {
+      "id_venta": "D03-008",
+      "fecha": "2026-02-21",
+      "producto_id": "A002",
+      "producto": "Frijol 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 34.0,
+      "cantidad": 4,
+      "total_mxn": 136.0
+    },
+    {
+      "id_venta": "D03-046",
+      "fecha": "2026-02-23",
+      "producto_id": "B007",
+      "producto": "Leche saborizada 250 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 14.0,
+      "cantidad": 3,
+      "total_mxn": 42.0
+    },
+    {
+      "id_venta": "D03-069",
+      "fecha": "2026-02-24",
+      "producto_id": "L001",
+      "producto": "Detergente en polvo 1 kg",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 48.0,
+      "cantidad": 3,
+      "total_mxn": 144.0
+    },
+    {
+      "id_venta": "D03-086",
+      "fecha": "2026-02-26",
+      "producto_id": "B003",
+      "producto": "Jugo de naranja 1 L",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 31.0,
+      "cantidad": 3,
+      "total_mxn": 93.0
+    },
+    {
+      "id_venta": "D03-020",
+      "fecha": "2026-03-01",
+      "producto_id": "B005",
+      "producto": "Café soluble 120 g",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 68.0,
+      "cantidad": 3,
+      "total_mxn": 204.0
+    },
+    {
+      "id_venta": "D03-032",
+      "fecha": "2026-03-03",
+      "producto_id": "L004",
+      "producto": "Limpiador multiusos 1 L",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 32.0,
+      "cantidad": 4,
+      "total_mxn": 128.0
+    },
+    {
+      "id_venta": "D03-052",
+      "fecha": "2026-03-04",
+      "producto_id": "B001",
+      "producto": "Agua 1 L",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 12.0,
+      "cantidad": 1,
+      "total_mxn": 12.0
+    },
+    {
+      "id_venta": "D03-005",
+      "fecha": "2026-03-06",
+      "producto_id": "B001",
+      "producto": "Agua 1 L",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 12.0,
+      "cantidad": 3,
+      "total_mxn": 36.0
+    },
+    {
+      "id_venta": "D03-055",
+      "fecha": "2026-03-07",
+      "producto_id": "A008",
+      "producto": "Sal 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 16.0,
+      "cantidad": 2,
+      "total_mxn": 32.0
+    },
+    {
+      "id_venta": "D03-024",
+      "fecha": "2026-03-08",
+      "producto_id": "A005",
+      "producto": "Pasta 200 g",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 13.5,
+      "cantidad": 1,
+      "total_mxn": 13.5
+    },
+    {
+      "id_venta": "D03-011",
+      "fecha": "2026-03-09",
+      "producto_id": "B001",
+      "producto": "Agua 1 L",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 12.0,
+      "cantidad": 4,
+      "total_mxn": 48.0
+    },
+    {
+      "id_venta": "D03-014",
+      "fecha": "2026-03-10",
+      "producto_id": "A003",
+      "producto": "Azúcar 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 29.0,
+      "cantidad": 3,
+      "total_mxn": 87.0
+    },
+    {
+      "id_venta": "D03-019",
+      "fecha": "2026-03-11",
+      "producto_id": "A001",
+      "producto": "Arroz 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 28.5,
+      "cantidad": 1,
+      "total_mxn": 28.5
+    },
+    {
+      "id_venta": "D03-085",
+      "fecha": "2026-03-12",
+      "producto_id": "B007",
+      "producto": "Leche saborizada 250 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 14.0,
+      "cantidad": 4,
+      "total_mxn": 56.0
+    },
+    {
+      "id_venta": "D03-012",
+      "fecha": "2026-03-13",
+      "producto_id": "B001",
+      "producto": "Agua 1 L",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 12.0,
+      "cantidad": 4,
+      "total_mxn": 48.0
+    },
+    {
+      "id_venta": "D03-074",
+      "fecha": "2026-03-13",
+      "producto_id": "A007",
+      "producto": "Harina de trigo 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 24.0,
+      "cantidad": 2,
+      "total_mxn": 48.0
+    },
+    {
+      "id_venta": "D03-082",
+      "fecha": "2026-03-16",
+      "producto_id": "A001",
+      "producto": "Arroz 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 28.5,
+      "cantidad": 1,
+      "total_mxn": 28.5
+    },
+    {
+      "id_venta": "D03-092",
+      "fecha": "2026-03-18",
+      "producto_id": "A005",
+      "producto": "Pasta 200 g",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 13.5,
+      "cantidad": 3,
+      "total_mxn": 40.5
+    },
+    {
+      "id_venta": "D03-038",
+      "fecha": "2026-03-24",
+      "producto_id": "H001",
+      "producto": "Jabón de baño",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 18.5,
+      "cantidad": 4,
+      "total_mxn": 74.0
+    },
+    {
+      "id_venta": "D03-089",
+      "fecha": "2026-03-27",
+      "producto_id": "B001",
+      "producto": "Agua 1 L",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 12.0,
+      "cantidad": 4,
+      "total_mxn": 48.0
+    },
+    {
+      "id_venta": "D03-031",
+      "fecha": "2026-03-28",
+      "producto_id": "L002",
+      "producto": "Cloro 1 L",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 18.0,
+      "cantidad": 3,
+      "total_mxn": 54.0
+    },
+    {
+      "id_venta": "D03-081",
+      "fecha": "2026-03-31",
+      "producto_id": "L004",
+      "producto": "Limpiador multiusos 1 L",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 32.0,
+      "cantidad": 2,
+      "total_mxn": 64.0
+    },
+    {
+      "id_venta": "D03-022",
+      "fecha": "2026-04-04",
+      "producto_id": "A001",
+      "producto": "Arroz 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 28.5,
+      "cantidad": 2,
+      "total_mxn": 57.0
+    },
+    {
+      "id_venta": "D03-056",
+      "fecha": "2026-04-06",
+      "producto_id": "L006",
+      "producto": "Suavizante 850 ml",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 36.0,
+      "cantidad": 4,
+      "total_mxn": 144.0
+    },
+    {
+      "id_venta": "D03-050",
+      "fecha": "2026-04-07",
+      "producto_id": "A001",
+      "producto": "Arroz 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 28.5,
+      "cantidad": 3,
+      "total_mxn": 85.5
+    },
+    {
+      "id_venta": "D03-037",
+      "fecha": "2026-04-08",
+      "producto_id": "A007",
+      "producto": "Harina de trigo 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 24.0,
+      "cantidad": 3,
+      "total_mxn": 72.0
+    },
+    {
+      "id_venta": "D03-006",
+      "fecha": "2026-04-10",
+      "producto_id": "S005",
+      "producto": "Chocolate individual",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 15.0,
+      "cantidad": 2,
+      "total_mxn": 30.0
+    },
+    {
+      "id_venta": "D03-029",
+      "fecha": "2026-04-12",
+      "producto_id": "H007",
+      "producto": "Cepillo dental",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 22.0,
+      "cantidad": 3,
+      "total_mxn": 66.0
+    },
+    {
+      "id_venta": "D03-035",
+      "fecha": "2026-04-12",
+      "producto_id": "A006",
+      "producto": "Atún en lata",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 19.0,
+      "cantidad": 2,
+      "total_mxn": 38.0
+    },
+    {
+      "id_venta": "D03-096",
+      "fecha": "2026-04-12",
+      "producto_id": "A006",
+      "producto": "Atún en lata",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 19.0,
+      "cantidad": 2,
+      "total_mxn": 38.0
+    },
+    {
+      "id_venta": "D03-004",
+      "fecha": "2026-04-14",
+      "producto_id": "D004",
+      "producto": "Mantequilla 90 g",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 28.0,
+      "cantidad": 4,
+      "total_mxn": 112.0
+    },
+    {
+      "id_venta": "D03-030",
+      "fecha": "2026-04-14",
+      "producto_id": "L004",
+      "producto": "Limpiador multiusos 1 L",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 32.0,
+      "cantidad": 1,
+      "total_mxn": 32.0
+    },
+    {
+      "id_venta": "D03-071",
+      "fecha": "2026-04-16",
+      "producto_id": "S002",
+      "producto": "Galletas de vainilla",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 16.5,
+      "cantidad": 4,
+      "total_mxn": 66.0
+    },
+    {
+      "id_venta": "D03-091",
+      "fecha": "2026-04-18",
+      "producto_id": "L003",
+      "producto": "Jabón para trastes 750 ml",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 29.5,
+      "cantidad": 2,
+      "total_mxn": 59.0
+    },
+    {
+      "id_venta": "D03-009",
+      "fecha": "2026-04-19",
+      "producto_id": "A005",
+      "producto": "Pasta 200 g",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 13.5,
+      "cantidad": 3,
+      "total_mxn": 40.5
+    },
+    {
+      "id_venta": "D03-067",
+      "fecha": "2026-04-21",
+      "producto_id": "A003",
+      "producto": "Azúcar 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 29.0,
+      "cantidad": 4,
+      "total_mxn": 116.0
+    },
+    {
+      "id_venta": "D03-100",
+      "fecha": "2026-04-22",
+      "producto_id": "D005",
+      "producto": "Crema 200 ml",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 25.0,
+      "cantidad": 2,
+      "total_mxn": 50.0
+    },
+    {
+      "id_venta": "D03-065",
+      "fecha": "2026-04-24",
+      "producto_id": "A001",
+      "producto": "Arroz 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 28.5,
+      "cantidad": 3,
+      "total_mxn": 85.5
+    },
+    {
+      "id_venta": "D03-021",
+      "fecha": "2026-04-27",
+      "producto_id": "D004",
+      "producto": "Mantequilla 90 g",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 28.0,
+      "cantidad": 3,
+      "total_mxn": 84.0
+    },
+    {
+      "id_venta": "D03-042",
+      "fecha": "2026-04-27",
+      "producto_id": "B007",
+      "producto": "Leche saborizada 250 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 14.0,
+      "cantidad": 2,
+      "total_mxn": 28.0
+    },
+    {
+      "id_venta": "D03-048",
+      "fecha": "2026-04-28",
+      "producto_id": "D003",
+      "producto": "Queso panela 400 g",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 69.0,
+      "cantidad": 2,
+      "total_mxn": 138.0
+    },
+    {
+      "id_venta": "D03-053",
+      "fecha": "2026-04-28",
+      "producto_id": "D001",
+      "producto": "Leche entera 1 L",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 27.0,
+      "cantidad": 2,
+      "total_mxn": 54.0
+    },
+    {
+      "id_venta": "D03-088",
+      "fecha": "2026-05-02",
+      "producto_id": "L002",
+      "producto": "Cloro 1 L",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 18.0,
+      "cantidad": 3,
+      "total_mxn": 54.0
+    },
+    {
+      "id_venta": "D03-083",
+      "fecha": "2026-05-06",
+      "producto_id": "A004",
+      "producto": "Aceite vegetal 1 L",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 46.5,
+      "cantidad": 2,
+      "total_mxn": 93.0
+    },
+    {
+      "id_venta": "D03-078",
+      "fecha": "2026-05-10",
+      "producto_id": "A006",
+      "producto": "Atún en lata",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 19.0,
+      "cantidad": 2,
+      "total_mxn": 38.0
+    },
+    {
+      "id_venta": "D03-041",
+      "fecha": "2026-05-13",
+      "producto_id": "B004",
+      "producto": "Refresco 600 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 19.5,
+      "cantidad": 2,
+      "total_mxn": 39.0
+    },
+    {
+      "id_venta": "D03-097",
+      "fecha": "2026-05-13",
+      "producto_id": "L002",
+      "producto": "Cloro 1 L",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 18.0,
+      "cantidad": 1,
+      "total_mxn": 18.0
+    },
+    {
+      "id_venta": "D03-080",
+      "fecha": "2026-05-14",
+      "producto_id": "S005",
+      "producto": "Chocolate individual",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 15.0,
+      "cantidad": 3,
+      "total_mxn": 45.0
+    },
+    {
+      "id_venta": "D03-077",
+      "fecha": "2026-05-15",
+      "producto_id": "D004",
+      "producto": "Mantequilla 90 g",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 28.0,
+      "cantidad": 3,
+      "total_mxn": 84.0
+    },
+    {
+      "id_venta": "D03-087",
+      "fecha": "2026-05-15",
+      "producto_id": "H002",
+      "producto": "Shampoo 400 ml",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 72.0,
+      "cantidad": 1,
+      "total_mxn": 72.0
+    },
+    {
+      "id_venta": "D03-007",
+      "fecha": "2026-05-18",
+      "producto_id": "B005",
+      "producto": "Café soluble 120 g",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 68.0,
+      "cantidad": 4,
+      "total_mxn": 272.0
+    },
+    {
+      "id_venta": "D03-027",
+      "fecha": "2026-05-24",
+      "producto_id": "A002",
+      "producto": "Frijol 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 34.0,
+      "cantidad": 4,
+      "total_mxn": 136.0
+    },
+    {
+      "id_venta": "D03-039",
+      "fecha": "2026-05-25",
+      "producto_id": "L003",
+      "producto": "Jabón para trastes 750 ml",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 29.5,
+      "cantidad": 2,
+      "total_mxn": 59.0
+    },
+    {
+      "id_venta": "D03-066",
+      "fecha": "2026-05-25",
+      "producto_id": "H006",
+      "producto": "Toallas sanitarias paquete",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 39.5,
+      "cantidad": 3,
+      "total_mxn": 118.5
+    },
+    {
+      "id_venta": "D03-040",
+      "fecha": "2026-05-28",
+      "producto_id": "D002",
+      "producto": "Yogur 1 L",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 39.0,
+      "cantidad": 1,
+      "total_mxn": 39.0
+    },
+    {
+      "id_venta": "D03-051",
+      "fecha": "2026-05-30",
+      "producto_id": "D005",
+      "producto": "Crema 200 ml",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 25.0,
+      "cantidad": 1,
+      "total_mxn": 25.0
+    },
+    {
+      "id_venta": "D03-068",
+      "fecha": "2026-05-30",
+      "producto_id": "H001",
+      "producto": "Jabón de baño",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 18.5,
+      "cantidad": 3,
+      "total_mxn": 55.5
+    },
+    {
+      "id_venta": "D03-054",
+      "fecha": "2026-05-31",
+      "producto_id": "A002",
+      "producto": "Frijol 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 34.0,
+      "cantidad": 1,
+      "total_mxn": 34.0
+    },
+    {
+      "id_venta": "D03-098",
+      "fecha": "2026-05-31",
+      "producto_id": "A004",
+      "producto": "Aceite vegetal 1 L",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 46.5,
+      "cantidad": 2,
+      "total_mxn": 93.0
+    },
+    {
+      "id_venta": "D03-076",
+      "fecha": "2026-06-04",
+      "producto_id": "A005",
+      "producto": "Pasta 200 g",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 13.5,
+      "cantidad": 2,
+      "total_mxn": 27.0
+    },
+    {
+      "id_venta": "D03-094",
+      "fecha": "2026-06-04",
+      "producto_id": "A005",
+      "producto": "Pasta 200 g",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 13.5,
+      "cantidad": 1,
+      "total_mxn": 13.5
+    },
+    {
+      "id_venta": "D03-063",
+      "fecha": "2026-06-06",
+      "producto_id": "S004",
+      "producto": "Cacahuates 100 g",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 21.0,
+      "cantidad": 3,
+      "total_mxn": 63.0
+    },
+    {
+      "id_venta": "D03-033",
+      "fecha": "2026-06-07",
+      "producto_id": "S004",
+      "producto": "Cacahuates 100 g",
+      "categoria": "Botanas",
+      "precio_unitario_mxn": 21.0,
+      "cantidad": 2,
+      "total_mxn": 42.0
+    },
+    {
+      "id_venta": "D03-026",
+      "fecha": "2026-06-10",
+      "producto_id": "L001",
+      "producto": "Detergente en polvo 1 kg",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 48.0,
+      "cantidad": 1,
+      "total_mxn": 48.0
+    },
+    {
+      "id_venta": "D03-002",
+      "fecha": "2026-06-12",
+      "producto_id": "A001",
+      "producto": "Arroz 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 28.5,
+      "cantidad": 4,
+      "total_mxn": 114.0
+    },
+    {
+      "id_venta": "D03-072",
+      "fecha": "2026-06-12",
+      "producto_id": "D004",
+      "producto": "Mantequilla 90 g",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 28.0,
+      "cantidad": 1,
+      "total_mxn": 28.0
+    },
+    {
+      "id_venta": "D03-095",
+      "fecha": "2026-06-13",
+      "producto_id": "D005",
+      "producto": "Crema 200 ml",
+      "categoria": "Lácteos",
+      "precio_unitario_mxn": 25.0,
+      "cantidad": 4,
+      "total_mxn": 100.0
+    },
+    {
+      "id_venta": "D03-084",
+      "fecha": "2026-06-19",
+      "producto_id": "A001",
+      "producto": "Arroz 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 28.5,
+      "cantidad": 2,
+      "total_mxn": 57.0
+    },
+    {
+      "id_venta": "D03-018",
+      "fecha": "2026-06-21",
+      "producto_id": "H004",
+      "producto": "Papel higiénico 4 rollos",
+      "categoria": "Higiene",
+      "precio_unitario_mxn": 42.0,
+      "cantidad": 3,
+      "total_mxn": 126.0
+    },
+    {
+      "id_venta": "D03-075",
+      "fecha": "2026-06-22",
+      "producto_id": "L004",
+      "producto": "Limpiador multiusos 1 L",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 32.0,
+      "cantidad": 4,
+      "total_mxn": 128.0
+    },
+    {
+      "id_venta": "D03-093",
+      "fecha": "2026-06-22",
+      "producto_id": "L003",
+      "producto": "Jabón para trastes 750 ml",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 29.5,
+      "cantidad": 2,
+      "total_mxn": 59.0
+    },
+    {
+      "id_venta": "D03-061",
+      "fecha": "2026-06-23",
+      "producto_id": "L003",
+      "producto": "Jabón para trastes 750 ml",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 29.5,
+      "cantidad": 4,
+      "total_mxn": 118.0
+    },
+    {
+      "id_venta": "D03-016",
+      "fecha": "2026-06-26",
+      "producto_id": "A008",
+      "producto": "Sal 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 16.0,
+      "cantidad": 2,
+      "total_mxn": 32.0
+    },
+    {
+      "id_venta": "D03-079",
+      "fecha": "2026-06-26",
+      "producto_id": "L005",
+      "producto": "Esponja para cocina",
+      "categoria": "Limpieza",
+      "precio_unitario_mxn": 12.0,
+      "cantidad": 4,
+      "total_mxn": 48.0
+    },
+    {
+      "id_venta": "D03-010",
+      "fecha": "2026-06-29",
+      "producto_id": "A007",
+      "producto": "Harina de trigo 1 kg",
+      "categoria": "Abarrotes",
+      "precio_unitario_mxn": 24.0,
+      "cantidad": 2,
+      "total_mxn": 48.0
+    },
+    {
+      "id_venta": "D03-017",
+      "fecha": "2026-06-30",
+      "producto_id": "B007",
+      "producto": "Leche saborizada 250 ml",
+      "categoria": "Bebidas",
+      "precio_unitario_mxn": 14.0,
+      "cantidad": 3,
+      "total_mxn": 42.0
+    }
+  ]
+}
