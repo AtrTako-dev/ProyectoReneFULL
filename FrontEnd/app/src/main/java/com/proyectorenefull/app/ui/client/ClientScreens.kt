@@ -1,10 +1,15 @@
 package com.proyectorenefull.app.ui.client
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -18,7 +23,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.proyectorenefull.app.BuildConfig
+import com.proyectorenefull.app.domain.client.ClientInsights
+import com.proyectorenefull.app.domain.client.PredictionValue
+import com.proyectorenefull.app.domain.client.SaleRecord
+import com.proyectorenefull.app.ui.ClientScreenState
 import com.proyectorenefull.app.ui.VentaFormViewModel
 import com.proyectorenefull.app.ui.components.EmptyStateCard
 import com.proyectorenefull.app.ui.components.InfoCard
@@ -72,6 +80,7 @@ fun ClientHomeScreen(
 @Composable
 fun SaleFormScreen(
     viewModel: VentaFormViewModel,
+    categories: ClientScreenState<List<String>>,
     isPreview: Boolean,
     onBack: () -> Unit,
     onExitPreview: () -> Unit
@@ -86,31 +95,50 @@ fun SaleFormScreen(
         onBack = onBack,
         onExit = onExitPreview
     ) {
-        if (BuildConfig.DEBUG && isPreview) {
-            InfoCard("Vista de desarrollo: la categoría se escribe para revisar el formulario; la app real la obtendrá del catálogo acordado.")
-        }
+        if (isPreview) InfoCard("Esta vista no guarda ventas sin el servicio de ventas.")
 
         OutlinedTextField(
             value = state.product,
             onValueChange = viewModel::updateProduct,
+            enabled = !state.isSubmitting,
             label = { Text("Producto") },
             singleLine = true,
             isError = state.errors[VentaField.Product] != null,
             supportingText = { state.errors[VentaField.Product]?.let { Text(it) } },
             modifier = Modifier.fillMaxWidth()
         )
-        OutlinedTextField(
-            value = state.category,
-            onValueChange = viewModel::updateCategory,
-            label = { Text("Categoría") },
-            singleLine = true,
-            isError = state.errors[VentaField.Category] != null,
-            supportingText = { state.errors[VentaField.Category]?.let { Text(it) } },
-            modifier = Modifier.fillMaxWidth()
-        )
+        Box {
+            var expanded by remember { mutableStateOf(false) }
+            val options = when (categories) {
+                is ClientScreenState.Content -> categories.value
+                else -> emptyList()
+            }
+            SecondaryAction(
+                text = if (state.category.isBlank()) "Elegir categoría" else state.category,
+                onClick = { expanded = true },
+                enabled = options.isNotEmpty() && !state.isSubmitting
+            )
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                options.forEach { category ->
+                    DropdownMenuItem(text = { Text(category) }, onClick = {
+                        viewModel.updateCategory(category)
+                        expanded = false
+                    })
+                }
+            }
+        }
+        when (categories) {
+            ClientScreenState.Loading -> CircularProgressIndicator()
+            ClientScreenState.Unavailable -> InfoCard("El catálogo de categorías aún no está disponible.")
+            ClientScreenState.Empty -> InfoCard("El catálogo no contiene categorías disponibles.")
+            is ClientScreenState.Error -> InfoCard("No se pudo cargar el catálogo.", isError = true)
+            is ClientScreenState.Content -> Unit
+        }
+        state.errors[VentaField.Category]?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         OutlinedTextField(
             value = state.unitPrice,
             onValueChange = viewModel::updateUnitPrice,
+            enabled = !state.isSubmitting,
             label = { Text("Precio unitario (MXN)") },
             singleLine = true,
             isError = state.errors[VentaField.UnitPrice] != null,
@@ -121,6 +149,7 @@ fun SaleFormScreen(
         OutlinedTextField(
             value = state.quantity,
             onValueChange = viewModel::updateQuantity,
+            enabled = !state.isSubmitting,
             label = { Text("Cantidad") },
             singleLine = true,
             isError = state.errors[VentaField.Quantity] != null,
@@ -130,13 +159,18 @@ fun SaleFormScreen(
         )
         SecondaryAction(
             text = state.dateMillis?.let(::formatDate) ?: "Elegir fecha",
-            onClick = { showDatePicker = true }
+            onClick = { showDatePicker = true },
+            enabled = !state.isSubmitting
         )
         if (state.errors[VentaField.Date] != null) {
             Text(state.errors.getValue(VentaField.Date), color = androidx.compose.material3.MaterialTheme.colorScheme.error)
         }
         if (state.message != null) InfoCard(state.message!!)
-        PrimaryAction("Revisar datos", onClick = viewModel::submit)
+        PrimaryAction(
+            "Registrar venta",
+            onClick = viewModel::submit,
+            enabled = categories is ClientScreenState.Content && !state.isSubmitting
+        )
     }
 
     if (showDatePicker) {
@@ -158,38 +192,69 @@ fun SaleFormScreen(
 }
 
 @Composable
-fun OwnSalesScreen(isPreview: Boolean, onBack: () -> Unit, onExitPreview: () -> Unit) {
+fun OwnSalesScreen(
+    sales: ClientScreenState<List<SaleRecord>>,
+    isPreview: Boolean,
+    onBack: () -> Unit,
+    onExitPreview: () -> Unit
+) {
     ScreenLayout(
         title = "Mis ventas",
         subtitle = "La consulta mostrará únicamente los registros de la sesión activa.",
         onBack = onBack,
         onExit = onExitPreview
     ) {
-        if (isPreview) InfoCard("Vista previa sin registros de cuenta.")
-        EmptyStateCard(
-            title = "Sin registros para mostrar",
-            message = "La vista previa no tiene una sesión ni datos de ventas cargados."
-        )
+        if (isPreview) InfoCard("Vista de desarrollo sin registros de una cuenta real.")
+        when (sales) {
+            ClientScreenState.Loading -> CircularProgressIndicator()
+            ClientScreenState.Unavailable -> InfoCard("La consulta de ventas propias aún no está disponible.")
+            ClientScreenState.Empty -> EmptyStateCard("Aún no hay ventas", "Las ventas registradas aparecerán aquí.")
+            is ClientScreenState.Error -> InfoCard("No se pudieron cargar las ventas.", isError = true)
+            is ClientScreenState.Content -> sales.value.forEach { sale ->
+                EmptyStateCard(
+                    title = sale.product,
+                    message = "${sale.category} · ${formatDate(sale.dateMillis)} · ${sale.quantity} unidades · ${sale.totalMxn} MXN"
+                )
+            }
+        }
     }
 }
 
 @Composable
-fun ClientInsightsScreen(isPreview: Boolean, onBack: () -> Unit, onExitPreview: () -> Unit) {
+fun ClientInsightsScreen(
+    insights: ClientScreenState<ClientInsights>,
+    isPreview: Boolean,
+    onBack: () -> Unit,
+    onExitPreview: () -> Unit
+) {
     ScreenLayout(
         title = "Estadísticas y predicciones",
         subtitle = "Los resultados se presentarán con su unidad y periodo.",
         onBack = onBack,
         onExit = onExitPreview
     ) {
-        if (isPreview) InfoCard("Vista previa sin estadísticas del servicio.")
-        EmptyStateCard(
-            title = "Estadísticas no disponibles",
-            message = "Esta vista previa no consulta registros ni calcula resultados."
-        )
-        EmptyStateCard(
-            title = "Predicción no disponible",
-            message = "La estimación y el periodo se mostrarán cuando los entregue el servicio."
-        )
+        if (isPreview) InfoCard("Vista de desarrollo sin estadísticas ni predicciones reales.")
+        when (insights) {
+            ClientScreenState.Loading -> CircularProgressIndicator()
+            ClientScreenState.Unavailable -> InfoCard("La consulta de estadísticas y predicciones aún no está disponible.")
+            ClientScreenState.Empty -> EmptyStateCard("Sin datos suficientes", "Registra ventas para consultar resultados cuando el servicio esté disponible.")
+            is ClientScreenState.Error -> InfoCard("No se pudieron cargar los resultados.", isError = true)
+            is ClientScreenState.Content -> {
+                insights.value.statistics.forEach { statistic ->
+                    EmptyStateCard(statistic.label, statistic.value)
+                }
+                when (val prediction = insights.value.prediction) {
+                    is PredictionValue.Estimate -> EmptyStateCard(
+                        "Estimación de demanda",
+                        "${prediction.value} ${prediction.unit} para ${prediction.period}. Es una estimación."
+                    )
+                    PredictionValue.InsufficientData -> EmptyStateCard(
+                        "Sin base suficiente",
+                        "No hay datos suficientes para generar una estimación."
+                    )
+                }
+            }
+        }
     }
 }
 

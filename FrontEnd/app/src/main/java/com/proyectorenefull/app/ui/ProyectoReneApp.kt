@@ -9,6 +9,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.proyectorenefull.app.BuildConfig
 import com.proyectorenefull.app.data.auth.AuthRepositoryFactory
+import com.proyectorenefull.app.data.client.UnavailableClientRepository
 import com.proyectorenefull.app.navigation.AppDestination
 import com.proyectorenefull.app.navigation.AppNavigationViewModel
 import com.proyectorenefull.app.ui.admin.AdminClientsScreen
@@ -23,14 +24,27 @@ import com.proyectorenefull.app.ui.client.SaleFormScreen
 
 @Composable
 fun ProyectoReneApp(
-    navigation: AppNavigationViewModel = viewModel(),
-    saleFormViewModel: VentaFormViewModel = viewModel()
+    navigation: AppNavigationViewModel = viewModel()
 ) {
     val authFactory = remember { AuthViewModelFactory(AuthRepositoryFactory.create()) }
     val authViewModel: AuthViewModel = viewModel(factory = authFactory)
+    val clientFactory = remember { ClientViewModelFactory(UnavailableClientRepository()) }
+    val clientViewModel: ClientViewModel = viewModel(factory = clientFactory)
+    val saleFormViewModel: VentaFormViewModel = viewModel(factory = clientFactory)
     val destination by navigation.destination.collectAsStateWithLifecycle()
     val isPreview by navigation.isPreview.collectAsStateWithLifecycle()
     val authState by authViewModel.state.collectAsStateWithLifecycle()
+    val categoryState by clientViewModel.categories.collectAsStateWithLifecycle()
+    val salesState by clientViewModel.sales.collectAsStateWithLifecycle()
+    val insightsState by clientViewModel.insights.collectAsStateWithLifecycle()
+    LaunchedEffect(destination) {
+        when (destination) {
+            AppDestination.SaleForm -> clientViewModel.loadCategories()
+            AppDestination.OwnSales -> clientViewModel.loadOwnSales()
+            AppDestination.ClientInsights -> clientViewModel.loadOwnInsights()
+            else -> Unit
+        }
+    }
     BackHandler(enabled = destination != AppDestination.Login) {
         if (destination == AppDestination.Register) authViewModel.clearPassword()
         navigation.back()
@@ -93,18 +107,21 @@ fun ProyectoReneApp(
 
         AppDestination.SaleForm -> SaleFormScreen(
             viewModel = saleFormViewModel,
+            categories = categoryState,
             isPreview = isPreview,
             onBack = navigation::back,
             onExitPreview = exitPreview
         )
 
         AppDestination.OwnSales -> OwnSalesScreen(
+            sales = salesState,
             isPreview = isPreview,
             onBack = navigation::back,
             onExitPreview = exitPreview
         )
 
         AppDestination.ClientInsights -> ClientInsightsScreen(
+            insights = insightsState,
             isPreview = isPreview,
             onBack = navigation::back,
             onExitPreview = exitPreview

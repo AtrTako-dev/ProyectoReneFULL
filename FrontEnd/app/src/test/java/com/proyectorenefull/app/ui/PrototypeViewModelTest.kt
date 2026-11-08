@@ -7,6 +7,7 @@ import com.proyectorenefull.app.domain.auth.AuthFailure
 import com.proyectorenefull.app.domain.auth.AuthRepository
 import com.proyectorenefull.app.domain.auth.LoginResult
 import com.proyectorenefull.app.domain.auth.RegistrationResult
+import com.proyectorenefull.app.data.client.UnavailableClientRepository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
@@ -144,8 +145,8 @@ class PrototypeViewModelTest {
     }
 
     @Test
-    fun validSalePreviewExplainsThatSaleIsNotStored() {
-        val viewModel = VentaFormViewModel()
+    fun validSaleReportsUnavailableServiceWithoutStoring() {
+        val viewModel = VentaFormViewModel(UnavailableClientRepository())
         viewModel.updateProduct("Producto")
         viewModel.updateCategory("Categoría")
         viewModel.updateUnitPrice("12.50")
@@ -155,7 +156,7 @@ class PrototypeViewModelTest {
         viewModel.submit()
 
         assertEquals(emptyMap<VentaField, String>(), viewModel.state.value.errors)
-        assertNotNull(viewModel.state.value.message)
+        assertEquals("El servicio de ventas no está disponible. No se guardó la venta.", viewModel.state.value.message)
     }
 }
 

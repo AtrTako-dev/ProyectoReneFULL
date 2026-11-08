@@ -4,7 +4,7 @@ Documento de planificación para el frontend de Proyecto ReneFULL.
 
 ## Estado actual
 
-La aplicación tiene una `MainActivity` en Kotlin y el proyecto Gradle declara Android Gradle Plugin 9.4.1, Kotlin Compose 2.2.10, JDK 17 y Jetpack Compose. Jetpack Compose queda confirmado para el desarrollo de la interfaz. La navegación, las pantallas iniciales, los ViewModels de formulario y los validadores locales están implementados como vista previa. No hay modelos de respuesta, repositorios ni cliente HTTP porque el backend se integrará después.
+La aplicación tiene una `MainActivity` en Kotlin y el proyecto Gradle declara Android Gradle Plugin 9.4.1, Kotlin Compose 2.2.10, JDK 17 y Jetpack Compose. Jetpack Compose queda confirmado para el desarrollo de la interfaz. La navegación, las pantallas iniciales, los ViewModels y los validadores locales están implementados. Existen interfaces de repositorio para cliente; su implementación actual informa que el servicio no está disponible. No hay cliente HTTP ni formatos de respuesta de API porque el backend se integrará después.
 
 La aplicación mantiene MVVM: los ViewModels gestionan navegación y estado/validación de formularios, y las vistas Compose representan ese estado. La pantalla de acceso contempla estados de envío y errores de autenticación, validación, red, conflicto y servidor. El enrutamiento recibe un rol interno de la sesión y dirige a cliente o administrador; su conversión desde la respuesta del servidor se hará al integrar el backend. Debug usa un repositorio local de demostración y Release no tiene autenticación conectada. La URL base y el contrato de la API no están documentados en `FrontEnd/`; se acordarán cuando el backend esté disponible.
 

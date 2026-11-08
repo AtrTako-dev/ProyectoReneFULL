@@ -1,6 +1,9 @@
 package com.proyectorenefull.app.ui
 
 import androidx.lifecycle.ViewModel
+import com.proyectorenefull.app.domain.client.ClientRepository
+import com.proyectorenefull.app.domain.client.ClientResult
+import com.proyectorenefull.app.domain.client.SaleDraft
 import com.proyectorenefull.app.validation.VentaField
 import com.proyectorenefull.app.validation.VentaValidator
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,10 +17,11 @@ data class VentaFormUiState(
     val quantity: String = "",
     val dateMillis: Long? = null,
     val errors: Map<VentaField, String> = emptyMap(),
-    val message: String? = null
+    val message: String? = null,
+    val isSubmitting: Boolean = false
 )
 
-class VentaFormViewModel : ViewModel() {
+class VentaFormViewModel(private val repository: ClientRepository) : ViewModel() {
     private val _state = MutableStateFlow(VentaFormUiState())
     val state = _state.asStateFlow()
 
@@ -36,12 +40,26 @@ class VentaFormViewModel : ViewModel() {
             quantity = current.quantity,
             dateMillis = current.dateMillis
         )
-        _state.value = current.copy(
-            errors = result.errors,
-            message = if (result.isValid) {
-                "La venta no se envió ni se guardó en esta vista previa."
-            } else null
-        )
+        if (!result.isValid) {
+            _state.value = current.copy(errors = result.errors, message = null)
+            return
+        }
+        _state.value = current.copy(errors = emptyMap(), isSubmitting = true, message = null)
+        repository.createSale(
+            SaleDraft(
+                product = current.product.trim(),
+                category = current.category,
+                unitPriceMxn = current.unitPrice.trim().replace(',', '.').toBigDecimal(),
+                quantity = current.quantity.trim().toInt(),
+                dateMillis = requireNotNull(current.dateMillis)
+            )
+        ) { response ->
+            _state.value = when (response) {
+                is ClientResult.Success -> VentaFormUiState(message = "Venta registrada.")
+                ClientResult.Unavailable -> current.copy(isSubmitting = false, message = "El servicio de ventas no está disponible. No se guardó la venta.")
+                is ClientResult.Failure -> current.copy(isSubmitting = false, message = "No se pudo registrar la venta. Verifica tus registros antes de volver a intentarlo.")
+            }
+        }
     }
 
     private fun update(transform: (VentaFormUiState) -> VentaFormUiState) {

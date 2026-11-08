@@ -99,8 +99,8 @@ fun EmptyStateCard(title: String, message: String) {
 }
 
 @Composable
-fun PrimaryAction(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Button(onClick = onClick, modifier = modifier.fillMaxWidth()) {
+fun PrimaryAction(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    Button(onClick = onClick, modifier = modifier.fillMaxWidth(), enabled = enabled) {
         Text(text)
     }
 }
