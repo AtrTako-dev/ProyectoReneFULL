@@ -1,6 +1,6 @@
 # Contrato propuesto: base de datos, consultas y Machine Learning
 
-Estado: propuesta para revisión. No se crean migraciones, tablas ni código ejecutable hasta que este contrato sea aprobado por el equipo.
+Estado: aprobado por el equipo e implementado en la rama `Ismael`. Pendiente la revisión del PR; no se fusiona desde esta rama.
 
 Alcance de esta rama: base de datos PostgreSQL, migraciones, carga de los conjuntos de demostración, consultas analíticas y módulo de Machine Learning dentro de `Backend/`. Las rutas HTTP, la autenticación y la aplicación móvil quedan fuera de esta rama.
 
@@ -50,7 +50,7 @@ Estos datos son simulados y de demostración. No representan ventas reales de un
 
 1. El servidor obtiene la identidad y el rol de la sesión autenticada. Ninguna función de base de datos acepta un rol, propietario o identificador de cliente enviado por el cuerpo, la URL o un cliente HTTP.
 2. Las consultas de cliente reciben obligatoriamente el `propietario_id` derivado de la sesión. No existe una variante que permita consultar ventas de otro cliente cambiando un ID.
-3. Las consultas administrativas son funciones separadas y el controlador debe verificar el rol `administrador` antes de llamarlas. La capa de datos no concede permisos por sí sola.
+3. Las consultas administrativas son funciones separadas que reciben el `actor_admin_id` de la sesión y verifican en la base de datos que la cuenta exista, esté activa y tenga rol `administrador`. El controlador también debe verificar el rol antes de llamarlas; la comprobación de la capa de datos es defensa en profundidad.
 4. El registro público siempre crea `cliente`. El campo `rol` no se acepta desde el registro.
 5. Las contraseñas se almacenan exclusivamente como hash Argon2id. Nunca se guardan contraseñas, hashes, tokens ni credenciales reales en Git.
 6. Las filas inválidas se excluyen de listados, estadísticas y predicciones. La consulta individual de una fila inválida produce un error controlado.
@@ -171,11 +171,11 @@ El precio histórico de cada venta se conserva en `ventas.precio_unitario_mxn`; 
 | `id` | `bigint` | PK, identidad |
 | `conjunto` | `varchar(80)` | `NOT NULL`, `UNIQUE` |
 | `archivo` | `varchar(255)` | `NOT NULL` |
-| `hash_sha256` | `char(64)` | `NOT NULL`, `UNIQUE` |
+| `hash_sha256` | `varchar(64)` | `NOT NULL`, `UNIQUE` |
 | `perfil_demanda` | `varchar(80)` | `NOT NULL` |
 | `fuente` | `varchar(40)` | `NOT NULL DEFAULT 'datos_simulados'` |
 | `es_demostracion` | `boolean` | `NOT NULL DEFAULT true` |
-| `moneda` | `char(3)` | `NOT NULL DEFAULT 'MXN'`, `CHECK (moneda = 'MXN')` |
+| `moneda` | `varchar(3)` | `NOT NULL DEFAULT 'MXN'`, `CHECK (moneda = 'MXN')` |
 | `periodo_inicio` | `date` | `NOT NULL` |
 | `periodo_fin` | `date` | `NOT NULL`, `>= periodo_inicio` |
 | `cantidad_registros` | `integer` | `NOT NULL`, `> 0` |
@@ -206,7 +206,7 @@ Restricciones e índices:
 - `CHECK (abs(total_mxn - precio_unitario_mxn * cantidad) <= 0.01)`.
 - `CHECK ((importacion_id IS NULL) = (id_origen IS NULL))`.
 - FK compuesta `(importacion_id, propietario_id)` a `importaciones(id, propietario_id)` cuando `importacion_id` no es nulo.
-- `UNIQUE (importacion_id, id_origen)` para impedir duplicados dentro de una importación.
+- `UNIQUE (importacion_id, id_origen)` parcial, solo cuando `importacion_id` no es nulo, para impedir duplicados dentro de una importación.
 - `UNIQUE (propietario_id, clave_idempotencia)` para reintentos seguros de ventas creadas por API.
 - Índices: `(propietario_id, fecha)`, `(producto_id, fecha)`, `(fecha)`, `(importacion_id)`.
 - La fecha futura no se impone con `CURRENT_DATE` en la base porque no es inmutable; se valida en backend con una tolerancia de un día.
@@ -226,8 +226,8 @@ El cargador rechaza el archivo completo, sin dejar carga parcial, cuando ocurra 
 - `cantidad_registros` no coincide con la cantidad de elementos de `ventas`.
 - Una venta no tiene todos los campos obligatorios.
 - `id_venta` está vacío, se repite o no cumple el patrón acordado.
-- `fecha` no es ISO, es anterior a 2000-01-01, es futura o queda fuera del periodo declarado.
-- `producto_id` no existe en el catálogo, o el producto está inactivo.
+- `fecha` no es ISO, es anterior a 2000-01-01, es posterior a hoy + 1 día o queda fuera del periodo declarado.
+- `producto_id` no existe en el catálogo; el catálogo conserva productos históricos aunque ya no estén activos.
 - `categoria` no existe o no coincide con la categoría del producto.
 - `precio_unitario_mxn` no es numérico, es menor o igual a cero, o excede el límite acordado.
 - `cantidad` no es entero positivo o excede 10,000.
@@ -259,7 +259,7 @@ Los modelos Pydantic de entrada validan tipos, longitudes, fechas, correo, canti
 2. Cargar el catálogo de categorías y productos a partir de los JSON.
 3. Crear el administrador inicial mediante el script documentado.
 4. Crear el cliente de demostración y asignarle los conjuntos.
-5. Importar cada archivo en una transacción independiente.
+5. Importar los cinco archivos dentro de una sola transacción. Si un archivo falla, se revierte también el catálogo y cualquier importación previa de esa ejecución.
 
 ### 7.2 Idempotencia
 
@@ -289,7 +289,7 @@ El script de administrador:
 
 - Verifica que la contraseña no esté vacía y cumpla la política acordada.
 - Genera el hash Argon2id y lo guarda.
-- Es idempotente: si el correo ya existe, no sobrescribe la contraseña salvo una opción explícita de actualización.
+- Es seguro ante reintentos: si ya existe una cuenta administradora, se detiene salvo que se use explícitamente `--permitir-adicional`; no actualiza contraseñas existentes.
 - No imprime la contraseña ni el hash.
 
 Parámetros Argon2id propuestos: `time_cost=3`, `memory_cost=65536` KiB, `parallelism=4`, `hash_len=32`, `salt_len=16`. Se almacena la cadena PHC completa.
@@ -346,8 +346,9 @@ Forma de salida:
   ],
   "por_semana": [
     {
-      "semana_inicio": "2026-01-05",
-      "semana_iso": "2026-W02",
+      "periodo_inicio": "2026-01-05",
+      "periodo_fin": "2026-01-11",
+      "etiqueta": "2026-W02",
       "completa": true,
       "categoria": "Bebidas",
       "transacciones": 4,
@@ -377,8 +378,11 @@ Función propuesta:
 ```text
 estadisticas_clientes_admin(
     session,
+    actor_admin_id: UUID,
     desde: date | None,
-    hasta: date | None
+    hasta: date | None,
+    agrupacion: Literal["semana", "mes"],
+    hoy: date | None
 ) -> EstadisticasAdmin
 ```
 
@@ -414,7 +418,7 @@ Para cada semana `t`:
 - `mes`: mes calendario de la semana.
 - `unidades_semana_anterior`: valor de `t-1`.
 - `promedio_4_semanas_previas`: media de `t-4` a `t-1`.
-- `unidades_misma_semana_mes_anterior`: valor de la semana equivalente del mes anterior cuando existe.
+- `unidades_misma_semana_mes_anterior`: valor de la semana situada cuatro semanas antes, que representa la semana equivalente del mes anterior.
 
 Todas las variables se calculan solo con información anterior a `t`. No se usan datos del futuro.
 
@@ -424,7 +428,7 @@ Todas las variables se calculan solo con información anterior a `t`. No se usan
 - Últimas 5 semanas completas para evaluación; las anteriores para entrenamiento.
 - Si quedan menos de 12 semanas completas o menos de 8 semanas con unidades positivas para la categoría, se devuelve `sin_historial_suficiente`.
 - Modelo: regresión Ridge con `alpha` fijo y solver determinista.
-- Línea base: repetir las unidades de la última semana observada. Se reporta también el promedio de las cuatro semanas anteriores como referencia secundaria.
+- Línea base: repetir las unidades de la última semana observada. La media de las cuatro semanas previas se usa como variable del modelo, no como segunda métrica.
 - Métrica principal: MAE sobre las semanas de evaluación.
 - El modelo solo se presenta como predicción si su MAE es menor que el de la línea base. Si no la supera, se devuelve un resultado controlado que indique la limitación y muestre las métricas; no se inventa una precisión.
 
@@ -519,14 +523,17 @@ Esta rama expone funciones y modelos, no rutas HTTP. El controlador decide la re
 Funciones propuestas:
 
 ```text
-listar_ventas_cliente(session, propietario_id, desde=None, hasta=None, limite=100, desplazamiento=0) -> PaginaVentas
-obtener_venta_cliente(session, propietario_id, venta_id) -> VentaLeida
-estadisticas_cliente(session, propietario_id, desde=None, hasta=None, agrupacion="semana") -> EstadisticasCliente
-estadisticas_clientes_admin(session, desde=None, hasta=None) -> EstadisticasAdmin
-listar_clientes_admin(session, limite=100, desplazamiento=0) -> PaginaClientes
-promover_cliente_admin(session, actor_admin_id, cliente_id) -> UsuarioLeido
-predecir_demanda_categoria(session, propietario_id, categoria, desde=None, hasta=None) -> ResultadoPrediccion
+listar_ventas_cliente(session, propietario_id, desde=None, hasta=None, limite=100, desplazamiento=0, hoy=None) -> PaginaVentas
+obtener_venta_cliente(session, propietario_id, venta_id, hoy=None) -> VentaLeida
+estadisticas_cliente(session, propietario_id, desde=None, hasta=None, agrupacion="semana", hoy=None) -> EstadisticasCliente
+estadisticas_clientes_admin(session, actor_admin_id, desde=None, hasta=None, agrupacion="semana", hoy=None) -> EstadisticasAdmin
+listar_clientes_admin(session, actor_admin_id, limite=100, desplazamiento=0, solo_activos=True) -> PaginaClientes
+promover_cliente_admin(session, actor_admin_id, cliente_id) -> Usuario
+predecir_demanda_categoria(session, propietario_id, categoria, desde=None, hasta=None, hoy=None, minimo_semanas_completas=None, minimo_semanas_con_unidades=None, semanas_evaluacion=None) -> ResultadoPrediccion
+predecir_todas_las_categorias(session, propietario_id, desde=None, hasta=None, hoy=None) -> list[ResultadoPrediccion]
 ```
+
+`hoy` permite fijar la fecha de corte en pruebas; en produccion se usa la fecha actual. `predecir_demanda_categoria` devuelve un modelo `PrediccionDemanda`, `SinHistorialSuficiente` o `ModeloNoSuperaLineaBase`, no una excepcion.
 
 Excepciones controladas:
 
@@ -534,8 +541,8 @@ Excepciones controladas:
 | --- | --- |
 | `NoEncontrado` | 404, sin revelar si el recurso pertenece a otro usuario |
 | `RegistroInvalido` | 409 o 422 con mensaje controlado, sin trazas ni datos de otra persona |
-| `HistorialInsuficiente` | 200 con `tipo_resultado: "sin_historial_suficiente"` o 422, según el contrato HTTP |
-| `ModeloNoSuperaLineaBase` | 200 con `tipo_resultado: "modelo_no_supera_linea_base"` |
+| `HistorialInsuficiente` (modelo `SinHistorialSuficiente`) | 200 con `tipo_resultado: "sin_historial_suficiente"`; no es una excepción |
+| `ModeloNoSuperaLineaBase` (modelo) | 200 con `tipo_resultado: "modelo_no_supera_linea_base"`; no es una excepción |
 | `ConflictoImportacion` | 409 en la herramienta de carga, no en la API pública |
 | `ErrorValidacionArchivo` | Error de carga con archivo, fila y campo |
 
@@ -546,17 +553,17 @@ Reglas para el controlador:
 - La promoción no acepta `rol` como texto libre; la función solo permite `cliente -> administrador`.
 - Las respuestas no incluyen `password_hash` ni secretos.
 
-## 11. Decisiones pendientes de aprobación
+## 11. Decisiones resueltas
 
-1. Confirmar el stack y las versiones de Python/PostgreSQL.
-2. Confirmar los nombres de tablas y columnas con Mia-Paola.
-3. Elegir entre un cliente demo con los cinco conjuntos o cinco clientes demo, uno por conjunto.
-4. Confirmar el alcance de las estadísticas administrativas: solo agregados por cliente o también series por categoría y semana.
-5. Confirmar los umbrales de historial mínimo y el porcentaje de semanas de evaluación.
-6. Confirmar si las ventas creadas por API usarán `clave_idempotencia` obligatoria.
-7. Confirmar si se requiere auditoría de promociones; en la propuesta actual no se persiste historial de promociones.
-8. Confirmar la política de contraseña y el mecanismo de inicialización del administrador.
-9. Confirmar el mapeo HTTP de las excepciones y la forma final de los DTO.
+1. Stack confirmado: Python 3.12+, FastAPI, PostgreSQL 16+, SQLAlchemy 2, Alembic, psycopg 3, Pydantic 2, scikit-learn, pytest y Argon2id.
+2. Nombres de tablas, columnas, funciones y modelos acordados con el equipo; Mia-Paola conserva rutas, controladores y autenticacion.
+3. Un solo cliente de demostracion es propietario de los cinco conjuntos.
+4. Las estadisticas administrativas incluyen agregados por cliente, por categoria y por semana o mes.
+5. Umbrales confirmados: 12 semanas completas minimas, 8 con unidades positivas y 5 semanas de evaluacion.
+6. `clave_idempotencia` queda disponible y opcional para ventas creadas por API; esta rama no expone esa ruta.
+7. No se persiste historial de promociones en esta version.
+8. Politica de contrasena e inicializacion del administrador confirmadas; el primer administrador se crea por CLI y nunca por registro publico.
+9. El mapeo HTTP de las excepciones y la forma final de los DTO se resuelven en la rama de integracion.
 
 ## 12. Plan de pruebas
 
