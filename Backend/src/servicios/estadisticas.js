@@ -18,6 +18,14 @@ function calcularResumen(ventas) {
   };
 }
 
+function totalesBreves(resumen) {
+  return {
+    ventas: resumen.total_ventas,
+    unidades: resumen.total_unidades,
+    importe_mxn: resumen.total_importe_mxn,
+  };
+}
+
 function agruparPorCategoria(ventas) {
   const acumulado = new Map();
   for (const venta of ventas) {
@@ -70,6 +78,7 @@ function agruparPorPeriodo(ventas, agrupacion) {
 
 module.exports = {
   calcularResumen,
+  totalesBreves,
   agruparPorCategoria,
   agruparPorPeriodo,
   etiquetaSemana,

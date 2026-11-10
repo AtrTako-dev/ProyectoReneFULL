@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   calcularResumen,
+  totalesBreves,
   agruparPorCategoria,
   agruparPorPeriodo,
   etiquetaSemana,
@@ -20,6 +21,14 @@ test('calcula totales de ventas, unidades e importe', () => {
     total_ventas: 3,
     total_unidades: 6,
     total_importe_mxn: 35.75,
+  });
+});
+
+test('totalesBreves usa los nombres acordados para administración', () => {
+  assert.deepEqual(totalesBreves(calcularResumen(VENTAS)), {
+    ventas: 3,
+    unidades: 6,
+    importe_mxn: 35.75,
   });
 });
 

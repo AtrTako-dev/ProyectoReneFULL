@@ -5,6 +5,7 @@ const { usuarioPublico } = require('../servicios/serializadores');
 const { filtrarVentasValidas } = require('../servicios/registros');
 const {
   calcularResumen,
+  totalesBreves,
   agruparPorCategoria,
   agruparPorPeriodo,
 } = require('../servicios/estadisticas');
@@ -15,7 +16,12 @@ const { validarRangoFechas, validarHorizonte } = require('../validaciones/ventas
 async function listarUsuarios(req, res, next) {
   try {
     const usuarios = await usuarioModelo.listar();
-    return res.json({ usuarios: usuarios.map(usuarioPublico) });
+    return res.json({
+      usuarios: usuarios.map((usuario) => ({
+        ...usuarioPublico(usuario),
+        creado_en: usuario.creado_en,
+      })),
+    });
   } catch (error) {
     return next(error);
   }
@@ -67,7 +73,7 @@ async function estadisticasVentas(req, res, next) {
       periodo: { desde: rango.desde, hasta: rango.hasta },
       agrupacion: resultadoAgrupacion.agrupacion,
       grupos: agruparPorPeriodo(validas, resultadoAgrupacion.agrupacion),
-      totales: calcularResumen(validas),
+      totales: totalesBreves(calcularResumen(validas)),
       por_categoria: agruparPorCategoria(validas),
     });
   } catch (error) {
