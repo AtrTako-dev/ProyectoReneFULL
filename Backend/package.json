@@ -1,0 +1,23 @@
+{
+  "name": "renefull-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API de Proyecto ReneFULL: autenticación, ventas, estadísticas y predicciones",
+  "main": "src/servidor.js",
+  "scripts": {
+    "start": "node src/servidor.js",
+    "dev": "node --watch src/servidor.js",
+    "test": "node --test pruebas",
+    "admin:crear": "node scripts/crearAdmin.js",
+    "demo:cargar": "node scripts/cargarDemo.js"
+  },
+  "engines": {
+    "node": ">=20.12"
+  },
+  "dependencies": {
+    "@node-rs/argon2": "^2.0.2",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.11.5"
+  }
+}
