@@ -1,7 +1,6 @@
 # Contrato de API — Proyecto ReneFULL (Backend)
 
-Estado: **propuesta para revisión** — requiere acuerdo de `Atr-Tako` (frontend) e `Ismael` (base de datos)
-antes de implementar rutas, modelos y formatos de respuesta.
+Estado: **aprobado** (propuestas del §8 confirmadas) — pendiente únicamente el esquema definitivo de `Ismael`.
 
 - Stack confirmado: **Node.js + Express + MySQL** (validación manual, sin librería de esquemas).
 - Base URL de desarrollo: `http://localhost:3000` (configurable por `.env`).
@@ -247,15 +246,27 @@ listados, estadísticas y predicciones; consultar un registro inválido devuelve
 
 ## 7. Inicialización del primer administrador
 
-- Comando documentado: `npm run admin:crear`, que lee `ADMIN_EMAIL` y `ADMIN_PASSWORD` desde `.env`
+- Comando documentado: `npm run admin:crear`, que lee `ADMIN_EMAIL` y `ADMIN_CONTRASENA` desde `.env`
   y crea la cuenta administradora con hash Argon2id.
 - La contraseña **no se escribe en el repositorio**; `.env.example` solo documenta las variables.
 
-## 8. Decisiones pendientes de confirmación
+## 8. Decisiones confirmadas
 
-1. Política de precio de venta frente al catálogo (idéntico o margen tolerado).
-2. Duración del token (propuesta: 8 horas) y si se agrega renovación.
-3. Rango máximo de fechas para consultas (propuesta: 2 años) y de `horizonte` (propuesta: 90 días).
-4. Algoritmo de predicción y umbral de "base suficiente" (propuesta: mínimo 14 ventas válidas en
-   los últimos 90 días).
-5. Inclusión de `Atr-Tako`/`Ismael` en esta revisión del contrato.
+1. **Precio de venta:** debe coincidir exactamente con el precio del catálogo; una diferencia
+   distinta de cero → 422.
+2. **Token:** 8 horas, sin renovación automática.
+3. **Límites:** rango máximo de consulta de 2 años (730 días) y `horizonte` máximo de 90 días.
+4. **Predicción:** promedio diario ajustado por día de la semana; base mínima de 14 ventas válidas
+   en los últimos 90 días; por debajo de ese mínimo → `estado: "sin_base_suficiente"`.
+5. **Registro:** la propiedad `rol` se rechaza con 422 (nunca se ignora en silencio).
+6. **Auto-modificación de rol:** prohibida; un administrador que intenta cambiar su propio rol
+   recibe 403.
+
+## 9. Estado de verificación
+
+- **Pruebas unitarias y de API sin base de datos:** 58 de 58 en verde (`npm test`), con `node:test`
+  integrado. Cubren validaciones, formato de errores, tokens, Argon2id, middleware de permisos,
+  estadísticas, predicción, validación de registros leídos de BD, serializadores y rutas HTTP
+  (salud, 401/403/404, JSON malformado, rechazo de `rol`).
+- **Pruebas de integración con MySQL:** pendientes de que existan las tablas del §5 en la base
+  `proyecto_renefull` (registro real, login, promoción persistente y alta de ventas).
