@@ -142,6 +142,7 @@ La suite se ejecutó contra una base PostgreSQL desechable, recreando el esquema
 | Área | Archivo | Pruebas representativas |
 | --- | --- | --- |
 | Esquema y migración | `tests/test_migracion.py` | `test_migracion_crea_todas_las_tablas`, `test_migracion_crea_indices_y_restricciones_de_ventas`, `test_migracion_tiene_revision_actual` |
+| Restricciones de base de datos | `tests/test_restricciones_db.py` | `test_db_rechaza_venta_con_total_incoherente`, `test_db_rechaza_cantidad_fuera_de_rango`, `test_db_rechaza_rol_desconocido`, `test_db_rechaza_hash_que_no_es_argon2id`, `test_db_rechaza_venta_ligada_a_importacion_de_otro_cliente` |
 | Estructura de archivos | `tests/test_importacion.py` | `test_cargar_archivo_valido`, `test_cargar_directorio_encuentra_los_cinco_conjuntos`, `test_archivo_inexistente_es_error_controlado`, `test_archivo_con_campo_faltante_es_rechazado` |
 | Reglas de filas | `tests/test_importacion.py` | `test_archivo_con_fecha_invalida_es_rechazado`, `test_archivo_con_cantidad_cero_es_rechazado`, `test_archivo_con_total_incoherente_es_rechazado`, `test_categoria_demasiado_larga_es_rechazada`, `test_precio_con_mas_de_dos_decimales_es_rechazado`, `test_archivo_con_id_repetido_es_rechazado`, `test_archivo_con_producto_inconsistente_es_rechazado`, `test_archivo_sin_ventas_es_rechazado` |
 | Persistencia e idempotencia | `tests/test_importacion.py` | `test_importar_archivo_valido_persiste_ventas_y_origen`, `test_reimportar_el_mismo_archivo_es_idempotente`, `test_mismo_conjunto_con_contenido_distinto_es_conflicto`, `test_mismo_hash_con_otro_conjunto_es_conflicto` |
@@ -154,7 +155,7 @@ La suite se ejecutó contra una base PostgreSQL desechable, recreando el esquema
 ## 10. Resultados de la última ejecución
 
 ```text
-57 passed
+62 passed
 ```
 
 También se verificó:
