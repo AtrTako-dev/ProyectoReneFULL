@@ -1,90 +1,102 @@
-# Backend — Proyecto ReneFULL
+# Backend Proyecto ReneFULL
 
-API REST en Node.js + Express sobre MySQL. Cubre autenticación, ventas del cliente,
-estadísticas y estimación de demanda, con autorización resuelta desde la base de datos.
+El directorio contiene dos implementaciones independientes que comparten los datos simulados de `data/demo/`:
 
-El contrato de endpoints, formatos de respuesta y decisiones de negocio está en
-[`docs/API_CONTRACT.md`](docs/API_CONTRACT.md).
+- **Node.js + Express + MySQL**, en `src/`: API REST de autenticación, ventas, estadísticas y predicción.
+- **Python + PostgreSQL**, en `app/`: esquema, migraciones, importación de ventas, analítica y modelo de demanda.
 
-## Requisitos
+Cada implementación tiene dependencias y configuración propias. La primera usa MySQL y variables `DB_*`; la segunda usa PostgreSQL y `DATABASE_URL`.
+
+## Node.js + MySQL
+
+### Requisitos e instalación
 
 - Node.js 20.12 o superior.
 - MySQL 8.0 con la base `proyecto_renefull` creada.
-- Tablas `usuarios`, `productos` y `ventas` según las columnas del §5 del contrato
-  (el esquema definitivo lo define el área de base de datos).
 
-## Instalación
+Desde `Backend/`, instala las dependencias:
 
 ```bash
 npm install
 ```
 
-En Windows con PowerShell, usa `npm.cmd` si la política de ejecución bloquea `npm.ps1`.
+En Windows PowerShell, usa `npm.cmd` si la política de ejecución bloquea `npm.ps1`.
 
-## Configuración
+### Configuración
 
-Copia `.env.example` a `.env` y completa los valores. El archivo `.env` está ignorado por Git.
+Copia `.env.example` a `.env` y ajusta las variables `DB_*`. El archivo `.env` está excluido de Git. `JWT_SECRETO` debe ser una cadena aleatoria larga.
 
-| Variable | Uso |
-| --- | --- |
-| `PUERTO` | Puerto HTTP de la API (por defecto `3000`). |
-| `DB_HOST`, `DB_PUERTO`, `DB_USUARIO`, `DB_CONTRASENA`, `DB_NOMBRE` | Conexión a MySQL. |
-| `JWT_SECRETO` | Firma de los tokens de sesión; cadena larga y aleatoria. |
-| `JWT_HORAS` | Vigencia del token en horas (por defecto `8`). |
-| `ADMIN_EMAIL`, `ADMIN_CONTRASENA` | Cuenta inicial para `npm run admin:crear`. |
-| `DEMO_EMAIL` | Cuenta cliente que recibe las ventas de demostración. |
-
-## Primer administrador
-
-El registro público siempre crea clientes. La primera cuenta administradora se crea con:
+La cuenta administradora inicial se crea con:
 
 ```bash
 npm run admin:crear
 ```
 
-El comando lee `ADMIN_EMAIL` y `ADMIN_CONTRASENA`, exige una contraseña de al menos 8 caracteres,
-guarda el hash Argon2id y se niega a crear otra cuenta si el correo ya existe.
+Los archivos `data/demo/*.json` se cargan con `npm run demo:cargar` y se asocian a `DEMO_EMAIL`. La carga se rechaza si la cuenta ya tiene ventas, para evitar duplicados.
 
-## Datos de demostración
-
-`npm run demo:cargar` importa los archivos `Backend/data/demo/*.json` a la base de datos,
-asociados a la cuenta indicada en `DEMO_EMAIL`. Los registros inválidos se omiten y la carga se
-rechaza si esa cuenta ya tiene ventas, para evitar duplicados. No existe un endpoint público de
-carga: en tiempo de ejecución la API consulta únicamente la base de datos.
-
-## Ejecución
+### Ejecución
 
 ```bash
-npm start      # servidor
-npm run dev    # servidor con recarga automática
-npm test       # pruebas con node:test
+npm start
+npm run dev
+npm test
 ```
 
-La ruta `GET /api/salud` responde `{ "estado": "ok" }` cuando el proceso está arriba.
+La ruta `GET /api/salud` responde `{ "estado": "ok" }` cuando el servidor está activo. El contrato de endpoints está en [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md).
 
-## Estructura
+## Python + PostgreSQL
 
-```
-src/
-  app.js                 aplicación Express y montaje de rutas
-  servidor.js            arranque y cierre ordenado del pool
-  config/entorno.js      lectura de variables de entorno
-  db/conexion.js         pool de MySQL2
-  middleware/            autenticación, rol vigente en BD y errores
-  validaciones/          validación manual de cuerpos y query strings
-  modelos/               consultas a usuarios, productos y ventas
-  servicios/             contraseñas, tokens, registros, estadísticas, predicción
-  controladores/         lógica de cada endpoint
-  rutas/                 definición de rutas por área
-scripts/                 creación del administrador y carga de demostración
-pruebas/                 pruebas unitarias y de API sin base de datos
+### Requisitos e instalación
+
+- Python 3.12 o superior.
+- PostgreSQL 16 o superior.
+
+En PowerShell, desde `Backend/`, crea el entorno e instala las dependencias:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[test]"
+Copy-Item .env.example .env
 ```
 
-## Autorización
+Configura `DATABASE_URL` con una cadena PostgreSQL. Crea la base vacía y aplica las migraciones:
 
-- El token solo identifica al usuario (`sub`); no transporta el rol.
-- En cada petición protegida el rol se lee de la base de datos, por lo que una promoción o
-  degradación aplica de inmediato.
-- Sin sesión → 401. Con sesión pero sin permiso → 403.
-- Las rutas de cliente derivan el propietario del token: no aceptan un identificador de usuario.
-- Un administrador no puede modificar su propio rol.
+```sql
+CREATE DATABASE proyectorenefull;
+```
+
+```powershell
+alembic upgrade head
+```
+
+Para revertir el esquema, usa `alembic downgrade base`.
+
+### Cuentas y carga de demostración
+
+La primera cuenta administradora se crea de forma controlada:
+
+```powershell
+python -m app.scripts.crear_admin
+```
+
+También se puede crear una cuenta cliente de demostración con `python -m app.scripts.crear_cliente_demo`.
+
+Los cinco JSON de `data/demo/` contienen datos simulados. La carga es transaccional e idempotente:
+
+```powershell
+$env:DEMO_CLIENTE_CORREO = "cliente.demo@example.com"
+$env:ADMIN_CORREO = "admin@example.com"
+python -m app.scripts.cargar_demo
+```
+
+### Pruebas
+
+Las pruebas de integración requieren una base PostgreSQL desechable. El fixture elimina y recrea el esquema `public`; no apuntes `TEST_DATABASE_URL` a una base con datos reales.
+
+```powershell
+$env:TEST_DATABASE_URL = "postgresql+psycopg://postgres:postgres@localhost:5432/proyectorenefull_test"
+pytest
+```
+
+La documentación de datos y procesos está en [`docs/README.md`](docs/README.md), con el [contrato del backend](docs/CONTRATO_BACKEND.md), el [modelo de datos](docs/MODELO_DATOS.md), los [procesos](docs/PROCESOS.md) y las [validaciones](docs/VALIDACIONES.md).
