@@ -1,4 +1,4 @@
-# Contrato propuesto: base de datos, consultas y Machine Learning
+# Contrato de base de datos, consultas y Machine Learning
 
 Estado: aprobado por el equipo e implementado en la rama `Ismael`. Pendiente la revisión del PR; no se fusiona desde esta rama.
 
@@ -118,9 +118,9 @@ erDiagram
 
 No se persisten predicciones en esta versión. Se calculan bajo demanda a partir de ventas válidas almacenadas.
 
-## 5. Esquema propuesto
+## 5. Esquema implementado
 
-Los nombres son propuesta para alinear con Mia-Paola antes de crear la migración.
+Los nombres están implementados en la migración `0001_esquema_inicial.py`.
 
 ### 5.1 `usuarios`
 
@@ -292,7 +292,7 @@ El script de administrador:
 - Es seguro ante reintentos: si ya existe una cuenta administradora, se detiene salvo que se use explícitamente `--permitir-adicional`; no actualiza contraseñas existentes.
 - No imprime la contraseña ni el hash.
 
-Parámetros Argon2id propuestos: `time_cost=3`, `memory_cost=65536` KiB, `parallelism=4`, `hash_len=32`, `salt_len=16`. Se almacena la cadena PHC completa.
+Parámetros Argon2id implementados: `time_cost=3`, `memory_cost=65536` KiB, `parallelism=4`, `hash_len=32`, `salt_len=16`. Se almacena la cadena PHC completa.
 
 ## 8. Consultas analíticas
 
@@ -308,7 +308,7 @@ Parámetros Argon2id propuestos: `time_cost=3`, `memory_cost=65536` KiB, `parall
 
 ### 8.2 Estadísticas de cliente
 
-Función propuesta:
+Función implementada:
 
 ```text
 estadisticas_cliente(
@@ -373,7 +373,7 @@ La respuesta de cliente nunca incluye ventas ni agregados de otro propietario.
 
 ### 8.3 Estadísticas administrativas
 
-Función propuesta:
+Función implementada:
 
 ```text
 estadisticas_clientes_admin(
@@ -520,7 +520,7 @@ La interfaz de la aplicación debe mostrar el periodo, la unidad, el carácter e
 
 Esta rama expone funciones y modelos, no rutas HTTP. El controlador decide la respuesta HTTP y la autorización.
 
-Funciones propuestas:
+Funciones implementadas:
 
 ```text
 listar_ventas_cliente(session, propietario_id, desde=None, hasta=None, limite=100, desplazamiento=0, hoy=None) -> PaginaVentas
