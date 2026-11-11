@@ -9,7 +9,7 @@ ramas.
 ## Requisitos
 
 - Python 3.12 o superior.
-- PostgreSQL 15 o superior.
+- PostgreSQL 16 o superior.
 - Los cinco archivos JSON de `data/demo/` (datos simulados, no ventas reales).
 
 ## Instalacion
@@ -109,6 +109,16 @@ Pruebas cubiertas:
 - estadisticas de cliente y administrador calculadas desde PostgreSQL;
 - corte cronologico del modelo, historial insuficiente, comparacion contra la
   linea base y prediccion determinista.
+
+## Documentación
+
+- `docs/CONTRATO_BACKEND.md`: contrato aprobado de base de datos, consultas y
+  Machine Learning.
+- `docs/MODELO_DATOS.md`: DER, modelo relacional, diccionario de datos y
+  normalización.
+- `docs/PROCESOS.md`: procesos, decisiones, transacciones y manejo de errores.
+- `docs/VALIDACIONES.md`: catálogo de validaciones y trazabilidad con las
+  pruebas.
 
 ## Estructura
 
