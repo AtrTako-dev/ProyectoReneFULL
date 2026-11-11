@@ -357,6 +357,9 @@ modelos y la migración.
 
 - `tests/test_migracion.py` verifica la creación de tablas, índices y
   restricciones.
+- `tests/test_restricciones_db.py` verifica que PostgreSQL rechace totales
+  incoherentes, cantidades fuera de rango, roles desconocidos, hashes que no son
+  Argon2id y ventas ligadas a importaciones de otro propietario.
 - `tests/test_importacion.py` verifica la carga y la idempotencia.
 - `tests/test_consultas.py` verifica aislamiento, filas inválidas y agregados.
 - `tests/test_ml.py` verifica el uso de ventas válidas y el corte semanal.

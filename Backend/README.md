@@ -104,6 +104,7 @@ pytest
 Pruebas cubiertas:
 
 - migracion completa y restricciones del esquema;
+- rechazo de valores invalidos por restricciones de PostgreSQL;
 - validacion estructural de JSON, rechazo transaccional e idempotencia;
 - aislamiento por propietario y errores controlados para filas invalidas;
 - estadisticas de cliente y administrador calculadas desde PostgreSQL;
