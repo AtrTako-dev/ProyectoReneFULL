@@ -1,17 +1,17 @@
 const { ErrorApi, errores } = require('../middleware/errores');
+const { esUuid } = require('../validaciones/comunes');
 const usuarioModelo = require('../modelos/usuarioModelo');
 const ventaModelo = require('../modelos/ventaModelo');
 const { usuarioPublico } = require('../servicios/serializadores');
 const { filtrarVentasValidas } = require('../servicios/registros');
+const { estadisticasAdmin } = require('../servicios/estadisticas');
+const { predecirTodasLasCategorias } = require('../servicios/prediccion');
 const {
-  calcularResumen,
-  totalesBreves,
-  agruparPorCategoria,
-  agruparPorPeriodo,
-} = require('../servicios/estadisticas');
-const { predecirDemanda } = require('../servicios/prediccion');
-const { validarCambioRol, validarAgrupacion } = require('../validaciones/admin');
-const { validarRangoFechas, validarHorizonte } = require('../validaciones/ventas');
+  validarCambioRol,
+  validarAgrupacion,
+  validarClienteId,
+} = require('../validaciones/admin');
+const { validarRangoFechas } = require('../validaciones/ventas');
 
 async function listarUsuarios(req, res, next) {
   try {
@@ -20,6 +20,7 @@ async function listarUsuarios(req, res, next) {
       usuarios: usuarios.map((usuario) => ({
         ...usuarioPublico(usuario),
         creado_en: usuario.creado_en,
+        actualizado_en: usuario.actualizado_en,
       })),
     });
   } catch (error) {
@@ -29,8 +30,8 @@ async function listarUsuarios(req, res, next) {
 
 async function cambiarRol(req, res, next) {
   try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id <= 0) {
+    const id = typeof req.params.id === 'string' ? req.params.id.trim().toLowerCase() : '';
+    if (!esUuid(id)) {
       return next(errores.noEncontrado('El usuario indicado no existe.'));
     }
 
@@ -39,7 +40,7 @@ async function cambiarRol(req, res, next) {
       return next(errores.validacion(campos));
     }
 
-    if (id === Number(req.usuario.id)) {
+    if (id === req.usuario.id) {
       return next(
         new ErrorApi(403, 'NO_AUTORIZADO', 'Un administrador no puede modificar su propio rol.')
       );
@@ -57,25 +58,41 @@ async function cambiarRol(req, res, next) {
   }
 }
 
+function contarExcluidosPorPropietario(invalidas) {
+  const mapa = new Map();
+  for (const { fila } of invalidas) {
+    const propietarioId = fila && fila.propietario_id;
+    if (typeof propietarioId === 'string' && esUuid(propietarioId)) {
+      mapa.set(propietarioId, (mapa.get(propietarioId) || 0) + 1);
+    }
+  }
+  return mapa;
+}
+
 async function estadisticasVentas(req, res, next) {
   try {
     const { campos, rango } = validarRangoFechas(req.query);
-    const resultadoAgrupacion = validarAgrupacion(req.query.agrupacion);
-    Object.assign(campos, resultadoAgrupacion.campos);
+    const agrupacion = validarAgrupacion(req.query.agrupacion);
+    Object.assign(campos, agrupacion.campos);
     if (Object.keys(campos).length > 0) {
       return next(errores.validacion(campos));
     }
 
-    const filas = await ventaModelo.listarGlobal(rango);
-    const { validas } = filtrarVentasValidas(filas);
+    const [filas, usuarios] = await Promise.all([
+      ventaModelo.listarGlobal(rango),
+      usuarioModelo.listar(),
+    ]);
+    const { validas, invalidas } = filtrarVentasValidas(filas);
 
-    return res.json({
-      periodo: { desde: rango.desde, hasta: rango.hasta },
-      agrupacion: resultadoAgrupacion.agrupacion,
-      grupos: agruparPorPeriodo(validas, resultadoAgrupacion.agrupacion),
-      totales: totalesBreves(calcularResumen(validas)),
-      por_categoria: agruparPorCategoria(validas),
-    });
+    return res.json(
+      estadisticasAdmin(validas, usuarios, {
+        desde: rango.desde,
+        hasta: rango.hasta,
+        agrupacion: agrupacion.agrupacion,
+        registrosExcluidos: invalidas.length,
+        excluidosPorPropietario: contarExcluidosPorPropietario(invalidas),
+      })
+    );
   } catch (error) {
     return next(error);
   }
@@ -83,15 +100,23 @@ async function estadisticasVentas(req, res, next) {
 
 async function prediccionesDemanda(req, res, next) {
   try {
-    const { campos, horizonte } = validarHorizonte(req.query.horizonte);
+    const { campos, clienteId } = validarClienteId(req.query.cliente_id);
     if (Object.keys(campos).length > 0) {
       return next(errores.validacion(campos));
     }
 
-    const filas = await ventaModelo.listarGlobal({});
+    const cliente = await usuarioModelo.buscarPorId(clienteId);
+    if (!cliente) {
+      return next(errores.noEncontrado('El cliente indicado no existe.'));
+    }
+
+    const filas = await ventaModelo.listarPorPropietario(clienteId, {});
     const { validas } = filtrarVentasValidas(filas);
 
-    return res.json(predecirDemanda(validas, { horizonte }));
+    return res.json({
+      cliente: usuarioPublico(cliente),
+      predicciones: predecirTodasLasCategorias(validas),
+    });
   } catch (error) {
     return next(error);
   }

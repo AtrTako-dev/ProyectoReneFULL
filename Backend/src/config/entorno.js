@@ -31,6 +31,7 @@ const configuracion = {
     horas: Number(variable('JWT_HORAS', '8')),
   },
   admin: {
+    nombre: variable('ADMIN_NOMBRE', 'Administrador'),
     email: variable('ADMIN_EMAIL', ''),
     contrasena: variable('ADMIN_CONTRASENA', ''),
   },

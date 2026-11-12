@@ -19,8 +19,8 @@ const errores = {
   noAutenticado() {
     return new ErrorApi(401, 'NO_AUTENTICADO', 'Se requiere una sesión válida.');
   },
-  noAutorizado() {
-    return new ErrorApi(403, 'NO_AUTORIZADO', 'No tienes permiso para realizar esta operación.');
+  noAutorizado(mensaje = 'No tienes permiso para realizar esta operación.') {
+    return new ErrorApi(403, 'NO_AUTORIZADO', mensaje);
   },
   noEncontrado(mensaje = 'El recurso solicitado no existe.') {
     return new ErrorApi(404, 'NO_ENCONTRADO', mensaje);
@@ -32,6 +32,52 @@ const errores = {
     return new ErrorApi(500, 'ERROR_INTERNO', 'Ocurrió un error interno. Intenta más tarde.');
   },
 };
+
+// Traduccion de errores de MySQL a respuestas controladas. Nunca se devuelve
+// el mensaje original porque puede incluir nombres de tablas o valores.
+const ERRORES_BD = {
+  ER_DUP_ENTRY: [409, 'CONFLICTO', 'Ya existe un registro con esos datos.'],
+  ER_NO_REFERENCED_ROW: [422, 'VALIDACION_DATOS', 'La referencia indicada no existe.'],
+  ER_NO_REFERENCED_ROW_2: [422, 'VALIDACION_DATOS', 'La referencia indicada no existe.'],
+  ER_ROW_IS_REFERENCED_2: [
+    409,
+    'CONFLICTO',
+    'El registro está en uso y no se puede modificar.',
+  ],
+  ER_DATA_TOO_LONG: [422, 'VALIDACION_DATOS', 'Uno de los valores excede la longitud permitida.'],
+  ER_WARN_DATA_OUT_OF_RANGE: [
+    422,
+    'VALIDACION_DATOS',
+    'Uno de los valores está fuera del rango permitido.',
+  ],
+  ER_TRUNCATED_WRONG_VALUE: [
+    422,
+    'VALIDACION_DATOS',
+    'Uno de los valores no tiene el formato esperado.',
+  ],
+  ER_TRUNCATED_WRONG_VALUE_FOR_FIELD: [
+    422,
+    'VALIDACION_DATOS',
+    'Uno de los valores no tiene el formato esperado.',
+  ],
+  WARN_DATA_TRUNCATED: [
+    422,
+    'VALIDACION_DATOS',
+    'Uno de los valores no tiene el formato esperado.',
+  ],
+  ER_BAD_NULL_ERROR: [422, 'VALIDACION_DATOS', 'Falta un valor obligatorio.'],
+};
+
+function traducirErrorBd(error) {
+  if (!error || typeof error.code !== 'string') {
+    return null;
+  }
+  const definicion = ERRORES_BD[error.code];
+  if (!definicion) {
+    return null;
+  }
+  return new ErrorApi(definicion[0], definicion[1], definicion[2]);
+}
 
 function responderError(res, error) {
   if (error instanceof ErrorApi) {
@@ -47,6 +93,13 @@ function responderError(res, error) {
     return res
       .status(errorJson.estado)
       .json({ error: { codigo: errorJson.codigo, mensaje: errorJson.mensaje } });
+  }
+
+  const errorBd = traducirErrorBd(error);
+  if (errorBd) {
+    return res
+      .status(errorBd.estado)
+      .json({ error: { codigo: errorBd.codigo, mensaje: errorBd.mensaje } });
   }
 
   if (process.env.NODE_ENV !== 'test') {
@@ -76,6 +129,8 @@ function envolverAsync(fn) {
 module.exports = {
   ErrorApi,
   errores,
+  ERRORES_BD,
+  traducirErrorBd,
   responderError,
   manejadorErrores,
   manejadorNoEncontrado,

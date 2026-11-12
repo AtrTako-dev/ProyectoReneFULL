@@ -2,12 +2,18 @@ const {
   esObjeto,
   fechaValida,
   fechaOpcional,
-  enteroPositivo,
-  numeroNoNegativo,
+  enteroEnRango,
+  numeroPositivo,
+  productoIdValido,
+  uuidOpcional,
   redondear,
+  CANTIDAD_MAXIMA,
+  PRECIO_MAXIMO_MXN,
 } = require('./comunes');
 
 const DIAS_MAXIMOS_CONSULTA = 730;
+const LIMITE_PREDETERMINADO = 100;
+const LIMITE_MAXIMO = 500;
 
 function validarCreacionVenta(cuerpo) {
   const campos = {};
@@ -16,25 +22,42 @@ function validarCreacionVenta(cuerpo) {
     return { campos, datos: null };
   }
 
+  // El propietario siempre se deriva de la sesión autenticada.
+  if (Object.prototype.hasOwnProperty.call(cuerpo, 'propietario_id')) {
+    campos.propietario_id = 'El propietario se toma de la sesión autenticada';
+  }
+  if (Object.prototype.hasOwnProperty.call(cuerpo, 'usuario_id')) {
+    campos.usuario_id = 'El propietario se toma de la sesión autenticada';
+  }
+  if (Object.prototype.hasOwnProperty.call(cuerpo, 'importacion_id')) {
+    campos.importacion_id = 'Las ventas de importación se cargan con el script de demostración';
+  }
+  if (Object.prototype.hasOwnProperty.call(cuerpo, 'id_origen')) {
+    campos.id_origen = 'El identificador de origen solo aplica a ventas importadas';
+  }
+
   const fecha = fechaValida(cuerpo.fecha, 'fecha', campos);
-  const productoId = enteroPositivo(cuerpo.producto_id, 'producto_id', campos, 'El producto');
-  const cantidad = enteroPositivo(cuerpo.cantidad, 'cantidad', campos, 'La cantidad');
-  const precioUnitario = numeroNoNegativo(
+  const productoId = productoIdValido(cuerpo.producto_id, 'producto_id', campos);
+  const cantidad = enteroEnRango(cuerpo.cantidad, 'cantidad', campos, {
+    minimo: 1,
+    maximo: CANTIDAD_MAXIMA,
+    etiqueta: 'La cantidad',
+  });
+  const precioUnitario = numeroPositivo(
     cuerpo.precio_unitario_mxn,
     'precio_unitario_mxn',
     campos,
-    'El precio unitario'
+    { maximo: PRECIO_MAXIMO_MXN, etiqueta: 'El precio unitario' }
   );
-
-  if (precioUnitario !== null && cantidad !== null) {
-    if (precioUnitario === 0) {
-      campos.precio_unitario_mxn = 'El precio unitario debe ser mayor que 0';
-    }
-  }
+  const claveIdempotencia = uuidOpcional(
+    cuerpo.clave_idempotencia,
+    'clave_idempotencia',
+    campos
+  );
 
   return {
     campos,
-    datos: { fecha, productoId, cantidad, precioUnitario },
+    datos: { fecha, productoId, cantidad, precioUnitario, claveIdempotencia },
   };
 }
 
@@ -71,20 +94,38 @@ function validarRangoFechas(consulta) {
   return { campos, rango: { desde, hasta } };
 }
 
-function validarHorizonte(valor) {
+function validarPaginacion(consulta) {
   const campos = {};
-  const horizonte = enteroPositivo(valor, 'horizonte', campos, 'El horizonte');
-  if (horizonte !== null && horizonte > 90) {
-    campos.horizonte = 'El horizonte no puede superar 90 días';
-    return { campos, horizonte: null };
-  }
-  return { campos, horizonte };
+  const sinLimite =
+    consulta.limite === undefined || consulta.limite === null || consulta.limite === '';
+  const sinDesplazamiento =
+    consulta.desplazamiento === undefined ||
+    consulta.desplazamiento === null ||
+    consulta.desplazamiento === '';
+  const limite = sinLimite
+    ? LIMITE_PREDETERMINADO
+    : enteroEnRango(consulta.limite, 'limite', campos, {
+        minimo: 1,
+        maximo: LIMITE_MAXIMO,
+        etiqueta: 'El límite',
+      });
+  const desplazamiento = sinDesplazamiento
+    ? 0
+    : enteroEnRango(consulta.desplazamiento, 'desplazamiento', campos, {
+        minimo: 0,
+        maximo: Number.MAX_SAFE_INTEGER,
+        etiqueta: 'El desplazamiento',
+      });
+
+  return { campos, paginacion: { limite, desplazamiento } };
 }
 
 module.exports = {
   DIAS_MAXIMOS_CONSULTA,
+  LIMITE_PREDETERMINADO,
+  LIMITE_MAXIMO,
   validarCreacionVenta,
   validarTotalDeclarado,
   validarRangoFechas,
-  validarHorizonte,
+  validarPaginacion,
 };
