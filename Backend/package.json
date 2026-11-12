@@ -7,13 +7,14 @@
   "scripts": {
     "start": "node src/servidor.js",
     "dev": "node --watch src/servidor.js",
-    "test": "node --test pruebas",
+    "test": "node --test --test-concurrency=1 pruebas/api.test.js pruebas/authMiddleware.test.js pruebas/errores.test.js pruebas/estadisticas.test.js pruebas/password.test.js pruebas/prediccion.test.js pruebas/registros.test.js pruebas/serializadores.test.js pruebas/token.test.js pruebas/validaciones.test.js pruebas/flujosApi.test.js pruebas/importacionDemo.test.js pruebas/datos/validacion.test.js pruebas/datos/ml.test.js",
     "test:datos:unit": "node --test --test-concurrency=1 pruebas/datos/validacion.test.js pruebas/datos/ml.test.js",
     "test:datos:integracion": "node --test --test-concurrency=1 pruebas/datos/integracion.test.js",
     "db:migrar": "node scripts/migrar.js",
     "demo:cuenta": "node scripts/crearClienteDemo.js",
     "admin:crear": "node scripts/crearAdmin.js",
-    "demo:cargar": "node scripts/cargarDemo.js"
+    "demo:cargar": "node scripts/cargarDemo.js",
+    "test:integracion": "node --test --test-concurrency=1 pruebas/datos/integracion.test.js"
   },
   "engines": {
     "node": ">=20.12"

@@ -1,142 +1,163 @@
-# Backend Proyecto ReneFULL — datos y demanda
+# Backend — Proyecto ReneFULL
 
-Este directorio contiene la parte de **Node.js + MySQL 8** del backend que
-trabaja Ismael: esquema, migraciones, carga de los cinco conjuntos simulados de
-demostración, consultas internas, estadísticas y modelo de demanda. La API HTTP
-con **Express**, la autenticación y las rutas pertenecen al área de Mia-Paola;
-este paquete no las reimplementa, pero expone las consultas y el formato de
-salida que la API puede consumir.
+API REST en **Node.js + Express + MySQL 8** para autenticación, ventas del cliente, catálogo,
+importaciones de demostración, estadísticas y estimación de demanda. La autorización se resuelve
+desde la base de datos en cada petición.
 
-> Los cinco JSON de `data/demo/` son **datos simulados de demostración**. No son
-> ventas reales, no se presentan como tales y no deben usarse para decisiones de
-> negocio.
+El contrato estable de endpoints, DTOs, validaciones y esquema MySQL esperado está en
+[`docs/API_CONTRACT.md`](docs/API_CONTRACT.md).
 
 ## Requisitos
 
 - Node.js 20.12 o superior.
 - MySQL 8.0.
-- Los cinco archivos de `data/demo/` (100 ventas cada uno).
+- El esquema y la migración inicial están en `db/migraciones/001_esquema_inicial.sql`.
+
+`npm run db:migrar` crea la base `DB_NOMBRE` si hace falta y aplica las migraciones pendientes de la capa de datos.
+
+La migración define usuarios con IDs numéricos y ventas con `usuario_id`. El modelo de la API todavía
+espera UUIDs y columnas distintas; consulta **Limitaciones conocidas** antes de conectar ambos módulos.
 
 ## Instalación
-
-Desde `Backend/`:
 
 ```bash
 npm install
 ```
 
-Copie `.env.example` a `.env` y ajuste las variables `DB_*`. El archivo `.env`
-está excluido de Git; no incluya contraseñas ni secretos en el repositorio.
+En Windows con PowerShell, usa `npm.cmd` si la política de ejecución bloquea `npm.ps1`.
 
-## Base de datos
+## Configuración
+
+Copia `.env.example` a `.env` y completa los valores. `.env` está ignorado por Git.
+
+| Variable | Uso |
+| --- | --- |
+| `PUERTO` | Puerto HTTP de la API (por defecto `3000`). |
+| `DB_HOST`, `DB_PUERTO`, `DB_USUARIO`, `DB_CONTRASENA`, `DB_NOMBRE` | Conexión a MySQL. |
+| `DB_CONEXIONES` | Máximo de conexiones del pool de datos. |
+| `JWT_SECRETO` | Firma HS256 de los tokens; cadena larga y aleatoria (obligatoria). |
+| `JWT_HORAS` | Vigencia del token en horas (por defecto `8`). |
+| `ADMIN_NOMBRE` | Nombre de la cuenta inicial (por defecto `Administrador`). |
+| `ADMIN_EMAIL`, `ADMIN_CONTRASENA` | Cuenta inicial para `npm run admin:crear`. |
+| `DEMO_EMAIL`, `DEMO_NOMBRE`, `DEMO_PASSWORD` | Cuenta cliente usada para cargar los datos de demostración. |
+| `IMPORTADO_POR_EMAIL` | Administrador opcional que queda asociado a la importación. |
+| `MIN_SEMANAS_ENTRENAMIENTO`, `MIN_SEMANAS_CON_UNIDADES`, `SEMANAS_EVALUACION`, `ALPHA_RIDGE` | Parámetros del modelo semanal. |
+| `TEST_DB_NOMBRE` | Nombre de la base desechable para pruebas de integración. |
+
+## Preparación de la base y la cuenta demo
+
+Aplique el esquema MySQL antes de crear cuentas o importar ventas:
 
 ```bash
 npm run db:migrar
-```
-
-El comando crea la base `DB_NOMBRE` si el usuario tiene permiso y aplica las
-migraciones pendientes de `db/migraciones/`. La migración inicial crea
-`usuarios`, `productos`, `importaciones`, `ventas` y `migraciones`, con claves,
-índices y restricciones. El detalle está en
-[`docs/ESQUEMA_MYSQL.md`](docs/ESQUEMA_MYSQL.md).
-
-## Cuenta y catálogo de demostración
-
-La cuenta demo se crea sin guardar la contraseña en el repositorio:
-
-```powershell
-$env:DEMO_PASSWORD='una-contraseña-local'
 npm run demo:cuenta
 ```
 
-En Bash:
+`demo:cuenta` requiere `DEMO_PASSWORD`; crea el cliente identificado por `DEMO_EMAIL` y `DEMO_NOMBRE`.
+Después, `npm run demo:cargar` importa el catálogo y las ventas simuladas a esa cuenta.
+
+## Primer administrador
+
+El registro público siempre crea clientes. La primera cuenta administradora se crea con:
 
 ```bash
-DEMO_PASSWORD='una-contraseña-local' npm run demo:cuenta
+npm run admin:crear
 ```
 
-El correo y el nombre se configuran con `DEMO_EMAIL` y `DEMO_NOMBRE`. La carga
-crea el catálogo de productos a partir de los JSON y lo asocia a la cuenta
-cliente.
+El comando lee `ADMIN_NOMBRE`, `ADMIN_EMAIL` y `ADMIN_CONTRASENA`, exige una contraseña de al menos
+8 caracteres, genera el UUID en la aplicación, guarda el hash Argon2id y se niega a crear otra
+cuenta si el correo ya existe.
 
-## Carga de los cinco conjuntos
+## Datos de demostración
 
 ```bash
 npm run demo:cargar
 ```
 
-La carga:
+El comando valida los cinco archivos `Backend/data/demo/*.json`, y solo
+después abre una transacción para:
 
-- valida metadatos, fechas, códigos de texto, productos, categorías, cantidades,
-  precios y totales antes de abrir la transacción;
-- conserva `producto_id` como texto (`B003`) y el código de origen
-  (`D01-066`) en `ventas.id_origen`;
-- conserva el precio histórico de cada venta;
-- registra la fuente en `importaciones` con hash SHA-256;
-- es idempotente: repetirla no duplica ventas;
-- revierte la transacción completa si MySQL falla durante la inserción.
+1. Verificar que `DEMO_EMAIL` sea un cliente activo existente.
+2. Verificar opcionalmente `ADMIN_EMAIL` como administrador que registra la importación.
+3. Crear categorías y productos del catálogo.
+4. Insertar una fila en `importaciones` por conjunto y sus ventas con `id_origen`.
+5. Confirmar todo o revertir ante cualquier error.
 
-Resultado esperado de la carga de demostración:
+La carga es idempotente: un conjunto ya importado con el **mismo hash** se omite; un conjunto con
+contenido distinto, o el mismo hash con otro conjunto, se rechaza. Los JSON son datos simulados
+(5 conjuntos × 100 ventas, 41 productos, periodo 2026-01-01..2026-06-30) y **no se consultan en
+tiempo de ejecución**: la API lee únicamente MySQL.
 
-- 5 archivos;
-- 500 ventas;
-- 1,287 unidades;
-- 36,404.00 MXN.
+No existe un endpoint público de carga.
 
-Los detalles de proceso y errores están en
-[`docs/PROCESOS_MYSQL.md`](docs/PROCESOS_MYSQL.md) y
-[`docs/VALIDACIONES_MYSQL.md`](docs/VALIDACIONES_MYSQL.md).
+## Ejecución
 
-## Consultas y modelo
+```bash
+npm start      # servidor
+npm run dev    # servidor con recarga automática
+npm test                  # pruebas de API y unitarias; no requiere MySQL
+npm run test:integracion  # pruebas de datos con MySQL desechable
+```
 
-Las consultas filtran por propietario y validan cada fila contra el catálogo
-antes de calcular estadísticas o alimentar el modelo. Las filas inválidas se
-excluyen y se reportan; una consulta individual inválida produce un error
-controlado.
-
-El modelo de demanda:
-
-- agrega unidades por semana y categoría;
-- entrena una regresión Ridge en JavaScript;
-- evalúa en orden cronológico contra la línea base de la semana anterior;
-- usa MAE como métrica interpretable;
-- si no hay historial suficiente o el modelo no supera la línea base, devuelve
-  un estado controlado sin valores inventados.
-
-La interfaz exacta para Mia-Paola está en
-[`docs/INTERFAZ_MIA.md`](docs/INTERFAZ_MIA.md).
+La ruta `GET /api/salud` responde `{ "estado": "ok" }` cuando el proceso está arriba.
 
 ## Pruebas
 
-Con una instancia MySQL desechable configurada por variables de entorno:
+`npm test` ejecuta las pruebas de API y unitarias con `node:test`, sin conectarse a MySQL.
 
-```powershell
-$env:DB_HOST='127.0.0.1'
-$env:DB_PUERTO='3306'
-$env:DB_USUARIO='root'
-$env:DB_CONTRASENA=''
-$env:TEST_DB_NOMBRE='proyectorenefull_test'
-npm test
-```
+`npm run test:integracion` requiere una instancia MySQL 8 y una base desechable configurada en
+`TEST_DB_NOMBRE`. La suite borra y vuelve a crear esa base; no use una base con información que
+quiera conservar.
 
-Las pruebas de integración crean y eliminan únicamente la base
-`TEST_DB_NOMBRE`. No usan la base de desarrollo ni datos reales.
+Las pruebas cubren:
 
-Resultado verificado: **21 pruebas aprobadas** (12 unitarias y 9 de integración
-con MySQL 8).
+- Validaciones de registro, login, ventas, fechas, paginación y roles.
+- Formato de errores y traducción de errores de MySQL.
+- Tokens HS256, Argon2id y middleware de permisos con rol vigente.
+- Aislamiento entre propietarios y permisos directos a rutas administrativas.
+- Serializadores, estadísticas semanales/mensuales y Ridge con línea base.
+- Flujos HTTP con modelos simulados: registro/login, promoción, idempotencia y fallos de BD.
+- Validación de los cinco conjuntos demo, incluidas metadata, ventas cerradas y catálogo coherente.
+- Migraciones, carga transaccional, consultas de estadísticas y modelo de demanda (suite de integración).
 
 ## Estructura
 
-```text
-Backend/
-  data/demo/                 Cinco JSON simulados
-  db/migraciones/            Migraciones SQL ejecutables
-  db/esquema.sql             Copia de referencia del esquema
-  src/config/                Configuración por variables de entorno
-  src/db/                    Pool, transacciones y migrador
-  src/datos/                 Validación, carga, consultas y cuentas
-  src/ml/                    Ridge y modelo de demanda semanal
-  scripts/                   Comandos de migración, cuenta y carga
-  pruebas/datos/             Pruebas unitarias y de integración
-  docs/                      Contrato y documentación de la implementación
 ```
+src/
+  app.js                 aplicación Express y montaje de rutas
+  servidor.js            arranque y cierre ordenado del pool
+  config/entorno.js      lectura de variables de entorno
+  db/                    pool de MySQL y migraciones
+  datos/                 validación, importación y consultas para el modelo de demanda
+  middleware/            autenticación, rol vigente en BD y errores
+  validaciones/          validación manual de cuerpos y query strings
+  modelos/               usuarios, categorías, productos, importaciones y ventas
+  servicios/             contraseñas, tokens, registros, estadísticas, predicción e importación demo
+  controladores/         lógica de cada endpoint
+  rutas/                 definición de rutas por área
+scripts/                 creación del administrador y carga de demostración
+data/demo/               cinco conjuntos JSON simulados (no se leen en runtime)
+pruebas/                 pruebas unitarias y de API sin base de datos
+```
+
+## Autorización
+
+- El token solo identifica al usuario (`sub` UUID); no transporta el rol.
+- En cada petición protegida el rol y `activo` se leen de MySQL, por lo que una promoción,
+  degradación o desactivación aplica de inmediato.
+- Sin sesión, token inválido o cuenta inactiva → 401. Con sesión pero sin permiso → 403.
+- Las rutas de cliente derivan el propietario del token: no aceptan un identificador de usuario.
+- Un administrador no puede modificar su propio rol.
+- Las respuestas usan `correo` (columna canónica); la entrada de registro/login acepta `email`
+  por compatibilidad con la app móvil.
+
+## Limitaciones conocidas
+
+- La migración de datos y los modelos SQL de la API no comparten el mismo esquema: la migración usa
+  `usuarios.id` numérico y `ventas.usuario_id`; la API usa UUID en `usuarios.id` y consulta
+  `ventas.propietario_id`, además de otras columnas de catálogo distintas. No conectes la API a esa
+  migración hasta acordar un esquema único.
+- El registro de la API exige `nombre`; el formulario móvil actual solo envía correo y contraseña,
+  así que recibe 422 en `campos.nombre`.
+- Las pantallas cliente usan `UnavailableClientRepository`; todavía no envían ventas ni consultan
+  estadísticas del backend.
