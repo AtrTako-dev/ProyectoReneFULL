@@ -16,6 +16,7 @@ function validarRegistro(cuerpo) {
     campos.rol = 'No está permitido asignar roles desde el registro';
   }
 
+  // El formulario móvil envía `email`; la columna MySQL equivalente es `correo`.
   const nombre = textoObligatorio(cuerpo.nombre, 'nombre', campos, {
     maximo: 120,
     etiqueta: 'El nombre',

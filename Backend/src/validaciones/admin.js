@@ -1,4 +1,4 @@
-const { esObjeto } = require('./comunes');
+const { esObjeto, uuidObligatorio } = require('./comunes');
 
 const ROLES = ['cliente', 'administrador'];
 const AGRUPACIONES = ['semana', 'mes'];
@@ -21,9 +21,9 @@ function validarCambioRol(cuerpo) {
   return { campos, rol: cuerpo.rol };
 }
 
-function validarAgrupacion(valor) {
+function validarAgrupacion(valor, predeterminada = 'semana') {
   if (valor === undefined || valor === null || valor === '') {
-    return { campos: { agrupacion: 'La agrupación es obligatoria' }, agrupacion: null };
+    return { campos: {}, agrupacion: predeterminada };
   }
   if (typeof valor !== 'string' || !AGRUPACIONES.includes(valor)) {
     return {
@@ -34,4 +34,16 @@ function validarAgrupacion(valor) {
   return { campos: {}, agrupacion: valor };
 }
 
-module.exports = { ROLES, AGRUPACIONES, validarCambioRol, validarAgrupacion };
+function validarClienteId(valor) {
+  const campos = {};
+  const clienteId = uuidObligatorio(valor, 'cliente_id', campos, 'El cliente');
+  return { campos, clienteId };
+}
+
+module.exports = {
+  ROLES,
+  AGRUPACIONES,
+  validarCambioRol,
+  validarAgrupacion,
+  validarClienteId,
+};

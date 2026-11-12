@@ -1,54 +1,58 @@
-const { obtenerPool } = require('../db/conexion');
+const crypto = require('node:crypto');
+const conexion = require('../db/conexion');
 
-const COLUMNAS_PUBLICAS = 'id, nombre, email, rol, creado_en';
+// Traduccion MySQL del modelo `usuarios` de Ismael: id UUID como texto,
+// `correo` normalizado, rol y estado activo.
+const COLUMNAS = 'id, nombre, correo, rol, activo, creado_en, actualizado_en';
 
-async function crear({ nombre, email, contrasenaHash, rol }) {
-  const pool = obtenerPool();
-  const [resultado] = await pool.execute(
-    'INSERT INTO usuarios (nombre, email, password_hash, rol) VALUES (?, ?, ?, ?)',
-    [nombre, email, contrasenaHash, rol]
+async function crear({ nombre, correo, contrasenaHash, rol }, ejecutor = conexion.obtenerPool()) {
+  const id = crypto.randomUUID();
+  await ejecutor.execute(
+    `INSERT INTO usuarios (id, nombre, correo, password_hash, rol, activo)
+     VALUES (?, ?, ?, ?, ?, 1)`,
+    [id, nombre, correo, contrasenaHash, rol]
   );
-  return buscarPorId(resultado.insertId);
+  return buscarPorId(id, ejecutor);
 }
 
-async function buscarPorId(id) {
-  const [filas] = await obtenerPool().execute(
-    `SELECT ${COLUMNAS_PUBLICAS} FROM usuarios WHERE id = ?`,
+async function buscarPorId(id, ejecutor = conexion.obtenerPool()) {
+  const [filas] = await ejecutor.execute(
+    `SELECT ${COLUMNAS} FROM usuarios WHERE id = ? LIMIT 1`,
     [id]
   );
   return filas[0] || null;
 }
 
-async function buscarPorEmail(email) {
-  const [filas] = await obtenerPool().execute(
-    `SELECT ${COLUMNAS_PUBLICAS}, password_hash FROM usuarios WHERE email = ?`,
-    [email]
+async function buscarPorCorreo(correo, ejecutor = conexion.obtenerPool()) {
+  const [filas] = await ejecutor.execute(
+    `SELECT ${COLUMNAS}, password_hash FROM usuarios WHERE correo = ? LIMIT 1`,
+    [correo]
   );
   return filas[0] || null;
 }
 
-async function listar() {
-  const [filas] = await obtenerPool().execute(
-    `SELECT ${COLUMNAS_PUBLICAS} FROM usuarios ORDER BY id`
+async function listar(ejecutor = conexion.obtenerPool()) {
+  const [filas] = await ejecutor.execute(
+    `SELECT ${COLUMNAS} FROM usuarios ORDER BY nombre ASC, id ASC`
   );
   return filas;
 }
 
-async function actualizarRol(id, rol) {
-  const [resultado] = await obtenerPool().execute(
-    'UPDATE usuarios SET rol = ? WHERE id = ?',
+async function actualizarRol(id, rol, ejecutor = conexion.obtenerPool()) {
+  const [resultado] = await ejecutor.execute(
+    'UPDATE usuarios SET rol = ?, actualizado_en = CURRENT_TIMESTAMP WHERE id = ?',
     [rol, id]
   );
   if (resultado.affectedRows === 0) {
     return null;
   }
-  return buscarPorId(id);
+  return buscarPorId(id, ejecutor);
 }
 
-async function contarVentas(usuarioId) {
-  const [filas] = await obtenerPool().execute(
-    'SELECT COUNT(*) AS total FROM ventas WHERE usuario_id = ?',
-    [usuarioId]
+async function contarVentas(propietarioId, ejecutor = conexion.obtenerPool()) {
+  const [filas] = await ejecutor.execute(
+    'SELECT COUNT(*) AS total FROM ventas WHERE propietario_id = ?',
+    [propietarioId]
   );
   return Number(filas[0].total);
 }
@@ -56,7 +60,7 @@ async function contarVentas(usuarioId) {
 module.exports = {
   crear,
   buscarPorId,
-  buscarPorEmail,
+  buscarPorCorreo,
   listar,
   actualizarRol,
   contarVentas,

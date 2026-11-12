@@ -4,13 +4,14 @@ const {
   validarCreacionVenta,
   validarTotalDeclarado,
   validarRangoFechas,
-  validarHorizonte,
+  validarPaginacion,
 } = require('../validaciones/ventas');
+const { validarAgrupacion } = require('../validaciones/admin');
 const ventaModelo = require('../modelos/ventaModelo');
 const productoModelo = require('../modelos/productoModelo');
 const { filtrarVentasValidas } = require('../servicios/registros');
-const { calcularResumen, agruparPorCategoria } = require('../servicios/estadisticas');
-const { predecirDemanda } = require('../servicios/prediccion');
+const { estadisticasCliente } = require('../servicios/estadisticas');
+const { predecirTodasLasCategorias } = require('../servicios/prediccion');
 const { ventaPublica } = require('../servicios/serializadores');
 
 async function crear(req, res, next) {
@@ -21,11 +22,11 @@ async function crear(req, res, next) {
     }
 
     const producto = await productoModelo.buscarPorId(datos.productoId);
-    if (!producto) {
-      return next(errores.noEncontrado('El producto indicado no existe.'));
+    if (!producto || Number(producto.activo) !== 1) {
+      return next(errores.noEncontrado('El producto indicado no existe en el catálogo.'));
     }
 
-    const precioCatalogo = Number(producto.precio_unitario_mxn);
+    const precioCatalogo = Number(producto.precio_actual_mxn);
     if (Math.abs(redondear(datos.precioUnitario) - redondear(precioCatalogo)) > 0.01) {
       return next(
         errores.validacion({
@@ -39,18 +40,40 @@ async function crear(req, res, next) {
       return next(errores.validacion(campos));
     }
 
-    const venta = await ventaModelo.insertar({
-      usuarioId: req.usuarioId,
-      fecha: datos.fecha,
-      productoId: Number(producto.producto_id),
-      producto: producto.producto,
-      categoria: producto.categoria,
-      precioUnitarioMxn: precioCatalogo,
-      cantidad: datos.cantidad,
-      totalMxn: redondear(precioCatalogo * datos.cantidad),
-    });
+    if (datos.claveIdempotencia) {
+      const existente = await ventaModelo.buscarPorClaveIdempotencia(
+        req.usuario.id,
+        datos.claveIdempotencia
+      );
+      if (existente) {
+        return res.json({ venta: ventaPublica(existente) });
+      }
+    }
 
-    return res.status(201).json({ venta: ventaPublica(venta) });
+    try {
+      const venta = await ventaModelo.insertar({
+        propietarioId: req.usuario.id,
+        fecha: datos.fecha,
+        productoId: producto.producto_id,
+        precioUnitarioMxn: precioCatalogo,
+        cantidad: datos.cantidad,
+        // El total siempre lo calcula el servidor.
+        totalMxn: redondear(precioCatalogo * datos.cantidad),
+        claveIdempotencia: datos.claveIdempotencia,
+      });
+      return res.status(201).json({ venta: ventaPublica(venta) });
+    } catch (error) {
+      if (error && error.code === 'ER_DUP_ENTRY' && datos.claveIdempotencia) {
+        const existente = await ventaModelo.buscarPorClaveIdempotencia(
+          req.usuario.id,
+          datos.claveIdempotencia
+        );
+        if (existente) {
+          return res.json({ venta: ventaPublica(existente) });
+        }
+      }
+      throw error;
+    }
   } catch (error) {
     return next(error);
   }
@@ -59,16 +82,27 @@ async function crear(req, res, next) {
 async function listarMias(req, res, next) {
   try {
     const { campos, rango } = validarRangoFechas(req.query);
+    const paginacion = validarPaginacion(req.query);
+    Object.assign(campos, paginacion.campos);
     if (Object.keys(campos).length > 0) {
       return next(errores.validacion(campos));
     }
 
-    const filas = await ventaModelo.listarPorUsuario(req.usuarioId, rango);
-    const { validas } = filtrarVentasValidas(filas);
+    // El propietario se deriva de la sesión; cualquier id de la consulta se ignora.
+    const filas = await ventaModelo.listarPaginaPorPropietario(
+      req.usuario.id,
+      rango,
+      paginacion.paginacion
+    );
+    const total = await ventaModelo.contarPorPropietario(req.usuario.id, rango);
+    const { validas, invalidas } = filtrarVentasValidas(filas);
 
     return res.json({
-      total: validas.length,
-      ventas: validas.map(ventaPublica),
+      items: validas.map(ventaPublica),
+      total,
+      limite: paginacion.paginacion.limite,
+      desplazamiento: paginacion.paginacion.desplazamiento,
+      registros_excluidos: invalidas.length,
     });
   } catch (error) {
     return next(error);
@@ -78,19 +112,23 @@ async function listarMias(req, res, next) {
 async function estadisticasMias(req, res, next) {
   try {
     const { campos, rango } = validarRangoFechas(req.query);
+    const agrupacion = validarAgrupacion(req.query.agrupacion);
+    Object.assign(campos, agrupacion.campos);
     if (Object.keys(campos).length > 0) {
       return next(errores.validacion(campos));
     }
 
-    const filas = await ventaModelo.listarPorUsuario(req.usuarioId, rango);
-    const { validas } = filtrarVentasValidas(filas);
-    const resumen = calcularResumen(validas);
+    const filas = await ventaModelo.listarPorPropietario(req.usuario.id, rango);
+    const { validas, invalidas } = filtrarVentasValidas(filas);
 
-    return res.json({
-      periodo: { desde: rango.desde, hasta: rango.hasta },
-      ...resumen,
-      por_categoria: agruparPorCategoria(validas),
-    });
+    return res.json(
+      estadisticasCliente(validas, {
+        desde: rango.desde,
+        hasta: rango.hasta,
+        agrupacion: agrupacion.agrupacion,
+        registrosExcluidos: invalidas.length,
+      })
+    );
   } catch (error) {
     return next(error);
   }
@@ -98,15 +136,11 @@ async function estadisticasMias(req, res, next) {
 
 async function prediccionesMias(req, res, next) {
   try {
-    const { campos, horizonte } = validarHorizonte(req.query.horizonte);
-    if (Object.keys(campos).length > 0) {
-      return next(errores.validacion(campos));
-    }
-
-    const filas = await ventaModelo.listarPorUsuario(req.usuarioId, {});
+    const filas = await ventaModelo.listarPorPropietario(req.usuario.id, {});
     const { validas } = filtrarVentasValidas(filas);
-
-    return res.json(predecirDemanda(validas, { horizonte }));
+    return res.json({
+      predicciones: predecirTodasLasCategorias(validas),
+    });
   } catch (error) {
     return next(error);
   }
