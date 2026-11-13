@@ -54,7 +54,6 @@ Resultado: **121 pruebas unitarias/HTTP aprobadas**, sin conexión a MySQL.
 $env:DB_PUERTO='3306'
 $env:DB_USUARIO='root'
 $env:DB_CONTRASENA=''
-$env:TEST_DB_NOMBRE='renefull_test_<sufijo>'
 npm run test:integracion
 ```
 
