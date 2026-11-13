@@ -63,6 +63,18 @@ test('401 y 403 se distinguen', () => {
   assert.equal(sinPermiso.cuerpo.error.codigo, 'NO_AUTORIZADO');
 });
 
+test('una restricción CHECK de MySQL se traduce a 422 sin exponer detalles', () => {
+  const res = respuestaFalsa();
+  responderError(res, {
+    code: 'ER_CHECK_CONSTRAINT_VIOLATED',
+    sqlMessage: "Check constraint 'ck_ventas_cantidad' is violated.",
+  });
+
+  assert.equal(res.codigo, 422);
+  assert.equal(res.cuerpo.error.codigo, 'VALIDACION_DATOS');
+  assert.equal(JSON.stringify(res.cuerpo).includes('ck_ventas_cantidad'), false);
+});
+
 test('ErrorApi conserva el mensaje específico y los campos opcionales', () => {
   const error = new ErrorApi(409, 'CONFLICTO', 'El correo ya está registrado.');
   const res = respuestaFalsa();

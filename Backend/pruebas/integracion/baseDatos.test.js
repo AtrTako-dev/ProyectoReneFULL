@@ -29,6 +29,7 @@ const { cargarDemo } = require('../../src/servicios/cargaDemo');
 const { filtrarVentasValidas } = require('../../src/servicios/registros');
 const { estadisticasCliente } = require('../../src/servicios/estadisticas');
 const { predecirTodasLasCategorias } = require('../../src/servicios/prediccion');
+const { traducirErrorBd } = require('../../src/middleware/errores');
 const app = require('../../src/app');
 
 const DIRECTORIO_DEMO = path.join(__dirname, '..', '..', 'data', 'demo');
@@ -445,4 +446,75 @@ test('la contraseña almacenada es un hash Argon2id verificable', async () => {
   assert.match(usuario.password_hash, /^\$argon2id\$/);
   assert.notEqual(usuario.password_hash, CONTRASENA);
   assert.equal(await verificar(usuario.password_hash, CONTRASENA), true);
+});
+
+test('el DDL aplica CHECK, UNIQUE y la FK compuesta y traduce los errores', async () => {
+  const hashFalso = '$argon2id$v=19$m=65536,t=3,p=4$falso$falso';
+
+  // CHECK: el rol solo admite cliente o administrador.
+  await assert.rejects(
+    () =>
+      obtenerPool().execute(
+        `INSERT INTO usuarios (id, nombre, correo, password_hash, rol)
+         VALUES (?, ?, ?, ?, ?)`,
+        [crypto.randomUUID(), 'Rol inválido', 'rol.invalido@example.com', hashFalso, 'superadmin']
+      ),
+    (error) => {
+      assert.equal(error.code, 'ER_CHECK_CONSTRAINT_VIOLATED');
+      const traducido = traducirErrorBd(error);
+      assert.equal(traducido.estado, 422);
+      assert.equal(traducido.codigo, 'VALIDACION_DATOS');
+      return true;
+    }
+  );
+
+  // UNIQUE: el correo no se puede repetir.
+  await assert.rejects(
+    () =>
+      obtenerPool().execute(
+        `INSERT INTO usuarios (id, nombre, correo, password_hash, rol)
+         VALUES (?, ?, ?, ?, ?)`,
+        [crypto.randomUUID(), 'Correo duplicado', configuracion.demo.email, hashFalso, 'cliente']
+      ),
+    (error) => error.code === 'ER_DUP_ENTRY'
+  );
+
+  // CHECK: importacion_id e id_origen deben ir juntos.
+  const [producto] = await obtenerPool().query(
+    'SELECT id, precio_actual_mxn FROM productos LIMIT 1'
+  );
+  await assert.rejects(
+    () =>
+      ventaModelo.insertar({
+        propietarioId: demo.id,
+        importacionId: null,
+        idOrigen: 'D01-777',
+        fecha: '2026-07-01',
+        productoId: producto[0].id,
+        precioUnitarioMxn: Number(producto[0].precio_actual_mxn),
+        cantidad: 1,
+        totalMxn: Number(producto[0].precio_actual_mxn),
+      }),
+    (error) => error.code === 'ER_CHECK_CONSTRAINT_VIOLATED'
+  );
+
+  // FK compuesta: una venta no puede apuntar a la importación de otro propietario.
+  const [importacion] = await obtenerPool().query(
+    'SELECT id FROM importaciones WHERE propietario_id = ? LIMIT 1',
+    [demo.id]
+  );
+  await assert.rejects(
+    () =>
+      ventaModelo.insertar({
+        propietarioId: otro.id,
+        importacionId: importacion[0].id,
+        idOrigen: 'D01-778',
+        fecha: '2026-07-01',
+        productoId: producto[0].id,
+        precioUnitarioMxn: Number(producto[0].precio_actual_mxn),
+        cantidad: 1,
+        totalMxn: Number(producto[0].precio_actual_mxn),
+      }),
+    (error) => error.code === 'ER_NO_REFERENCED_ROW_2'
+  );
 });
