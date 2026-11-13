@@ -160,5 +160,6 @@ Backend/
 ```
 
 Más detalle: [`docs/ESQUEMA_MYSQL.md`](docs/ESQUEMA_MYSQL.md),
-[`docs/PROCESOS_MYSQL.md`](docs/PROCESOS_MYSQL.md) y
-[`docs/VALIDACIONES_MYSQL.md`](docs/VALIDACIONES_MYSQL.md).
+[`docs/PROCESOS_MYSQL.md`](docs/PROCESOS_MYSQL.md),
+[`docs/VALIDACIONES_MYSQL.md`](docs/VALIDACIONES_MYSQL.md) y
+[`docs/ALINEACION_MIA.md`](docs/ALINEACION_MIA.md).

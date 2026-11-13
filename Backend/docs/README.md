@@ -11,6 +11,7 @@ esta rama.
 | [`ESQUEMA_MYSQL.md`](ESQUEMA_MYSQL.md) | Diccionario físico, llaves, índices y restricciones del DDL MySQL. |
 | [`PROCESOS_MYSQL.md`](PROCESOS_MYSQL.md) | Instalación, migración, cuentas, carga demo, ejecución y pruebas. |
 | [`VALIDACIONES_MYSQL.md`](VALIDACIONES_MYSQL.md) | Validaciones de entrada, de filas leídas y restricciones de MySQL. |
+| [`ALINEACION_MIA.md`](ALINEACION_MIA.md) | Contrato compartido y verificación contra `origin/Mia-Paola`. |
 
 Los cinco archivos de `../data/demo/` son datos simulados de demostración. No
 son ventas reales.
