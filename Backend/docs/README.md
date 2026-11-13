@@ -1,32 +1,14 @@
-# Documentación del backend
+# Documentación del backend de datos
 
-La documentación de esta rama cubre la base de datos, los procesos y las
-validaciones del backend. Las rutas HTTP, la autenticación y la aplicación móvil
-se integran en otras ramas.
+Esta carpeta documenta la implementación en **Node.js + MySQL 8** de la parte
+de datos del backend ReneFULL.
 
 | Documento | Contenido |
-| --- | --- |
-| `CONTRATO_BACKEND.md` | Contrato aprobado de base de datos, consultas y Machine Learning. |
-| `MODELO_DATOS.md` | DER, modelo relacional, diccionario de datos y normalización. |
-| `PROCESOS.md` | Procesos, decisiones, transacciones y manejo de errores. |
-| `VALIDACIONES.md` | Catálogo de validaciones y trazabilidad con las pruebas. |
+|---|---|
+| [`ESQUEMA_MYSQL.md`](ESQUEMA_MYSQL.md) | Tablas, columnas, llaves, índices, restricciones y mapa de identificadores. |
+| [`PROCESOS_MYSQL.md`](PROCESOS_MYSQL.md) | Migración, cuenta demo, carga de JSON, consultas, modelo y pruebas. |
+| [`VALIDACIONES_MYSQL.md`](VALIDACIONES_MYSQL.md) | Catálogo de validaciones, errores y trazabilidad con las pruebas. |
+| [`INTERFAZ_MIA.md`](INTERFAZ_MIA.md) | Contrato de consultas y modelo para la API Express de Mia-Paola. |
 
-## Orden de lectura
-
-1. `CONTRATO_BACKEND.md`: alcance, stack y acuerdos con las otras ramas.
-2. `MODELO_DATOS.md`: estructura persistente y reglas de integridad.
-3. `PROCESOS.md`: flujo de registro, carga, consulta, administración y
-   predicción.
-4. `VALIDACIONES.md`: reglas concretas, errores y pruebas que las cubren.
-
-## Comandos de verificación
-
-```powershell
-cd Backend
-alembic upgrade head
-alembic check
-pytest
-```
-
-Las pruebas requieren una base PostgreSQL desechable configurada en
-`TEST_DATABASE_URL`. Nunca se debe apuntar a una base con datos reales.
+Los cinco archivos de `../data/demo/` son datos simulados de demostración. No
+son ventas reales.
