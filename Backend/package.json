@@ -1,22 +1,26 @@
 {
-  "name": "renefull-backend-datos",
-  "version": "1.0.0",
+  "name": "renefull-backend",
+  "version": "0.2.0",
   "private": true,
-  "description": "Esquema MySQL, carga de datos simulados, consultas y modelo de demanda del backend ReneFULL",
-  "main": "src/datos/consultas.js",
+  "description": "API de Proyecto ReneFULL y capa de datos MySQL 8: autenticación, ventas, importaciones, estadísticas y predicciones",
+  "main": "src/servidor.js",
   "scripts": {
+    "start": "node src/servidor.js",
+    "dev": "node --watch src/servidor.js",
     "db:migrar": "node scripts/migrar.js",
+    "admin:crear": "node scripts/crearAdmin.js",
     "demo:cuenta": "node scripts/crearClienteDemo.js",
     "demo:cargar": "node scripts/cargarDemo.js",
-    "test": "node --test --test-concurrency=1 pruebas/datos/validacion.test.js pruebas/datos/ml.test.js pruebas/datos/integracion.test.js",
-    "test:unit": "node --test --test-concurrency=1 pruebas/datos/validacion.test.js pruebas/datos/ml.test.js",
-    "test:integracion": "node --test --test-concurrency=1 pruebas/datos/integracion.test.js"
+    "test": "node --test --test-concurrency=1 pruebas/api.test.js pruebas/authMiddleware.test.js pruebas/errores.test.js pruebas/estadisticas.test.js pruebas/flujosApi.test.js pruebas/importacionDemo.test.js pruebas/password.test.js pruebas/prediccion.test.js pruebas/registros.test.js pruebas/serializadores.test.js pruebas/token.test.js pruebas/validaciones.test.js",
+    "test:integracion": "node --test --test-concurrency=1 pruebas/integracion/baseDatos.test.js"
   },
   "engines": {
     "node": ">=20.12"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.11.5"
   }
 }

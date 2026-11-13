@@ -1,21 +1,23 @@
-# Backend Proyecto ReneFULL — datos y demanda
+# Backend — Proyecto ReneFULL
 
-Este directorio contiene la parte de **Node.js + MySQL 8** del backend que
-trabaja Ismael: esquema, migraciones, carga de los cinco conjuntos simulados de
-demostración, consultas internas, estadísticas y modelo de demanda. La API HTTP
-con **Express**, la autenticación y las rutas pertenecen al área de Mia-Paola;
-este paquete no las reimplementa, pero expone las consultas y el formato de
-salida que la API puede consumir.
+API REST en **Node.js + Express + MySQL 8** para autenticación, ventas del
+cliente, catálogo, importaciones de demostración, estadísticas y estimación de
+demanda. La autorización se resuelve desde MySQL en cada petición y las
+consultas de ejecución nunca leen los archivos JSON.
 
-> Los cinco JSON de `data/demo/` son **datos simulados de demostración**. No son
-> ventas reales, no se presentan como tales y no deben usarse para decisiones de
-> negocio.
+El contrato estable de endpoints, DTOs, validaciones y esquema está en
+[`docs/API_CONTRACT.md`](docs/API_CONTRACT.md). El DDL ejecutable es
+[`db/migraciones/001_esquema_inicial.sql`](db/migraciones/001_esquema_inicial.sql).
+
+> Los cinco archivos de `data/demo/` son **datos simulados de demostración**.
+> No son ventas reales y no deben usarse para decisiones de negocio.
 
 ## Requisitos
 
 - Node.js 20.12 o superior.
-- MySQL 8.0.
-- Los cinco archivos de `data/demo/` (100 ventas cada uno).
+- MySQL 8.0.16 o superior (probado con 8.0.46).
+- Una cuenta MySQL con permisos para crear la base de desarrollo, crear tablas,
+  insertar y consultar.
 
 ## Instalación
 
@@ -23,10 +25,35 @@ Desde `Backend/`:
 
 ```bash
 npm install
+cp .env.example .env
 ```
 
-Copie `.env.example` a `.env` y ajuste las variables `DB_*`. El archivo `.env`
-está excluido de Git; no incluya contraseñas ni secretos en el repositorio.
+Ajuste como mínimo `DB_*` y `JWT_SECRETO`. El archivo `.env` está excluido de
+Git; no guarde contraseñas reales en el repositorio.
+
+```dotenv
+DB_HOST=127.0.0.1
+DB_PUERTO=3306
+DB_USUARIO=renefull_app
+DB_CONTRASENA=
+DB_NOMBRE=proyecto_renefull
+DB_CONEXIONES=10
+
+JWT_SECRETO=una-cadena-larga-y-aleatoria-de-al-menos-32-caracteres
+JWT_HORAS=8
+
+ADMIN_NOMBRE=Administrador
+ADMIN_EMAIL=admin@example.com
+ADMIN_CONTRASENA=
+
+DEMO_EMAIL=cliente.demo@example.com
+DEMO_NOMBRE=Cliente de Demostracion
+DEMO_CONTRASENA=
+DEMO_DIRECTORIO=
+```
+
+`JWT_SECRETO` es obligatorio para arrancar el servidor. Los scripts de
+migración y de cuentas no necesitan un token.
 
 ## Base de datos
 
@@ -34,109 +61,104 @@ está excluido de Git; no incluya contraseñas ni secretos en el repositorio.
 npm run db:migrar
 ```
 
-El comando crea la base `DB_NOMBRE` si el usuario tiene permiso y aplica las
-migraciones pendientes de `db/migraciones/`. La migración inicial crea
-`usuarios`, `productos`, `importaciones`, `ventas` y `migraciones`, con claves,
-índices y restricciones. El detalle está en
-[`docs/ESQUEMA_MYSQL.md`](docs/ESQUEMA_MYSQL.md).
+La migración crea la base si no existe, aplica los archivos pendientes de
+`db/migraciones/`, registra el nombre y el SHA-256 en la tabla `migraciones` y
+omite las ya aplicadas. Si una migración aplicada cambia de contenido, el
+proceso aborta para no alterar un esquema existente.
 
-## Cuenta y catálogo de demostración
+Tablas resultantes: `usuarios`, `categorias`, `productos`, `importaciones`,
+`ventas` y `migraciones`.
 
-La cuenta demo se crea sin guardar la contraseña en el repositorio:
+## Cuentas iniciales
 
-```powershell
-$env:DEMO_PASSWORD='una-contraseña-local'
+Cree primero la cuenta administradora:
+
+```bash
+npm run admin:crear
+```
+
+Cree la cuenta cliente que recibirá los datos simulados:
+
+```bash
 npm run demo:cuenta
 ```
 
-En Bash:
+Para pasar la contraseña sin dejarla en `.env`, defina `ADMIN_CONTRASENA` o
+`DEMO_CONTRASENA` en el entorno del proceso. Las contraseñas se guardan con
+**Argon2id** y nunca se imprimen.
 
-```bash
-DEMO_PASSWORD='una-contraseña-local' npm run demo:cuenta
-```
+## Carga de demostración
 
-El correo y el nombre se configuran con `DEMO_EMAIL` y `DEMO_NOMBRE`. La carga
-crea el catálogo de productos a partir de los JSON y lo asocia a la cuenta
-cliente.
-
-## Carga de los cinco conjuntos
+Con `DEMO_EMAIL` apuntando a un cliente activo y, opcionalmente, `ADMIN_EMAIL`
+a un administrador activo:
 
 ```bash
 npm run demo:cargar
 ```
 
-La carga:
+- Valida los cinco JSON completos antes de abrir la transacción.
+- Carga 500 ventas, 41 productos y 6 categorías en una sola transacción.
+- Es idempotente: un segundo intento con el mismo contenido omite los conjuntos
+  ya importados y no duplica ventas.
+- Si algo falla, hace `ROLLBACK` de catálogo, importaciones y ventas.
+- Conserva `producto_id` y `id_venta` como texto y el precio histórico en
+  `ventas.precio_unitario_mxn`.
 
-- valida metadatos, fechas, códigos de texto, productos, categorías, cantidades,
-  precios y totales antes de abrir la transacción;
-- conserva `producto_id` como texto (`B003`) y el código de origen
-  (`D01-066`) en `ventas.id_origen`;
-- conserva el precio histórico de cada venta;
-- registra la fuente en `importaciones` con hash SHA-256;
-- es idempotente: repetirla no duplica ventas;
-- revierte la transacción completa si MySQL falla durante la inserción.
+## Servidor
 
-Resultado esperado de la carga de demostración:
+```bash
+npm start
+# desarrollo con recarga
+npm run dev
+```
 
-- 5 archivos;
-- 500 ventas;
-- 1,287 unidades;
-- 36,404.00 MXN.
-
-Los detalles de proceso y errores están en
-[`docs/PROCESOS_MYSQL.md`](docs/PROCESOS_MYSQL.md) y
-[`docs/VALIDACIONES_MYSQL.md`](docs/VALIDACIONES_MYSQL.md).
-
-## Consultas y modelo
-
-Las consultas filtran por propietario y validan cada fila contra el catálogo
-antes de calcular estadísticas o alimentar el modelo. Las filas inválidas se
-excluyen y se reportan; una consulta individual inválida produce un error
-controlado.
-
-El modelo de demanda:
-
-- agrega unidades por semana y categoría;
-- entrena una regresión Ridge en JavaScript;
-- evalúa en orden cronológico contra la línea base de la semana anterior;
-- usa MAE como métrica interpretable;
-- si no hay historial suficiente o el modelo no supera la línea base, devuelve
-  un estado controlado sin valores inventados.
-
-La interfaz exacta para Mia-Paola está en
-[`docs/INTERFAZ_MIA.md`](docs/INTERFAZ_MIA.md).
+La API se publica por defecto en `http://localhost:3000`. El contrato completo
+de rutas y respuestas está en [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md).
 
 ## Pruebas
 
-Con una instancia MySQL desechable configurada por variables de entorno:
+Pruebas unitarias y HTTP con modelos simulados, sin base de datos:
+
+```bash
+npm test
+```
+
+Pruebas de integración con MySQL real. Usan una base desechable
+`proyectorenefull_test` que se crea y se elimina en cada ejecución:
 
 ```powershell
-$env:DB_HOST='127.0.0.1'
 $env:DB_PUERTO='3306'
 $env:DB_USUARIO='root'
 $env:DB_CONTRASENA=''
 $env:TEST_DB_NOMBRE='proyectorenefull_test'
-npm test
+npm run test:integracion
 ```
 
-Las pruebas de integración crean y eliminan únicamente la base
-`TEST_DB_NOMBRE`. No usan la base de desarrollo ni datos reales.
-
-Resultado verificado: **21 pruebas aprobadas** (12 unitarias y 9 de integración
-con MySQL 8).
+Las pruebas de integración cubren la migración y sus hashes, los tipos
+`CHAR(36)`/`DECIMAL`, la FK compuesta, el rollback, la carga demo, la
+idempotencia, el aislamiento por propietario, las estadísticas, el modelo de
+demanda y los flujos HTTP reales.
 
 ## Estructura
 
 ```text
 Backend/
-  data/demo/                 Cinco JSON simulados
-  db/migraciones/            Migraciones SQL ejecutables
-  db/esquema.sql             Copia de referencia del esquema
-  src/config/                Configuración por variables de entorno
-  src/db/                    Pool, transacciones y migrador
-  src/datos/                 Validación, carga, consultas y cuentas
-  src/ml/                    Ridge y modelo de demanda semanal
-  scripts/                   Comandos de migración, cuenta y carga
-  pruebas/datos/             Pruebas unitarias y de integración
-  docs/                      Contrato y documentación de la implementación
+├─ data/demo/                 Cinco conjuntos simulados (100 ventas cada uno)
+├─ db/migraciones/            DDL MySQL versionado
+├─ docs/                      Contrato, esquema, procesos y validaciones
+├─ pruebas/                   Pruebas unitarias, HTTP e integración MySQL
+├─ scripts/                   Migración, cuentas y carga demo
+└─ src/
+   ├─ config/                 Variables de entorno
+   ├─ controladores/          Endpoints HTTP
+   ├─ db/                     Pool, transacciones y migraciones
+   ├─ middleware/            Autenticación y errores
+   ├─ modelos/                Acceso a MySQL
+   ├─ rutas/                  Rutas Express
+   ├─ servicios/              Estadísticas, predicción e importación
+   └─ validaciones/           Reglas de entrada y DTOs
 ```
+
+Más detalle: [`docs/ESQUEMA_MYSQL.md`](docs/ESQUEMA_MYSQL.md),
+[`docs/PROCESOS_MYSQL.md`](docs/PROCESOS_MYSQL.md) y
+[`docs/VALIDACIONES_MYSQL.md`](docs/VALIDACIONES_MYSQL.md).

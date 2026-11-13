@@ -1,14 +1,16 @@
-# Documentación del backend de datos
+# Documentación del backend
 
-Esta carpeta documenta la implementación en **Node.js + MySQL 8** de la parte
-de datos del backend ReneFULL.
+Implementación vigente: **Node.js + Express + MySQL 8**. La API, la
+autenticación y la capa de datos comparten el mismo esquema y el mismo contrato
+de respuestas. La referencia histórica PostgreSQL/FastAPI ya no forma parte de
+esta rama.
 
 | Documento | Contenido |
 |---|---|
-| [`ESQUEMA_MYSQL.md`](ESQUEMA_MYSQL.md) | Tablas, columnas, llaves, índices, restricciones y mapa de identificadores. |
-| [`PROCESOS_MYSQL.md`](PROCESOS_MYSQL.md) | Migración, cuenta demo, carga de JSON, consultas, modelo y pruebas. |
-| [`VALIDACIONES_MYSQL.md`](VALIDACIONES_MYSQL.md) | Catálogo de validaciones, errores y trazabilidad con las pruebas. |
-| [`INTERFAZ_MIA.md`](INTERFAZ_MIA.md) | Contrato de consultas y modelo para la API Express de Mia-Paola. |
+| [`API_CONTRACT.md`](API_CONTRACT.md) | Contrato estable de rutas, DTOs, validaciones, esquema y decisiones. |
+| [`ESQUEMA_MYSQL.md`](ESQUEMA_MYSQL.md) | Diccionario físico, llaves, índices y restricciones del DDL MySQL. |
+| [`PROCESOS_MYSQL.md`](PROCESOS_MYSQL.md) | Instalación, migración, cuentas, carga demo, ejecución y pruebas. |
+| [`VALIDACIONES_MYSQL.md`](VALIDACIONES_MYSQL.md) | Validaciones de entrada, de filas leídas y restricciones de MySQL. |
 
 Los cinco archivos de `../data/demo/` son datos simulados de demostración. No
 son ventas reales.

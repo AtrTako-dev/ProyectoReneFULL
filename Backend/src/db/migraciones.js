@@ -1,10 +1,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { configuracion } = require('../config/entornoDatos');
-const { crearConexion } = require('../db/mysql');
+const { configuracion } = require('../config/entorno');
+const { crearConexion } = require('./conexion');
 
 const FORMATO_BASE = /^[A-Za-z0-9_]{1,64}$/;
+const DIRECTORIO_MIGRACIONES = path.join(__dirname, '..', '..', 'db', 'migraciones');
 
 function validarNombreBase(nombre) {
   if (typeof nombre !== 'string' || !FORMATO_BASE.test(nombre)) {
@@ -31,80 +32,76 @@ async function asegurarTablaMigraciones(conexion) {
     `CREATE TABLE IF NOT EXISTS migraciones (
        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
        nombre VARCHAR(255) NOT NULL,
-       hash_sha256 CHAR(64) NOT NULL,
-       aplicada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       hash_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+       aplicado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
        PRIMARY KEY (id),
        UNIQUE KEY uq_migraciones_nombre (nombre)
-     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`
+     ) ENGINE=InnoDB`
   );
 }
 
-function listarMigraciones(directorio) {
+function listarArchivos(directorio) {
   if (!fs.existsSync(directorio)) {
     throw new Error(`No existe el directorio de migraciones: ${directorio}`);
   }
   return fs
     .readdirSync(directorio)
-    .filter((nombre) => nombre.toLowerCase().endsWith('.sql'))
-    .sort();
+    .filter((archivo) => archivo.toLowerCase().endsWith('.sql'))
+    .sort((a, b) => a.localeCompare(b, 'en'));
 }
 
 async function aplicarMigraciones({
-  nombreBase = configuracion.db.nombre,
   crearBase = true,
-  directorio = configuracion.rutas.migraciones,
+  directorio = DIRECTORIO_MIGRACIONES,
+  nombreBase = configuracion.db.nombre,
 } = {}) {
   const base = validarNombreBase(nombreBase);
-  if (crearBase) await crearBaseSiNoExiste(base);
+  if (crearBase) {
+    await crearBaseSiNoExiste(base);
+  }
 
-  const conexion = await crearConexion({
-    database: base,
-    multipleStatements: true,
-  });
-
+  const archivos = listarArchivos(directorio);
+  const conexion = await crearConexion({ database: base, multipleStatements: true });
+  const aplicadas = [];
+  const omitidas = [];
   try {
     await asegurarTablaMigraciones(conexion);
-    const aplicadas = [];
-    const omitidas = [];
-
-    for (const nombre of listarMigraciones(directorio)) {
-      const ruta = path.join(directorio, nombre);
-      const contenido = fs.readFileSync(ruta, 'utf8');
-      const hashSha256 = crypto.createHash('sha256').update(contenido).digest('hex');
-      const [existentes] = await conexion.execute(
-        'SELECT nombre, hash_sha256 FROM migraciones WHERE nombre = ?',
-        [nombre]
+    for (const archivo of archivos) {
+      const ruta = path.join(directorio, archivo);
+      const contenido = fs.readFileSync(ruta);
+      const hash = crypto.createHash('sha256').update(contenido).digest('hex');
+      const [filas] = await conexion.execute(
+        'SELECT hash_sha256 FROM migraciones WHERE nombre = ? LIMIT 1',
+        [archivo]
       );
-
-      if (existentes.length > 0) {
-        if (existentes[0].hash_sha256 !== hashSha256) {
+      if (filas.length > 0) {
+        if (filas[0].hash_sha256 !== hash) {
           throw new Error(
-            `La migración ${nombre} ya fue aplicada con otro contenido; no se modifica el historial.`
+            `La migración ${archivo} ya fue aplicada con otro contenido. ` +
+              'Cree una migración nueva en lugar de editar una aplicada.'
           );
         }
-        omitidas.push(nombre);
+        omitidas.push(archivo);
         continue;
       }
-
-      // MySQL no permite transacciones DDL. El archivo usa CREATE TABLE IF NOT
-      // EXISTS para que un reintento tras un fallo sea seguro y repetible.
-      await conexion.query(contenido);
+      await conexion.query(contenido.toString('utf8'));
       await conexion.execute(
         'INSERT INTO migraciones (nombre, hash_sha256) VALUES (?, ?)',
-        [nombre, hashSha256]
+        [archivo, hash]
       );
-      aplicadas.push(nombre);
+      aplicadas.push(archivo);
     }
-
-    return { base, aplicadas, omitidas };
   } finally {
     await conexion.end();
   }
+
+  return { base, aplicadas, omitidas };
 }
 
 module.exports = {
-  validarNombreBase,
-  crearBaseSiNoExiste,
+  DIRECTORIO_MIGRACIONES,
   aplicarMigraciones,
-  listarMigraciones,
+  crearBaseSiNoExiste,
+  listarArchivos,
+  validarNombreBase,
 };

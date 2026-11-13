@@ -1,12 +1,12 @@
 # Procesos de datos y modelo
 
-Este documento describe los procesos ejecutables de la parte de datos del
-backend. La API Express, la autenticación y las rutas quedan fuera de este
-alcance.
+Este documento describe los procesos ejecutables del backend **Node.js + Express +
+MySQL 8**. La API, la autenticación y las rutas comparten el mismo pool y el mismo
+esquema; no existe una segunda capa de datos.
 
 ## 1. Configuración
 
-Copie `.env.example` a `.env` y configure:
+Copie `.env.example` a `.env` y complete, como mínimo:
 
 ```dotenv
 DB_HOST=127.0.0.1
@@ -14,21 +14,25 @@ DB_PUERTO=3306
 DB_USUARIO=renefull_app
 DB_CONTRASENA=
 DB_NOMBRE=proyecto_renefull
-DEMO_EMAIL=cliente.demo@example.com
-DEMO_NOMBRE=Cliente de Demostracion
-DEMO_PASSWORD=
-IMPORTADO_POR_EMAIL=
-MIN_SEMANAS_ENTRENAMIENTO=12
-MIN_SEMANAS_CON_UNIDADES=8
-SEMANAS_EVALUACION=5
+DB_CONEXIONES=10
+JWT_SECRETO=una-cadena-larga-y-aleatoria-de-al-menos-32-caracteres
 ```
 
-`DEMO_PASSWORD` solo se usa para crear la cuenta demo y no debe escribirse en
-`.env` si el archivo se comparte; pásala por el entorno del proceso.
+Para crear las cuentas y cargar la demo:
 
-El usuario de MySQL necesita permisos para crear la base de desarrollo (o la
-base ya debe existir), crear tablas, insertar y consultar. No se guardan
-secretos en el repositorio.
+```dotenv
+ADMIN_EMAIL=admin@example.com
+ADMIN_CONTRASENA=
+DEMO_EMAIL=cliente.demo@example.com
+DEMO_NOMBRE=Cliente de Demostracion
+DEMO_CONTRASENA=
+DEMO_DIRECTORIO=
+```
+
+`JWT_SECRETO` solo es obligatorio para arrancar el servidor; los scripts de
+migración y de cuentas no lo necesitan. Las contraseñas se leen del entorno o de
+`.env` local, se guardan con **Argon2id** y no se imprimen. No guarde secretos en
+Git.
 
 ## 2. Migración
 
@@ -36,13 +40,17 @@ secretos en el repositorio.
 npm run db:migrar
 ```
 
-Fases:
+Fases del runner (`src/db/migraciones.js`):
 
-1. valida el nombre de la base;
-2. crea la base si no existe;
+1. valida que el nombre de la base solo use letras, números y `_`;
+2. crea la base con `utf8mb4`/`utf8mb4_0900_ai_ci` si no existe;
 3. asegura la tabla `migraciones`;
-4. aplica cada `.sql` pendiente y registra nombre y hash;
-5. omite migraciones ya aplicadas si el hash coincide.
+4. lee los `.sql` de `db/migraciones/` en orden alfabético;
+5. aplica los pendientes y registra nombre y SHA-256;
+6. omite los ya aplicados si el hash coincide.
+
+Si un archivo ya aplicado cambió de contenido, el proceso aborta. Para cambiar
+el esquema se agrega una migración nueva; no se edita una aplicada.
 
 Verificación:
 
@@ -50,211 +58,170 @@ Verificación:
 mysql -u root -p -e "USE proyecto_renefull; SHOW TABLES;"
 ```
 
-Tablas esperadas: `usuarios`, `productos`, `importaciones`, `ventas`,
-`migraciones`.
+Tablas esperadas: `usuarios`, `categorias`, `productos`, `importaciones`,
+`ventas` y `migraciones`.
 
-## 3. Cuenta cliente de demostración
+## 3. Cuentas iniciales
 
-```powershell
-$env:DEMO_PASSWORD='una-contraseña-local'
+```bash
+npm run admin:crear
 npm run demo:cuenta
 ```
 
-En Bash:
-
-```bash
-DEMO_PASSWORD='una-contraseña-local' npm run demo:cuenta
-```
-
-- Normaliza el correo a minúsculas.
-- Exige nombre de 1–120 caracteres y contraseña de 8–128.
-- Hashea la contraseña con Argon2id.
-- Es idempotente: si la cuenta ya existe como cliente activo, no la modifica y
-  reporta `ya_existe`.
-- No imprime la contraseña ni el hash.
+- `admin:crear` exige `ADMIN_EMAIL` y `ADMIN_CONTRASENA`; crea un usuario
+  `administrador`, activo y con UUID generado por Node. Si el correo ya existe,
+  falla para no duplicar la cuenta.
+- `demo:cuenta` usa `DEMO_EMAIL`, `DEMO_NOMBRE` y `DEMO_CONTRASENA`. Normaliza el
+  correo a minúsculas, valida nombre de 1..120 y contraseña de al menos 8
+  caracteres, y es idempotente: si la cuenta ya es un cliente activo, devuelve
+  `estado: "existente"` sin modificarla. Si existe con otro rol o inactiva,
+  falla.
+- La salida de `demo:cuenta` es un JSON con `estado`, `id`, `correo` y `rol`; no
+  incluye contraseña ni hash.
 
 ## 4. Carga de los cinco JSON
+
+Con `DEMO_EMAIL` apuntando a un cliente activo:
 
 ```bash
 npm run demo:cargar
 ```
 
-### 4.1 Fases de la carga
+`ADMIN_EMAIL` es opcional. Si se define, la cuenta debe existir, estar activa y
+ser administradora; se guarda en `importaciones.importado_por`.
 
-1. **Lectura y validación previa**: lee exactamente cinco archivos `.json`
-   desde `data/demo/`, verifica UTF-8, JSON, metadatos y 100 filas por archivo.
+### 4.1 Fases
+
+1. **Lectura y validación previa**: lee exactamente cinco archivos `.json` de
+   `data/demo/`, valida UTF-8, JSON, metadatos y 100 ventas por archivo.
 2. **Validación de filas**: conserva `id_venta` e `producto_id` como texto,
    valida fecha real, periodo, producto, categoría, precio, cantidad y total.
-3. **Validación de catálogo**: exige coherencia de nombre y categoría por
-   `producto_id`; el precio vigente se toma de la venta más reciente.
-4. **Transacción**: busca la cuenta cliente, comprueba importaciones previas y
-   hashes, crea el catálogo faltante, registra `importaciones` e inserta ventas.
+3. **Validación de catálogo**: exige el mismo nombre, categoría y precio por
+   `producto_id` en todos los archivos. El precio vigente sale del catálogo
+   consistente; el precio histórico se conserva en cada venta.
+4. **Transacción**: busca el propietario y el importador, comprueba importaciones
+   previas, crea el catálogo, registra `importaciones` e inserta ventas.
 5. **Confirmación**: si todo termina, hace `COMMIT`; ante cualquier error hace
-   `ROLLBACK`.
+   `ROLLBACK` de catálogo, importaciones y ventas.
+
+Toda la validación ocurre antes de abrir la transacción. Un conjunto inválido no
+modifica la base.
 
 ### 4.2 Idempotencia
 
-- La clave única `importaciones.conjunto` evita duplicar un conjunto.
-- La clave única `importaciones.hash_sha256` evita cargar el mismo contenido con
-  otro nombre.
-- La clave única `(importacion_id, id_origen)` evita duplicar una venta de una
-  fuente.
-- Si el conjunto ya existe con el mismo hash, la carga lo reporta como
-  `ya_importado`.
-- Si el hash cambió, la carga falla con `CONFLICTO_IMPORTACION`; no borra ni
-  modifica lo ya importado.
+- `UNIQUE(importaciones.conjunto)` evita duplicar un conjunto.
+- `UNIQUE(importaciones.hash_sha256)` evita el mismo contenido con otro nombre.
+- `UNIQUE(ventas.importacion_id, ventas.id_origen)` evita duplicar una venta de
+  una fuente.
+- Si el conjunto existe con el mismo hash, se omite y se reporta en
+  `omitidos`.
+- Si el conjunto existe con otro contenido, o el hash aparece con otro conjunto,
+  la carga falla sin borrar ni modificar lo ya importado.
 
 ### 4.3 Resultado esperado
 
-```json
-{
-  "estado": "ok",
-  "totales": {
-    "archivos": 5,
-    "archivos_importados": 5,
-    "archivos_ya_importados": 0,
-    "ventas_insertadas": 500,
-    "ventas_existentes": 0,
-    "productos_catalogo": 41
-  }
-}
-```
+La carga de los cinco conjuntos actuales produce:
 
-Totales verificados: 500 ventas, 1,287 unidades y 36,404.00 MXN.
+- 5 importaciones;
+- 500 ventas;
+- 1,287 unidades;
+- 36,404.00 MXN;
+- 41 productos;
+- 6 categorías.
+
+La segunda ejecución devuelve `importados: []`, `omitidos: 5` y
+`ventas_insertadas: 0`, sin duplicar filas.
 
 ### 4.4 Errores y reversión
 
-- Metadatos o filas inválidas: `VALIDACION_DATOS`, con archivo, fila, campo y
-  mensaje; no se abre la transacción.
-- Cuenta inexistente, inactiva o con rol distinto de cliente:
-  `OPERACION_NO_PERMITIDA`.
-- Conflicto de conjunto, hash o propietario: `CONFLICTO_IMPORTACION`.
-- Fallo de MySQL en cualquier inserción: se revierte el catálogo, las
-  importaciones y las ventas de esa ejecución.
+- Metadatos o filas inválidas: `ErrorImportacion` con archivo, fila, campo y
+  motivo; no se abre la transacción.
+- Cuenta inexistente, inactiva o con rol incorrecto: error de importación.
+- Conflicto de conjunto o hash: error de importación.
+- Fallo de MySQL en cualquier inserción: `ROLLBACK` completo.
 
-La prueba de integración crea un trigger temporal que fuerza un fallo en
-`ventas` y comprueba que las tres tablas quedan vacías.
+La prueba de integración crea un trigger temporal que falla al insertar en
+`ventas` y comprueba que `categorias`, `productos`, `importaciones` y `ventas`
+quedan vacías.
 
-## 5. Consultas internas
+## 5. Consultas de ejecución
 
-### 5.1 Ventas válidas por propietario
+La API y los scripts de consulta leen **solo MySQL**. Los JSON solo se usan en
+`demo:cargar`.
 
-`listarVentasValidas(usuarioId, { desde, hasta, limite })`:
+### 5.1 Ventas
 
-- exige un `usuario_id` válido (excepto la variante administrativa interna con
-  `null`);
-- filtra por `ventas.usuario_id`;
-- valida cada fila contra el catálogo;
-- devuelve `{ ventas, excluidas }`;
-- una fila inválida no entra a estadísticas ni al modelo.
+`ventaModelo.listarPorPropietario(propietarioId, { desde, hasta })` devuelve las
+filas con `producto_id`, `id_origen` e `importacion_id` tal como están en MySQL.
+`filtrarVentasValidas(ventas)` valida cada fila contra el modelo lógico y separa
+las inválidas; estas no participan en estadísticas ni en el modelo.
 
-`obtenerVentaValida(usuarioId, idVenta)`:
-
-- filtra por propietario e `id_venta`;
-- si no existe devuelve `NO_ENCONTRADO`;
-- si existe pero es inválida lanza `REGISTRO_INVALIDO` con los campos.
+El propietario de un cliente se deriva siempre del token. La variante
+administrativa usa el agregado global y solo está disponible para
+`administrador`.
 
 ### 5.2 Estadísticas
 
-`estadisticasCliente(usuarioId, { desde, hasta })` devuelve:
+`estadisticasCliente(ventas, { desde, hasta, agrupacion })` devuelve:
 
-```json
-{
-  "periodo": { "desde": "2026-01-01", "hasta": "2026-06-29" },
-  "total_ventas": 500,
-  "total_unidades": 1287,
-  "total_importe_mxn": 36404,
-  "por_categoria": [
-    { "categoria": "Abarrotes", "ventas": 93, "unidades": 236, "importe_mxn": 6113.5 }
-  ],
-  "por_periodo": [
-    { "etiqueta": "2026-W02", "periodo_inicio": "2026-01-05", "periodo_fin": "2026-01-11", "ventas": 25, "unidades": 47, "importe_mxn": 1362.5 }
-  ],
-  "registros_excluidos": 0
-}
+- `periodo`: límites consultados o límites de las ventas válidas;
+- `resumen`: `transacciones_validas`, `unidades`, `importe_mxn`,
+  `registros_excluidos`;
+- `por_categoria`: ordenado por nombre;
+- `por_semana` o `por_mes`: filas por **periodo y categoría** (el otro arreglo va
+  vacío);
+- `por_producto`: ordenado por unidades descendentes.
+
+Los importes se redondean a dos decimales. `completa` indica si el periodo cae
+íntegramente dentro de las ventas válidas. El rango máximo es de 730 días.
+
+`estadisticasAdmin` usa la misma estructura, añade `resumen.total_clientes` y el
+arreglo `clientes` con los clientes que tienen ventas.
+
+### 5.3 Predicciones
+
+`predecirTodasLasCategorias(ventas, { hoy })` devuelve un resultado por
+categoría. Los estados controlados son:
+
+| `tipo_resultado` | Significado |
+|---|---|
+| `prediccion` | Ridge supera la línea base y publica valores. |
+| `modelo_no_supera_linea_base` | El modelo no mejora la semana anterior; no publica valores. |
+| `sin_historial_suficiente` | No hay semanas, unidades o muestras suficientes; no publica valores. |
+
+Los resultados sin valores no inventan cifras. Con los cinco JSON actuales y
+`hoy = 2026-07-01`, 4 categorías publican `prediccion` y 2 quedan como
+`modelo_no_supera_linea_base`.
+
+## 6. Pruebas
+
+Sin base de datos:
+
+```bash
+npm test
 ```
 
-`estadisticasAdmin({ desde, hasta, agrupacion })` devuelve la misma información
-global con `grupos` y `totales`.
-
-Los importes se suman en centavos y se devuelven como número con dos decimales.
-El rango máximo es de 730 días.
-
-## 6. Modelo de demanda
-
-### 6.1 Entrada
-
-Se alimenta exclusivamente con ventas válidas y del propietario solicitado:
-
-```js
-const { ventas } = await cargarVentasParaModelo({ usuarioId });
-const resultado = predecirDemanda(ventas, { horizonte: 7 });
-```
-
-### 6.2 Preparación
-
-1. Filtra por categoría o toma el total.
-2. Agrupa unidades por semana ISO completa (lunes a domingo).
-3. Excluye la semana parcial final.
-4. Construye muestras con:
-   - índice de semana;
-   - mes;
-   - unidades de la semana anterior;
-   - promedio de las cuatro semanas previas;
-   - unidades de la misma semana del mes anterior.
-5. Divide cronológicamente: las últimas 5 semanas son evaluación; el resto es
-   entrenamiento. No hay mezcla aleatoria.
-
-### 6.3 Evaluación
-
-- Modelo: regresión Ridge en JavaScript, `alpha = 1.0`.
-- Línea base: unidades de la semana anterior.
-- Métrica: MAE (error absoluto medio), interpretable en unidades.
-- El modelo solo se usa si `MAE_modelo < MAE_línea_base`.
-
-### 6.4 Estados controlados
-
-| Estado | Significado | `valores` |
-|---|---|---|
-| `ok` | Hay historial y el modelo supera la línea base | Semanas estimadas |
-| `sin_base_suficiente` | Menos de 12 semanas completas, menos de 8 con unidades o no se pudo entrenar | `[]` |
-| `modelo_no_supera_linea_base` | El modelo no mejora la línea base en la evaluación | `[]` |
-
-En la demostración, el resultado agregado es
-`modelo_no_supera_linea_base`; por categoría hay 4 estimaciones `ok` y 2
-categorías controladas sin valores. Esto es un resultado válido: no se fuerza
-una predicción cuando no hay evidencia de mejora.
-
-### 6.5 Salida
-
-La salida semanal incluye `periodo`, `valores`, `modelo`, `evaluacion`,
-`datos`, `por_categoria`, `resumen_categorias` y `advertencia`. El contrato
-detallado está en [`INTERFAZ_MIA.md`](INTERFAZ_MIA.md).
-
-Las predicciones no se persisten. Si se necesitan auditorías, deben guardarse
-en una tabla separada con su propio diseño.
-
-## 7. Pruebas
-
-Con MySQL desechable:
+Con MySQL real y base desechable:
 
 ```powershell
-$env:DB_HOST='127.0.0.1'
 $env:DB_PUERTO='3306'
 $env:DB_USUARIO='root'
 $env:DB_CONTRASENA=''
 $env:TEST_DB_NOMBRE='proyectorenefull_test'
-npm test
+npm run test:integracion
 ```
 
-Las pruebas:
+La prueba de integración crea y elimina la base indicada. No use el nombre de
+una base de desarrollo o producción como `TEST_DB_NOMBRE`.
 
-- crean y eliminan solo `TEST_DB_NOMBRE`;
-- aplican la migración real;
-- cargan los cinco JSON;
-- comprueban idempotencia, conflicto de hash y rollback por trigger;
-- comprueban aislamiento por propietario y exclusión de filas inválidas;
-- comprueban los estados del modelo y que no se inventen valores.
+## 7. Solución de problemas
 
-Resultado verificado en MySQL 8.0.46: **21 pruebas aprobadas** (12 unitarias y
-9 de integración).
+- **`JWT_SECRETO es obligatorio`**: defina al menos 32 caracteres en `.env` o en
+  el entorno antes de `npm start`.
+- **`La migración X ya fue aplicada con otro contenido`**: no edite migraciones
+  aplicadas; cree un archivo nuevo.
+- **`DEMO_EMAIL no existe`**: ejecute `npm run demo:cuenta` o corrija el correo.
+- **`factor no válido` / `ER_ACCESS_DENIED_ERROR`**: revise usuario, contraseña y
+  permisos de MySQL.
+- **La carga se omite**: es el comportamiento idempotente esperado. Consulte la
+  tabla `importaciones` y los hashes.
