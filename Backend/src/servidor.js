@@ -1,6 +1,8 @@
 const app = require('./app');
-const { configuracion } = require('./config/entorno');
+const { configuracion, validarConfiguracionServidor } = require('./config/entorno');
 const { cerrarPool } = require('./db/conexion');
+
+validarConfiguracionServidor();
 
 const servidor = app.listen(configuracion.puerto, () => {
   console.log(`API disponible en http://localhost:${configuracion.puerto}`);

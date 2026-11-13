@@ -5,9 +5,16 @@ const {
   validarCreacionVenta,
   validarTotalDeclarado,
   validarRangoFechas,
-  validarHorizonte,
+  validarPaginacion,
 } = require('../src/validaciones/ventas');
-const { validarCambioRol, validarAgrupacion } = require('../src/validaciones/admin');
+const {
+  validarCambioRol,
+  validarAgrupacion,
+  validarClienteId,
+} = require('../src/validaciones/admin');
+const { uuidObligatorio, productoIdValido } = require('../src/validaciones/comunes');
+
+const CLIENTE_ID = '11111111-1111-4111-8111-111111111111';
 
 function fechaFutura() {
   const fecha = new Date();
@@ -49,15 +56,21 @@ test('login exige correo con formato y contraseña', () => {
   assert.ok(campos.password);
 });
 
-test('venta válida pasa las validaciones', () => {
+test('venta válida pasa las validaciones con producto de catálogo', () => {
   const { campos, datos } = validarCreacionVenta({
     fecha: '2026-01-15',
-    producto_id: 3,
+    producto_id: 'B003',
     cantidad: 2,
-    precio_unitario_mxn: 10.5,
+    precio_unitario_mxn: 31,
   });
   assert.deepEqual(campos, {});
-  assert.deepEqual(datos, { fecha: '2026-01-15', productoId: 3, cantidad: 2, precioUnitario: 10.5 });
+  assert.deepEqual(datos, {
+    fecha: '2026-01-15',
+    productoId: 'B003',
+    cantidad: 2,
+    precioUnitario: 31,
+    claveIdempotencia: null,
+  });
 });
 
 test('venta rechaza producto, cantidad y precio inválidos', () => {
@@ -68,14 +81,14 @@ test('venta rechaza producto, cantidad y precio inválidos', () => {
     precio_unitario_mxn: -1,
   });
   assert.ok(campos.producto_id);
-  assert.equal(campos.cantidad, 'La cantidad debe ser mayor que 0');
-  assert.equal(campos.precio_unitario_mxn, 'El precio unitario no puede ser negativo');
+  assert.equal(campos.cantidad, 'La cantidad debe ser mayor o igual que 1');
+  assert.equal(campos.precio_unitario_mxn, 'El precio unitario debe ser mayor que 0');
 });
 
 test('venta rechaza precio cero', () => {
   const { campos } = validarCreacionVenta({
     fecha: '2026-01-15',
-    producto_id: 1,
+    producto_id: 'B003',
     cantidad: 1,
     precio_unitario_mxn: 0,
   });
@@ -85,7 +98,7 @@ test('venta rechaza precio cero', () => {
 test('venta rechaza fechas inválidas o futuras', () => {
   const invalida = validarCreacionVenta({
     fecha: '2026-13-01',
-    producto_id: 1,
+    producto_id: 'B003',
     cantidad: 1,
     precio_unitario_mxn: 5,
   });
@@ -93,20 +106,48 @@ test('venta rechaza fechas inválidas o futuras', () => {
 
   const futura = validarCreacionVenta({
     fecha: fechaFutura(),
-    producto_id: 1,
+    producto_id: 'B003',
     cantidad: 1,
     precio_unitario_mxn: 5,
   });
   assert.equal(futura.campos.fecha, 'La fecha no puede ser futura');
 });
 
+test('venta rechaza que el cliente fije propietario, importación u origen', () => {
+  const { campos } = validarCreacionVenta({
+    fecha: '2026-01-15',
+    producto_id: 'B003',
+    cantidad: 1,
+    precio_unitario_mxn: 5,
+    propietario_id: CLIENTE_ID,
+    usuario_id: CLIENTE_ID,
+    importacion_id: 1,
+    id_origen: 'D01-066',
+  });
+  assert.ok(campos.propietario_id);
+  assert.ok(campos.usuario_id);
+  assert.ok(campos.importacion_id);
+  assert.ok(campos.id_origen);
+});
+
+test('la clave de idempotencia debe ser UUID si se envía', () => {
+  const { campos } = validarCreacionVenta({
+    fecha: '2026-01-15',
+    producto_id: 'B003',
+    cantidad: 1,
+    precio_unitario_mxn: 5,
+    clave_idempotencia: 'no-uuid',
+  });
+  assert.ok(campos.clave_idempotencia);
+});
+
 test('total declarado correcto no genera error y uno incorrecto sí', () => {
   const camposCorrecto = {};
-  validarTotalDeclarado(21, 10.5, 2, camposCorrecto);
+  validarTotalDeclarado(62, 31, 2, camposCorrecto);
   assert.deepEqual(camposCorrecto, {});
 
   const camposIncorrecto = {};
-  validarTotalDeclarado(20, 10.5, 2, camposIncorrecto);
+  validarTotalDeclarado(60, 31, 2, camposIncorrecto);
   assert.equal(camposIncorrecto.total_mxn, 'El total no coincide con precio unitario × cantidad');
 });
 
@@ -121,12 +162,16 @@ test('rango de fechas valida orden y máximo de días', () => {
   assert.deepEqual(valido.campos, {});
 });
 
-test('horizonte debe ser entero entre 1 y 90', () => {
-  assert.ok(validarHorizonte(undefined).campos.horizonte);
-  assert.equal(validarHorizonte(0).campos.horizonte, 'El horizonte debe ser mayor que 0');
-  assert.equal(validarHorizonte(91).campos.horizonte, 'El horizonte no puede superar 90 días');
-  assert.ok(validarHorizonte('abc').campos.horizonte);
-  assert.deepEqual(validarHorizonte('7').campos, {});
+test('paginación usa valores por defecto y valida límites', () => {
+  assert.deepEqual(validarPaginacion({}).campos, {});
+  assert.deepEqual(validarPaginacion({}).paginacion, { limite: 100, desplazamiento: 0 });
+  assert.deepEqual(validarPaginacion({ limite: '25', desplazamiento: '5' }).paginacion, {
+    limite: 25,
+    desplazamiento: 5,
+  });
+  assert.ok(validarPaginacion({ limite: 0 }).campos.limite);
+  assert.ok(validarPaginacion({ limite: 501 }).campos.limite);
+  assert.ok(validarPaginacion({ desplazamiento: -1 }).campos.desplazamiento);
 });
 
 test('cambio de rol solo admite valores conocidos', () => {
@@ -135,9 +180,33 @@ test('cambio de rol solo admite valores conocidos', () => {
   assert.ok(validarCambioRol({ rol: 'superadmin' }).campos.rol);
 });
 
-test('agrupación solo admite semana o mes', () => {
-  assert.deepEqual(validarAgrupacion('semana').campos, {});
-  assert.deepEqual(validarAgrupacion('mes').campos, {});
+test('agrupación usa semana por defecto y solo admite semana o mes', () => {
+  assert.deepEqual(validarAgrupacion('semana'), { campos: {}, agrupacion: 'semana' });
+  assert.deepEqual(validarAgrupacion('mes'), { campos: {}, agrupacion: 'mes' });
+  assert.deepEqual(validarAgrupacion(undefined), { campos: {}, agrupacion: 'semana' });
   assert.ok(validarAgrupacion('dia').campos.agrupacion);
-  assert.ok(validarAgrupacion(undefined).campos.agrupacion);
+});
+
+test('el cliente administrativo debe ser UUID', () => {
+  assert.deepEqual(validarClienteId(CLIENTE_ID), {
+    campos: {},
+    clienteId: CLIENTE_ID,
+  });
+  assert.ok(validarClienteId('no-uuid').campos.cliente_id);
+  assert.ok(validarClienteId(undefined).campos.cliente_id);
+});
+
+test('UUID y producto usan los patrones del esquema acordado', () => {
+  const campos = {};
+  assert.equal(uuidObligatorio(CLIENTE_ID, 'id', campos), CLIENTE_ID);
+  assert.deepEqual(campos, {});
+
+  const camposUuid = {};
+  assert.equal(uuidObligatorio('abc', 'id', camposUuid), null);
+  assert.ok(camposUuid.id);
+
+  assert.equal(productoIdValido('B003', 'producto_id', {}), 'B003');
+  assert.equal(productoIdValido('AB003', 'producto_id', {}), 'AB003');
+  assert.equal(productoIdValido('b003', 'producto_id', {}), null);
+  assert.equal(productoIdValido('B0034', 'producto_id', {}), null);
 });

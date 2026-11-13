@@ -1,32 +1,17 @@
 # Documentación del backend
 
-La documentación de esta rama cubre la base de datos, los procesos y las
-validaciones del backend. Las rutas HTTP, la autenticación y la aplicación móvil
-se integran en otras ramas.
+Implementación vigente: **Node.js + Express + MySQL 8**. La API, la
+autenticación y la capa de datos comparten el mismo esquema y el mismo contrato
+de respuestas. La referencia histórica PostgreSQL/FastAPI ya no forma parte de
+esta rama.
 
 | Documento | Contenido |
-| --- | --- |
-| `CONTRATO_BACKEND.md` | Contrato aprobado de base de datos, consultas y Machine Learning. |
-| `MODELO_DATOS.md` | DER, modelo relacional, diccionario de datos y normalización. |
-| `PROCESOS.md` | Procesos, decisiones, transacciones y manejo de errores. |
-| `VALIDACIONES.md` | Catálogo de validaciones y trazabilidad con las pruebas. |
+|---|---|
+| [`API_CONTRACT.md`](API_CONTRACT.md) | Contrato estable de rutas, DTOs, validaciones, esquema y decisiones. |
+| [`ESQUEMA_MYSQL.md`](ESQUEMA_MYSQL.md) | Diccionario físico, llaves, índices y restricciones del DDL MySQL. |
+| [`PROCESOS_MYSQL.md`](PROCESOS_MYSQL.md) | Instalación, migración, cuentas, carga demo, ejecución y pruebas. |
+| [`VALIDACIONES_MYSQL.md`](VALIDACIONES_MYSQL.md) | Validaciones de entrada, de filas leídas y restricciones de MySQL. |
+| [`ALINEACION_MIA.md`](ALINEACION_MIA.md) | Contrato compartido y verificación contra `origin/Mia-Paola`. |
 
-## Orden de lectura
-
-1. `CONTRATO_BACKEND.md`: alcance, stack y acuerdos con las otras ramas.
-2. `MODELO_DATOS.md`: estructura persistente y reglas de integridad.
-3. `PROCESOS.md`: flujo de registro, carga, consulta, administración y
-   predicción.
-4. `VALIDACIONES.md`: reglas concretas, errores y pruebas que las cubren.
-
-## Comandos de verificación
-
-```powershell
-cd Backend
-alembic upgrade head
-alembic check
-pytest
-```
-
-Las pruebas requieren una base PostgreSQL desechable configurada en
-`TEST_DATABASE_URL`. Nunca se debe apuntar a una base con datos reales.
+Los cinco archivos de `../data/demo/` son datos simulados de demostración. No
+son ventas reales.

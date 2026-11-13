@@ -1,6 +1,11 @@
 const { verificarToken } = require('../servicios/token');
 const { errores } = require('./errores');
+const { esUuid } = require('../validaciones/comunes');
 const usuarioModelo = require('../modelos/usuarioModelo');
+
+function estaActivo(usuario) {
+  return Boolean(usuario) && (usuario.activo === true || Number(usuario.activo) === 1);
+}
 
 function crearRequiereAutenticacion({ verificar = verificarToken } = {}) {
   return function requiereAutenticacion(req, res, next) {
@@ -14,11 +19,11 @@ function crearRequiereAutenticacion({ verificar = verificarToken } = {}) {
     }
     try {
       const contenido = verificar(token);
-      const id = Number(contenido.sub);
-      if (!Number.isInteger(id) || id <= 0) {
+      // El token solo porta identidad. El sub debe ser el UUID del usuario.
+      if (!contenido || !esUuid(contenido.sub)) {
         return next(errores.noAutenticado());
       }
-      req.usuarioId = id;
+      req.usuarioId = contenido.sub.toLowerCase();
       return next();
     } catch {
       return next(errores.noAutenticado());
@@ -26,11 +31,14 @@ function crearRequiereAutenticacion({ verificar = verificarToken } = {}) {
   };
 }
 
-function crearCargarUsuarioActual({ buscarUsuario = usuarioModelo.buscarPorId } = {}) {
+function crearCargarUsuarioActual({
+  buscarUsuario = (id) => usuarioModelo.buscarPorId(id),
+} = {}) {
   return async function cargarUsuarioActual(req, res, next) {
     try {
       const usuario = await buscarUsuario(req.usuarioId);
-      if (!usuario) {
+      if (!estaActivo(usuario)) {
+        // Una cuenta inexistente o inactiva equivale a no tener sesión.
         return next(errores.noAutenticado());
       }
       req.usuario = usuario;
@@ -41,7 +49,10 @@ function crearCargarUsuarioActual({ buscarUsuario = usuarioModelo.buscarPorId } 
   };
 }
 
-function crearRequiereRol(roles, { buscarUsuario = usuarioModelo.buscarPorId } = {}) {
+function crearRequiereRol(
+  roles,
+  { buscarUsuario = (id) => usuarioModelo.buscarPorId(id) } = {}
+) {
   const cargarUsuario = crearCargarUsuarioActual({ buscarUsuario });
   return function requiereRol(req, res, next) {
     cargarUsuario(req, res, (error) => {
@@ -64,6 +75,7 @@ module.exports = {
   crearRequiereAutenticacion,
   crearCargarUsuarioActual,
   crearRequiereRol,
+  estaActivo,
   requiereAutenticacion,
   cargarUsuarioActual,
   requiereAdministrador,

@@ -5,7 +5,7 @@ const { envolverAsync } = require('../middleware/errores');
 
 const router = express.Router();
 
-router.use(requiereAutenticacion, requiereAdministrador);
+router.use(requiereAutenticacion, envolverAsync(requiereAdministrador));
 
 router.get('/usuarios', envolverAsync(controlador.listarUsuarios));
 router.patch('/usuarios/:id/rol', envolverAsync(controlador.cambiarRol));
