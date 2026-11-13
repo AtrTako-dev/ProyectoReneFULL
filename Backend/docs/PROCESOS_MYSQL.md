@@ -92,8 +92,9 @@ ser administradora; se guarda en `importaciones.importado_por`.
 
 ### 4.1 Fases
 
-1. **Lectura y validación previa**: lee exactamente cinco archivos `.json` de
-   `data/demo/`, valida UTF-8, JSON, metadatos y 100 ventas por archivo.
+1. **Lectura y validación previa**: lee todos los `.json` de `data/demo/` (la
+   demo versionada tiene cinco), valida UTF-8, JSON y metadatos, y comprueba que
+   `cantidad_registros` coincida con el número real de ventas de cada archivo.
 2. **Validación de filas**: conserva `id_venta` e `producto_id` como texto,
    valida fecha real, periodo, producto, categoría, precio, cantidad y total.
 3. **Validación de catálogo**: exige el mismo nombre, categoría y precio por
@@ -176,7 +177,9 @@ Los importes se redondean a dos decimales. `completa` indica si el periodo cae
 íntegramente dentro de las ventas válidas. El rango máximo es de 730 días.
 
 `estadisticasAdmin` usa la misma estructura, añade `resumen.total_clientes` y el
-arreglo `clientes` con los clientes que tienen ventas.
+arreglo `clientes` con todos los usuarios de rol `cliente` (aunque no tengan
+ventas) y cualquier usuario que sí tenga ventas. Un cliente sin ventas aparece
+con ceros y `ultima_venta: null`.
 
 ### 5.3 Predicciones
 

@@ -19,7 +19,7 @@ transacción.
 | `moneda` | Debe ser exactamente `MXN`. |
 | `periodo_inicio`, `periodo_fin` | Fechas reales; el fin no puede ser anterior al inicio. |
 | `cantidad_registros` | Entero de 1..100000 e igual al número de ventas. |
-| Número de archivos | Debe haber al menos un JSON; la carga de demostración espera los cinco conjuntos versionados. |
+| Número de archivos | Debe haber al menos un `.json` válido; la demo versionada contiene cinco conjuntos, pero la carga no exige un número fijo. |
 | Duplicados | `conjunto` y `hash_sha256` no pueden repetirse entre archivos. |
 
 ## 2. Filas de venta importadas
@@ -67,24 +67,32 @@ El DDL ejecutable es `db/migraciones/001_esquema_inicial.sql`.
 | FK compuesta | La importación debe pertenecer al mismo propietario que la venta. |
 | Claves únicas | No se duplican conjunto, hash, origen por importación ni clave de idempotencia por propietario. |
 
+Las pruebas de integración (`pruebas/integracion/baseDatos.test.js`) intentan
+insertar datos que violan un `CHECK`, un `UNIQUE` y la FK compuesta, y comprueban
+los códigos `ER_CHECK_CONSTRAINT_VIOLATED`, `ER_DUP_ENTRY` y
+`ER_NO_REFERENCED_ROW_2`. La traducción de `ER_CHECK_CONSTRAINT_VIOLATED` a
+`422 VALIDACION_DATOS` también se prueba en `pruebas/errores.test.js`.
+
 ## 4. Consultas y filas leídas de MySQL
 
-`src/servicios/registros.js` vuelve a validar cada fila antes de estadísticas o
-modelo:
+`src/servicios/registros.js` vuelve a validar cada fila antes de incluirla en
+listados, estadísticas o modelo:
 
 - `id` interno entero positivo;
 - `propietario_id` con UUID de 36 caracteres;
 - fecha real, desde `2000-01-01` y no futura;
 - `producto_id` de texto con patrón de catálogo;
-- nombre y categoría no vacíos;
+- nombre y categoría no vacíos (la consulta los obtiene del catálogo mediante
+  `JOIN`, por lo que no se comparan de nuevo);
 - precio, cantidad y total válidos;
-- total coherente;
-- nombre y categoría coinciden con el catálogo;
-- `id_origen`, si existe, es texto válido;
-- `importacion_id` coherente con `id_origen`.
+- total coherente con precio × cantidad;
+- `id_origen`, si existe, texto de 1..64 caracteres;
+- `importacion_id` e `id_origen` ambos nulos o ambos presentes;
+- `clave_idempotencia` nula o UUID.
 
-Una fila inválida se excluye de listados, estadísticas y predicciones. Una
-consulta individual inválida devuelve un error controlado.
+Una fila inválida se excluye de listados, estadísticas y predicciones y se
+cuenta en `registros_excluidos`. No existe un endpoint de venta individual, así
+que no hay una respuesta de error por registro aislado.
 
 ## 5. Consultas y parámetros de la API
 
@@ -106,10 +114,16 @@ consulta individual inválida devuelve un error controlado.
 |---|---|---|
 | Menos de 12 semanas completas | `sin_historial_suficiente` | No se publican. |
 | Menos de 8 semanas con unidades | `sin_historial_suficiente` | No se publican. |
-| Menos de 4 muestras de entrenamiento | `sin_historial_suficiente` | No se publican. |
+| Menos de 10 observaciones (5 de entrenamiento + 5 de evaluación) | `sin_historial_suficiente` | No se publican. |
 | Ridge no se puede resolver | `sin_historial_suficiente` | No se publican. |
 | MAE del modelo ≥ MAE de la línea base | `modelo_no_supera_linea_base` | No se publican. |
 | MAE del modelo < MAE de la línea base | `prediccion` | Se publican unidades estimadas y redondeadas. |
+
+Cada observación usa las 4 semanas anteriores, por lo que las 10 observaciones
+exigen **14 semanas completas** como mínimo efectivo. Las 12 semanas del contrato
+son una condición previa: con 12 o 13 semanas nunca se emite `prediccion` y,
+cuando además hay 8 semanas con unidades, el motivo es la falta de observaciones.
+Esto se cubre en `pruebas/prediccion.test.js`.
 
 La evaluación es cronológica: las últimas 5 semanas se reservan para prueba y no
 se mezclan con entrenamiento. La línea base es la semana anterior. La métrica es
@@ -118,14 +132,20 @@ MAE en unidades. El objetivo es
 
 ## 7. Códigos de error públicos
 
-| Código | Uso |
-|---|---|
-| `VALIDACION_DATOS` | Metadatos, filas, rangos o parámetros inválidos. |
-| `CONFLICTO_IMPORTACION` | Conjunto, hash o propietario incompatibles. |
-| `OPERACION_NO_PERMITIDA` | Cuenta demo ausente, inactiva o con rol incorrecto. |
-| `REGISTRO_INVALIDO` | Venta individual que no pasa la validación. |
-| `NO_ENCONTRADO` | Venta o usuario inexistente. |
-| `ERROR_INTERNO` | Error no clasificado; no expone detalles internos. |
+Solo existen los códigos que emite `src/middleware/errores.js`:
+
+| Código | HTTP | Uso |
+|---|---|---|
+| `JSON_INVALIDO` | 400 | El cuerpo no es JSON válido. |
+| `VALIDACION_DATOS` | 422 | Campos, rangos, parámetros o restricciones `CHECK` de MySQL inválidos. |
+| `NO_AUTENTICADO` | 401 | Falta la sesión o el token no es válido. |
+| `NO_AUTORIZADO` | 403 | La sesión no tiene el rol o permiso requerido. |
+| `NO_ENCONTRADO` | 404 | Ruta, usuario o producto inexistente. |
+| `CONFLICTO` | 409 | Unicidad irresoluble, por ejemplo un correo ya registrado. |
+| `ERROR_INTERNO` | 500 | Error no clasificado; no expone detalles internos. |
+
+Los scripts `admin:crear`, `demo:cuenta` y `demo:cargar` no son endpoints: sus
+errores se imprimen en la consola y no usan este catálogo HTTP.
 
 ## 8. Trazabilidad de pruebas
 
@@ -137,9 +157,10 @@ MAE en unidades. El objetivo es
 - `pruebas/prediccion.test.js`: semanas completas, Ridge, línea base y estados
   controlados.
 - `pruebas/validaciones.test.js`: reglas de entrada de la API.
-- `pruebas/integracion/baseDatos.test.js`: DDL, tipos, FK compuesta, rollback,
-  carga de 500 ventas, idempotencia, aislamiento, estadísticas, modelo y flujos
-  HTTP reales.
+- `pruebas/integracion/baseDatos.test.js`: DDL, tipos, restricciones `CHECK`,
+  `UNIQUE` y FK compuesta, rollback, carga de 500 ventas, idempotencia,
+  aislamiento, estadísticas, modelo y flujos HTTP reales.
 
-Resultado verificado: **112 pruebas unitarias/HTTP** y **9 pruebas de
-integración MySQL** aprobadas con MySQL 8.0.46.
+Resultado verificado: **115 pruebas unitarias/HTTP** y **10 pruebas de
+integración MySQL** aprobadas con MySQL 8.0.46. Las primeras usan modelos
+simulados y no requieren base; las segundas usan MySQL 8 desechable.
