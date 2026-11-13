@@ -1,20 +1,18 @@
 {
   "name": "renefull-backend",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "API ReneFULL y capa de datos y demanda sobre Node.js + MySQL 8",
+  "description": "API de Proyecto ReneFULL y capa de datos MySQL 8: autenticación, ventas, importaciones, estadísticas y predicciones",
   "main": "src/servidor.js",
   "scripts": {
     "start": "node src/servidor.js",
     "dev": "node --watch src/servidor.js",
-    "test": "node --test --test-concurrency=1 pruebas/api.test.js pruebas/authMiddleware.test.js pruebas/errores.test.js pruebas/estadisticas.test.js pruebas/password.test.js pruebas/prediccion.test.js pruebas/registros.test.js pruebas/serializadores.test.js pruebas/token.test.js pruebas/validaciones.test.js pruebas/flujosApi.test.js pruebas/importacionDemo.test.js pruebas/datos/validacion.test.js pruebas/datos/ml.test.js",
-    "test:datos:unit": "node --test --test-concurrency=1 pruebas/datos/validacion.test.js pruebas/datos/ml.test.js",
-    "test:datos:integracion": "node --test --test-concurrency=1 pruebas/datos/integracion.test.js",
     "db:migrar": "node scripts/migrar.js",
-    "demo:cuenta": "node scripts/crearClienteDemo.js",
     "admin:crear": "node scripts/crearAdmin.js",
+    "demo:cuenta": "node scripts/crearClienteDemo.js",
     "demo:cargar": "node scripts/cargarDemo.js",
-    "test:integracion": "node --test --test-concurrency=1 pruebas/datos/integracion.test.js"
+    "test": "node --test --test-concurrency=1 pruebas/api.test.js pruebas/authMiddleware.test.js pruebas/errores.test.js pruebas/estadisticas.test.js pruebas/flujosApi.test.js pruebas/importacionDemo.test.js pruebas/migraciones.test.js pruebas/password.test.js pruebas/prediccion.test.js pruebas/registros.test.js pruebas/serializadores.test.js pruebas/token.test.js pruebas/validaciones.test.js",
+    "test:integracion": "node --test --test-concurrency=1 pruebas/integracion/baseDatos.test.js"
   },
   "engines": {
     "node": ">=20.12"

@@ -1,162 +1,183 @@
 # Backend — Proyecto ReneFULL
 
-API REST en **Node.js + Express + MySQL 8** para autenticación, ventas del cliente, catálogo,
-importaciones de demostración, estadísticas y estimación de demanda. La autorización se resuelve
-desde la base de datos en cada petición.
+API REST en **Node.js + Express + MySQL 8** para autenticación, ventas del
+cliente, catálogo, importaciones de demostración, estadísticas y estimación de
+demanda. La autorización se resuelve desde MySQL en cada petición y las
+consultas de ejecución nunca leen los archivos JSON.
 
-El contrato estable de endpoints, DTOs, validaciones y esquema MySQL esperado está en
-[`docs/API_CONTRACT.md`](docs/API_CONTRACT.md).
+El contrato estable de endpoints, DTOs, validaciones y esquema está en
+[`docs/API_CONTRACT.md`](docs/API_CONTRACT.md). El DDL ejecutable es
+[`db/migraciones/001_esquema_inicial.sql`](db/migraciones/001_esquema_inicial.sql).
+
+> Los cinco archivos de `data/demo/` son **datos simulados de demostración**.
+> No son ventas reales y no deben usarse para decisiones de negocio.
 
 ## Requisitos
 
 - Node.js 20.12 o superior.
-- MySQL 8.0.
-- El esquema y la migración inicial están en `db/migraciones/001_esquema_inicial.sql`.
-
-`npm run db:migrar` crea la base `DB_NOMBRE` si hace falta y aplica las migraciones pendientes de la capa de datos.
-
-La migración define usuarios con IDs numéricos y ventas con `usuario_id`. El modelo de la API todavía
-espera UUIDs y columnas distintas; consulta **Limitaciones conocidas** antes de conectar ambos módulos.
+- MySQL 8.0.16 o superior (probado con 8.0.46).
+- Una cuenta MySQL con permisos para crear la base de desarrollo, crear tablas,
+  insertar y consultar. Para `npm run test:integracion` la misma cuenta debe poder
+  crear y eliminar bases temporales con prefijo `renefull_test_`.
 
 ## Instalación
 
+Desde `Backend/`:
+
 ```bash
 npm install
+cp .env.example .env
 ```
 
-En Windows con PowerShell, usa `npm.cmd` si la política de ejecución bloquea `npm.ps1`.
+Ajuste como mínimo `DB_*` y `JWT_SECRETO`. El archivo `.env` está excluido de
+Git; no guarde contraseñas reales en el repositorio.
 
-## Configuración
+```dotenv
+DB_HOST=127.0.0.1
+DB_PUERTO=3306
+DB_USUARIO=renefull_app
+DB_CONTRASENA=
+DB_NOMBRE=proyecto_renefull
+DB_CONEXIONES=10
 
-Copia `.env.example` a `.env` y completa los valores. `.env` está ignorado por Git.
+JWT_SECRETO=una-cadena-larga-y-aleatoria-de-al-menos-32-caracteres
+JWT_HORAS=8
 
-| Variable | Uso |
-| --- | --- |
-| `PUERTO` | Puerto HTTP de la API (por defecto `3000`). |
-| `DB_HOST`, `DB_PUERTO`, `DB_USUARIO`, `DB_CONTRASENA`, `DB_NOMBRE` | Conexión a MySQL. |
-| `DB_CONEXIONES` | Máximo de conexiones del pool de datos. |
-| `JWT_SECRETO` | Firma HS256 de los tokens; cadena larga y aleatoria (obligatoria). |
-| `JWT_HORAS` | Vigencia del token en horas (por defecto `8`). |
-| `ADMIN_NOMBRE` | Nombre de la cuenta inicial (por defecto `Administrador`). |
-| `ADMIN_EMAIL`, `ADMIN_CONTRASENA` | Cuenta inicial para `npm run admin:crear`. |
-| `DEMO_EMAIL`, `DEMO_NOMBRE`, `DEMO_PASSWORD` | Cuenta cliente usada para cargar los datos de demostración. |
-| `IMPORTADO_POR_EMAIL` | Administrador opcional que queda asociado a la importación. |
-| `MIN_SEMANAS_ENTRENAMIENTO`, `MIN_SEMANAS_CON_UNIDADES`, `SEMANAS_EVALUACION`, `ALPHA_RIDGE` | Parámetros del modelo semanal. |
-| `TEST_DB_NOMBRE` | Nombre de la base desechable para pruebas de integración. |
+ADMIN_NOMBRE=Administrador
+ADMIN_EMAIL=admin@example.com
+ADMIN_CONTRASENA=
 
-## Preparación de la base y la cuenta demo
+DEMO_EMAIL=cliente.demo@example.com
+DEMO_NOMBRE=Cliente de Demostracion
+DEMO_CONTRASENA=
+DEMO_DIRECTORIO=
+```
 
-Aplique el esquema MySQL antes de crear cuentas o importar ventas:
+`JWT_SECRETO` es obligatorio para arrancar el servidor. Los scripts de
+migración y de cuentas no necesitan un token.
+
+## Base de datos
 
 ```bash
 npm run db:migrar
-npm run demo:cuenta
 ```
 
-`demo:cuenta` requiere `DEMO_PASSWORD`; crea el cliente identificado por `DEMO_EMAIL` y `DEMO_NOMBRE`.
-Después, `npm run demo:cargar` importa el catálogo y las ventas simuladas a esa cuenta.
+La migración crea la base si no existe, aplica los archivos pendientes de
+`db/migraciones/`, verifica tablas, columnas, tipos, `UNIQUE`, `CHECK` y claves
+foráneas, y solo entonces registra el nombre y el SHA-256 en la tabla
+`migraciones`. Las ya aplicadas se omiten si el hash coincide; el hash se compara
+con finales de línea normalizados y acepta las variantes CRLF/LF/CR. Si una
+migración aplicada cambió de contenido, el proceso aborta para no alterar un
+esquema existente. La evidencia de las versiones de `001` está en
+[`docs/HISTORIAL_MIGRACIONES.md`](docs/HISTORIAL_MIGRACIONES.md).
 
-## Primer administrador
+Tablas resultantes: `usuarios`, `categorias`, `productos`, `importaciones`,
+`ventas` y `migraciones`.
 
-El registro público siempre crea clientes. La primera cuenta administradora se crea con:
+## Cuentas iniciales
+
+Cree primero la cuenta administradora:
 
 ```bash
 npm run admin:crear
 ```
 
-El comando lee `ADMIN_NOMBRE`, `ADMIN_EMAIL` y `ADMIN_CONTRASENA`, exige una contraseña de al menos
-8 caracteres, genera el UUID en la aplicación, guarda el hash Argon2id y se niega a crear otra
-cuenta si el correo ya existe.
+Cree la cuenta cliente que recibirá los datos simulados:
 
-## Datos de demostración
+```bash
+npm run demo:cuenta
+```
+
+Para pasar la contraseña sin dejarla en `.env`, defina `ADMIN_CONTRASENA` o
+`DEMO_CONTRASENA` en el entorno del proceso. Las contraseñas se guardan con
+**Argon2id** y nunca se imprimen.
+
+## Carga de demostración
+
+Con `DEMO_EMAIL` apuntando a un cliente activo y, opcionalmente, `ADMIN_EMAIL`
+a un administrador activo:
 
 ```bash
 npm run demo:cargar
 ```
 
-El comando valida los cinco archivos `Backend/data/demo/*.json`, y solo
-después abre una transacción para:
+- Valida todos los JSON del directorio antes de abrir la transacción. El paquete
+  oficial de `data/demo/` tiene cinco archivos de 100 ventas; `DEMO_DIRECTORIO`
+  admite cualquier directorio con al menos un JSON válido.
+- Carga 500 ventas, 41 productos y 6 categorías en una sola transacción.
+- Es idempotente: un segundo intento con el mismo contenido omite los conjuntos
+  ya importados y no duplica ventas.
+- No sobrescribe el catálogo: crea solo lo que falta; si un producto existente
+  difiere en nombre, categoría, precio o está inactivo, falla y revierte.
+- No reasigna un conjunto a otro propietario.
+- Si dos cargas concurrentes chocan en un `UNIQUE`, reporta un conflicto y hace
+  `ROLLBACK`.
+- Si algo falla, hace `ROLLBACK` de catálogo, importaciones y ventas.
+- Conserva `producto_id` y `id_venta` como texto y el precio histórico en
+  `ventas.precio_unitario_mxn`.
 
-1. Verificar que `DEMO_EMAIL` sea un cliente activo existente.
-2. Verificar opcionalmente `ADMIN_EMAIL` como administrador que registra la importación.
-3. Crear categorías y productos del catálogo.
-4. Insertar una fila en `importaciones` por conjunto y sus ventas con `id_origen`.
-5. Confirmar todo o revertir ante cualquier error.
-
-La carga es idempotente: un conjunto ya importado con el **mismo hash** se omite; un conjunto con
-contenido distinto, o el mismo hash con otro conjunto, se rechaza. Los JSON son datos simulados
-(5 conjuntos × 100 ventas, 41 productos, periodo 2026-01-01..2026-06-30) y **no se consultan en
-tiempo de ejecución**: la API lee únicamente MySQL.
-
-No existe un endpoint público de carga.
-
-## Ejecución
+## Servidor
 
 ```bash
-npm start      # servidor
-npm run dev    # servidor con recarga automática
-npm test                  # pruebas de API y unitarias; no requiere MySQL
-npm run test:integracion  # pruebas de datos con MySQL desechable
+npm start
+# desarrollo con recarga
+npm run dev
 ```
 
-La ruta `GET /api/salud` responde `{ "estado": "ok" }` cuando el proceso está arriba.
+La API se publica por defecto en `http://localhost:3000`. El contrato completo
+de rutas y respuestas está en [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md).
 
 ## Pruebas
 
-`npm test` ejecuta las pruebas de API y unitarias con `node:test`, sin conectarse a MySQL.
+Pruebas unitarias y HTTP con modelos simulados, sin base de datos:
 
-`npm run test:integracion` requiere una instancia MySQL 8 y una instancia MySQL 8. `TEST_DB_NOMBRE` se usa como prefijo; la suite añade un sufijo único y borra
-solo la base temporal que crea durante esa ejecución.
+```bash
+npm test
+```
 
-Las pruebas cubren:
+Pruebas de integración con MySQL real. Usan una base temporal única con prefijo
+`renefull_test_` que se crea y se elimina en cada ejecución:
 
-- Validaciones de registro, login, ventas, fechas, paginación y roles.
-- Formato de errores y traducción de errores de MySQL.
-- Tokens HS256, Argon2id y middleware de permisos con rol vigente.
-- Aislamiento entre propietarios y permisos directos a rutas administrativas.
-- Serializadores, estadísticas semanales/mensuales y Ridge con línea base.
-- Flujos HTTP con modelos simulados: registro/login, promoción, idempotencia y fallos de BD.
-- Validación de los cinco conjuntos demo, incluidas metadata, ventas cerradas y catálogo coherente.
-- Migraciones, carga transaccional, consultas de estadísticas y modelo de demanda (suite de integración).
+```powershell
+$env:DB_PUERTO='3306'
+$env:DB_USUARIO='root'
+$env:DB_CONTRASENA=''
+# Opcional: si se omite, la prueba genera un nombre único.
+$env:TEST_DB_NOMBRE='renefull_test_<sufijo>'
+npm run test:integracion
+```
+
+La prueba rechaza cualquier nombre sin el prefijo, aborta si la base ya existe y
+solo elimina la base que creó el proceso actual. Nunca toca `proyecto_renefull`
+ni una base compartida.
+
+Las pruebas de integración cubren la migración y sus hashes, los tipos
+`CHAR(36)`/`DECIMAL`, la FK compuesta, el rollback, la carga demo, el catálogo
+inmutable, la idempotencia, el aislamiento por propietario, las estadísticas, el
+modelo de demanda y los flujos HTTP reales.
 
 ## Estructura
 
+```text
+Backend/
+├─ data/demo/                 Cinco conjuntos simulados (100 ventas cada uno)
+├─ db/migraciones/            DDL MySQL versionado
+├─ docs/                      Contrato, esquema, procesos y validaciones
+├─ pruebas/                   Pruebas unitarias, HTTP e integración MySQL
+├─ scripts/                   Migración, cuentas y carga demo
+└─ src/
+   ├─ config/                 Variables de entorno
+   ├─ controladores/          Endpoints HTTP
+   ├─ db/                     Pool, transacciones y migraciones
+   ├─ middleware/            Autenticación y errores
+   ├─ modelos/                Acceso a MySQL
+   ├─ rutas/                  Rutas Express
+   ├─ servicios/              Estadísticas, predicción e importación
+   └─ validaciones/           Reglas de entrada y DTOs
 ```
-src/
-  app.js                 aplicación Express y montaje de rutas
-  servidor.js            arranque y cierre ordenado del pool
-  config/entorno.js      lectura de variables de entorno
-  db/                    pool de MySQL y migraciones
-  datos/                 validación, importación y consultas para el modelo de demanda
-  middleware/            autenticación, rol vigente en BD y errores
-  validaciones/          validación manual de cuerpos y query strings
-  modelos/               usuarios, categorías, productos, importaciones y ventas
-  servicios/             contraseñas, tokens, registros, estadísticas, predicción e importación demo
-  controladores/         lógica de cada endpoint
-  rutas/                 definición de rutas por área
-scripts/                 creación del administrador y carga de demostración
-data/demo/               cinco conjuntos JSON simulados (no se leen en runtime)
-pruebas/                 pruebas unitarias y de API sin base de datos
-```
 
-## Autorización
-
-- El token solo identifica al usuario (`sub` UUID); no transporta el rol.
-- En cada petición protegida el rol y `activo` se leen de MySQL, por lo que una promoción,
-  degradación o desactivación aplica de inmediato.
-- Sin sesión, token inválido o cuenta inactiva → 401. Con sesión pero sin permiso → 403.
-- Las rutas de cliente derivan el propietario del token: no aceptan un identificador de usuario.
-- Un administrador no puede modificar su propio rol.
-- Las respuestas usan `correo` (columna canónica); la entrada de registro/login acepta `email`
-  por compatibilidad con la app móvil.
-
-## Limitaciones conocidas
-
-- La migración de datos y los modelos SQL de la API no comparten el mismo esquema: la migración usa
-  `usuarios.id` numérico y `ventas.usuario_id`; la API usa UUID en `usuarios.id` y consulta
-  `ventas.propietario_id`, además de otras columnas de catálogo distintas. No conectes la API a esa
-  migración hasta acordar un esquema único.
-- El registro de la API exige `nombre`; el formulario móvil actual solo envía correo y contraseña,
-  así que recibe 422 en `campos.nombre`.
-- Las pantallas cliente usan `UnavailableClientRepository`; todavía no envían ventas ni consultan
-  estadísticas del backend.
+Más detalle: [`docs/ESQUEMA_MYSQL.md`](docs/ESQUEMA_MYSQL.md),
+[`docs/PROCESOS_MYSQL.md`](docs/PROCESOS_MYSQL.md),
+[`docs/VALIDACIONES_MYSQL.md`](docs/VALIDACIONES_MYSQL.md),
+[`docs/HISTORIAL_MIGRACIONES.md`](docs/HISTORIAL_MIGRACIONES.md) y
+[`docs/ALINEACION_MIA.md`](docs/ALINEACION_MIA.md).

@@ -1,29 +1,50 @@
-const { configuracion } = require('../src/config/entornoDatos');
-const { cargarDemo } = require('../src/datos/importador');
-const { aErrorPublico } = require('../src/datos/errores');
-const { cerrarPool } = require('../src/db/mysql');
+const { cargarDemo } = require('../src/servicios/cargaDemo');
+const { ErrorImportacion } = require('../src/servicios/importacionDemo');
+const { cerrarPool } = require('../src/db/conexion');
 
-async function principal() {
-  const resultado = await cargarDemo({
-    emailDemo: configuracion.demo.email,
-    importadoPorEmail: configuracion.importacion.importadoPorEmail,
-  });
-  console.log(JSON.stringify({ estado: 'ok', ...resultado }, null, 2));
+function imprimirDetalles(detalles) {
+  for (const detalle of detalles) {
+    const fila = detalle.fila === null || detalle.fila === undefined ? '-' : detalle.fila;
+    console.error(
+      `  archivo=${detalle.archivo} fila=${fila} campo=${detalle.campo}: ${detalle.motivo}`
+    );
+  }
 }
 
-principal()
-  .catch((error) => {
-    const publico = aErrorPublico(error);
-    console.error(JSON.stringify({ estado: 'error', ...publico }, null, 2));
-    if (publico.detalles && publico.detalles.errores) {
-      for (const detalle of publico.detalles.errores.slice(0, 20)) {
-        console.error(
-          `- ${detalle.archivo || 'archivo'}#${detalle.fila || '-'} ${detalle.campo}: ${detalle.mensaje}`
-        );
+function imprimirResumen(resumen) {
+  for (const item of resumen.importados) {
+    console.log(
+      `${item.archivo}: importado, ventas insertadas=${item.ventas}, importacion=${item.importacion_id}`
+    );
+  }
+  for (const item of resumen.omitidos) {
+    console.log(
+      `${item.archivo}: ya_importado, ventas existentes=${item.ventas}, importacion=${item.importacion_id}`
+    );
+  }
+  console.log(
+    `Carga terminada. Catálogo: ${resumen.catalogo.categorias} categorías, ` +
+      `${resumen.catalogo.productos} productos. Ventas insertadas: ${resumen.ventas_insertadas}. ` +
+      `Propietario: ${resumen.propietario.correo}.`
+  );
+}
+
+async function principal(opciones = {}) {
+  const resumen = await cargarDemo(opciones);
+  imprimirResumen(resumen);
+  return resumen;
+}
+
+if (require.main === module) {
+  principal()
+    .catch((error) => {
+      console.error(`No se pudieron cargar los datos de demostración: ${error.message}`);
+      if (error instanceof ErrorImportacion && error.detalles.length > 0) {
+        imprimirDetalles(error.detalles);
       }
-    }
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await cerrarPool();
-  });
+      process.exitCode = 1;
+    })
+    .finally(cerrarPool);
+}
+
+module.exports = { principal, imprimirDetalles, imprimirResumen };

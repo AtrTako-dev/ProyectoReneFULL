@@ -348,13 +348,18 @@ function cargarDirectorioDemo(directorio) {
 
     for (const venta of archivo.ventas) {
       const anterior = catalogo.get(venta.producto_id);
-      if (anterior && (anterior.producto !== venta.producto || anterior.categoria !== venta.categoria)) {
+      if (
+        anterior &&
+        (anterior.producto !== venta.producto ||
+          anterior.categoria !== venta.categoria ||
+          anterior.precio_unitario_mxn !== venta.precio_unitario_mxn)
+      ) {
         agregar(
           detalles,
           archivo.archivo,
           null,
           'producto_id',
-          `El producto ${venta.producto_id} tiene nombre o categoría distintos entre archivos.`
+          `El producto ${venta.producto_id} tiene nombre, categoría o precio distintos entre archivos.`
         );
       } else {
         catalogo.set(venta.producto_id, {

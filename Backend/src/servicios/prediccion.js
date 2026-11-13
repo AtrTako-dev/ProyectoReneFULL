@@ -13,6 +13,10 @@ const ALPHA = 1.0;
 const MINIMO_SEMANAS_COMPLETAS = 12;
 const MINIMO_SEMANAS_CON_UNIDADES = 8;
 const SEMANAS_EVALUACION = 5;
+const MINIMO_MUESTRAS_ENTRENAMIENTO = 5;
+// Cada muestra consume 4 semanas previas; por eso 12 semanas completas no
+// alcanzan: se necesitan al menos 14 para tener 5 + 5 observaciones.
+const MINIMO_OBSERVACIONES = SEMANAS_EVALUACION + MINIMO_MUESTRAS_ENTRENAMIENTO;
 const ADVERTENCIA =
   'Estimación semanal de unidades basada en ventas históricas. No garantiza la demanda futura.';
 
@@ -86,7 +90,7 @@ function construirMuestras(serie, semanasEvaluacion) {
     indices.push(indice);
   }
 
-  if (x.length < semanasEvaluacion + 5) {
+  if (x.length < semanasEvaluacion + MINIMO_MUESTRAS_ENTRENAMIENTO) {
     throw new Error('No hay suficientes observaciones para entrenar y evaluar.');
   }
 
@@ -384,6 +388,8 @@ module.exports = {
   MINIMO_SEMANAS_COMPLETAS,
   MINIMO_SEMANAS_CON_UNIDADES,
   SEMANAS_EVALUACION,
+  MINIMO_MUESTRAS_ENTRENAMIENTO,
+  MINIMO_OBSERVACIONES,
   ADVERTENCIA,
   fechaDeHoy,
   semanasCompletas,

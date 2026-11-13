@@ -1,15 +1,14 @@
 # Contrato de API — Proyecto ReneFULL (Backend)
 
-Estado: la API Node está implementada y cuenta con pruebas unitarias y HTTP sin base de datos. La
-migración MySQL de la capa de datos ya existe, pero **su esquema todavía no coincide con los modelos
-SQL de esta API**; ambos módulos no deben conectarse hasta acordar un modelo único.
+Estado: **implementado y verificado con pruebas unitarias, HTTP y de integración MySQL 8**. El
+DDL ejecutable vive en [`db/migraciones/001_esquema_inicial.sql`](../db/migraciones/001_esquema_inicial.sql)
+y este documento es la referencia estable de la API Node.
 
 - Stack vigente: **Node.js + Express + MySQL 8** (validación manual, sin ORM ni librería de esquemas).
 - Base URL de desarrollo: `http://localhost:3000` (configurable con `PUERTO`).
 - Todas las respuestas son JSON UTF-8. El cuerpo de entrada se limita a 100 KB.
-- Este documento define los endpoints y DTOs de la API. `INTERFAZ_MIA.md` describe la capa de datos;
-  `db/migraciones/001_esquema_inicial.sql` define su esquema MySQL actual, que requiere alineación
-  con los modelos de la API antes de usarse en conjunto.
+- Este documento gobierna la API Node. La implementación PostgreSQL/FastAPI de Ismael es
+  referencia histórica y no forma parte de esta rama.
 
 ---
 
@@ -71,7 +70,7 @@ Formato único de error:
   `NO_ENCONTRADO`, `CONFLICTO`, `ERROR_INTERNO`.
 - `campos` solo aparece en `VALIDACION_DATOS`.
 - Los errores de MySQL se traducen sin exponer el mensaje original: duplicado → 409, referencia
-  inexistente o dato truncado/fuera de rango → 422, resto → 500.
+  inexistente, dato truncado/fuera de rango o restricción `CHECK` → 422, resto → 500.
 
 ## 4. Endpoints
 
@@ -511,7 +510,9 @@ Las filas inválidas **nunca** se devuelven ni se usan en cálculos; se cuentan 
 - **Solo se emite `prediccion` si el MAE del modelo es estrictamente menor que el de la línea
   base.** En caso contrario se informa `modelo_no_supera_linea_base`.
 - Mínimos: **12 semanas completas** y **8 semanas con unidades positivas**; además se requieren
-  al menos `5 + 5 = 10` observaciones para entrenar y evaluar.
+  al menos `5 + 5 = 10` observaciones para entrenar y evaluar. Como cada observación consume las
+  4 semanas previas, el mínimo efectivo es de **14 semanas completas**; con 12 o 13 nunca se emite
+  `prediccion`.
 - No se leen JSON en tiempo de ejecución ni se inventan valores.
 - La predicción de cliente usa solo sus ventas; la administrativa exige `cliente_id` y usa solo
   las ventas de ese usuario.
@@ -560,14 +561,11 @@ Carga transaccional e idempotente:
 
 En tiempo de ejecución la API consulta **solo MySQL**, nunca los JSON.
 
-## 8. Esquema MySQL esperado
+## 8. Esquema MySQL implementado
 
-La migración ejecutable de la capa de datos está en
-`db/migraciones/001_esquema_inicial.sql`. **No coincide todavía con el esquema que esperan los
-modelos SQL de la API**: la migración usa `usuarios.id BIGINT` y `ventas.usuario_id`, mientras que
-la API espera `usuarios.id CHAR(36)` y consulta `ventas.propietario_id`. También difieren las
-columnas y relaciones del catálogo (`productos.producto_id` frente a `productos.id` y la tabla
-`categorias`). Se requiere acordar y aplicar una traducción única antes de conectar la API a MySQL.
+El DDL ejecutable es [`db/migraciones/001_esquema_inicial.sql`](../db/migraciones/001_esquema_inicial.sql).
+Las consultas del backend usan estos nombres y tipos. La migración se aplica con
+`npm run db:migrar` y registra su SHA-256 en `migraciones`.
 
 ### 8.1 `usuarios`
 
@@ -588,7 +586,7 @@ columnas y relaciones del catálogo (`productos.producto_id` frente a `productos
 
 | Columna | Tipo MySQL | Regla |
 | --- | --- | --- |
-| `id` | `SMALLINT` AUTO_INCREMENT | PK. |
+| `id` | `SMALLINT UNSIGNED` AUTO_INCREMENT | PK. |
 | `nombre` | `VARCHAR(60)` | NOT NULL; UNIQUE; 1..60. |
 
 ### 8.3 `productos`
@@ -597,7 +595,7 @@ columnas y relaciones del catálogo (`productos.producto_id` frente a `productos
 | --- | --- | --- |
 | `id` | `VARCHAR(20)` | PK; `^[A-Z]{1,3}[0-9]{3}$`. |
 | `nombre` | `VARCHAR(120)` | NOT NULL. |
-| `categoria_id` | `SMALLINT` | FK `categorias.id`; `ON DELETE RESTRICT`. |
+| `categoria_id` | `SMALLINT UNSIGNED` | FK `categorias.id`; `ON DELETE RESTRICT`. |
 | `precio_actual_mxn` | `DECIMAL(12,2)` | NOT NULL; > 0. |
 | `activo` | `TINYINT(1)` | NOT NULL; default 1. |
 | `creado_en` | `TIMESTAMP` | NOT NULL; default `CURRENT_TIMESTAMP`. |
@@ -609,7 +607,7 @@ columnas y relaciones del catálogo (`productos.producto_id` frente a `productos
 
 | Columna | Tipo MySQL | Regla |
 | --- | --- | --- |
-| `id` | `BIGINT` AUTO_INCREMENT | PK. |
+| `id` | `BIGINT UNSIGNED` AUTO_INCREMENT | PK. |
 | `conjunto` | `VARCHAR(80)` | NOT NULL; UNIQUE; 1..80. |
 | `archivo` | `VARCHAR(255)` | NOT NULL. |
 | `hash_sha256` | `CHAR(64)` | NOT NULL; UNIQUE; 64 hexadecimales. |
@@ -631,8 +629,8 @@ de la FK compuesta de `ventas`). Índice: `propietario_id`.
 
 | Columna | Tipo MySQL | Regla |
 | --- | --- | --- |
-| `id` | `BIGINT` AUTO_INCREMENT | PK; expuesto como `id`. |
-| `importacion_id` | `BIGINT` | NULL; parte de la FK compuesta. |
+| `id` | `BIGINT UNSIGNED` AUTO_INCREMENT | PK; expuesto como `id`. |
+| `importacion_id` | `BIGINT UNSIGNED` | NULL; parte de la FK compuesta. |
 | `id_origen` | `VARCHAR(64)` | NULL; texto del archivo (`id_venta`). |
 | `propietario_id` | `CHAR(36)` | NOT NULL; FK `usuarios.id`; `ON DELETE RESTRICT`. |
 | `fecha` | `DATE` | NOT NULL; ≥ `2000-01-01`. |
@@ -662,20 +660,33 @@ Restricciones e índices:
 
 | Modelo de Ismael | Traducción MySQL |
 | --- | --- |
-| `uuid` con `gen_random_uuid()` | `CHAR(36)`; UUID generado en Node antes del `INSERT`. |
+| `uuid` con `gen_random_uuid()` | `CHAR(36)` ASCII; UUID generado en Node antes del `INSERT`. |
 | `boolean` | `TINYINT(1)`; la API lo normaliza a booleano. |
 | `timestamptz` | `TIMESTAMP`; MySQL lo devuelve como texto por `dateStrings: true`. |
 | `numeric(12,2)` / `numeric(14,2)` | `DECIMAL(12,2)` / `DECIMAL(14,2)`. |
-| `smallint` identidad | `SMALLINT AUTO_INCREMENT`. |
-| `bigint` identidad | `BIGINT AUTO_INCREMENT`. |
+| `smallint` identidad | `SMALLINT UNSIGNED AUTO_INCREMENT`. |
+| `bigint` identidad | `BIGINT UNSIGNED AUTO_INCREMENT`. |
 | Índices únicos parciales | `UNIQUE` simples; la semántica de `NULL` de MySQL los hace equivalentes. |
-| `CHECK` con regex `~` | `CHECK` con `REGEXP` (MySQL 8.0.16+). |
-| FK compuesta | Igual, con índice requerido en el destino. |
+| `CHECK` con regex `~` | `CHECK` con `REGEXP` y colaciones binarias (MySQL 8.0.16+). |
+| FK compuesta | Igual; la migración crea el índice `UNIQUE(id, propietario_id)` en el destino. |
 
-**Bloqueo actual:** no existe DDL MySQL en la rama `Mia-Paola` ni tablas en `proyecto_renefull`.
-Mientras no se acuerde y aplique el esquema, no se pueden ejecutar `admin:crear`, `demo:cargar`
-ni pruebas de integración reales. No se crea un segundo esquema por cuenta propia para no
-duplicar la fuente de verdad.
+### 8.7 `migraciones`
+
+Tabla de control del runner. No forma parte del modelo de negocio.
+
+| Columna | Tipo MySQL | Regla |
+| --- | --- | --- |
+| `id` | `INT UNSIGNED` AUTO_INCREMENT | PK. |
+| `nombre` | `VARCHAR(255)` | NOT NULL; UNIQUE. |
+| `hash_sha256` | `CHAR(64)` | NOT NULL; SHA-256 del archivo aplicado. |
+| `aplicado_en` | `TIMESTAMP` | NOT NULL; default `CURRENT_TIMESTAMP`. |
+
+### 8.8 Estado del esquema
+
+El DDL se aplicó y verificó sobre MySQL 8.0.46 con una base desechable. Las pruebas de integración
+comprueban tipos, el UUID de 36 caracteres, la FK compuesta, los `CHECK`, el rollback, la carga demo
+y la idempotencia. La migración se puede volver a ejecutar sin cambios: las migraciones ya
+aplicadas se omiten si su hash coincide.
 
 ## 9. Inicialización del primer administrador
 
@@ -694,32 +705,39 @@ npm run admin:crear
 
 | Variable | Uso | Default |
 | --- | --- | --- |
+| `NODE_ENV` | Entorno de ejecución | `development` |
 | `PUERTO` | Puerto HTTP | `3000` |
 | `DB_HOST`, `DB_PUERTO`, `DB_USUARIO`, `DB_CONTRASENA`, `DB_NOMBRE` | Conexión MySQL | `127.0.0.1`, `3306`, `renefull_app`, vacío, `proyecto_renefull` |
-| `JWT_SECRETO` | Firma HS256 (**obligatoria**) | — |
+| `DB_CONEXIONES` | Tamaño del pool MySQL | `10` |
+| `JWT_SECRETO` | Firma HS256 (**obligatoria**, mínimo 32 caracteres) | — |
 | `JWT_HORAS` | Vigencia del token | `8` |
 | `ADMIN_NOMBRE` | Nombre de la cuenta inicial | `Administrador` |
 | `ADMIN_EMAIL`, `ADMIN_CONTRASENA` | Cuenta inicial | vacío |
 | `DEMO_EMAIL` | Cliente que recibe la demo | vacío |
+| `DEMO_NOMBRE` | Nombre del cliente demo | `Cliente de Demostracion` |
+| `DEMO_CONTRASENA` | Contraseña usada por `demo:cuenta` | vacío |
 | `DEMO_DIRECTORIO` | Directorio alternativo de JSON demo | `Backend/data/demo` |
+| `TEST_DB_NOMBRE` | Base temporal exclusiva de integración (prefijo `renefull_test_`; si se omite, se genera) | vacío |
 
-`.env` y `node_modules` están ignorados por Git.
+`.env` y `node_modules` están ignorados por Git. `DEMO_CONTRASENA` y `ADMIN_CONTRASENA` se leen del
+entorno o de `.env` local, nunca se imprimen ni se guardan en el repositorio.
 
 ## 11. Decisiones confirmadas
 
 1. **Precio de venta:** debe coincidir con el catálogo; tolerancia máxima de 0.01 MXN por redondeo.
 2. **Token:** 8 horas, solo identidad, sin renovación automática.
 3. **Límites:** consultas de hasta **730 días**; listado con `limite` 1..500 (default 100).
-4. **Predicción:** Ridge `alpha = 1`, semanas ISO completas, mínimos 12/8, evaluación de 5
-   semanas y línea base de la semana anterior. Si el modelo no supera la línea base, no se
-   publican valores.
+4. **Predicción:** Ridge `alpha = 1`, semanas ISO completas, mínimos 12/8 y 10 observaciones
+   (14 semanas completas efectivas), evaluación de 5 semanas y línea base de la semana anterior.
+   Si el modelo no supera la línea base, no se publican valores.
 5. **Registro:** siempre `cliente`; la propiedad `rol` se rechaza con 422.
 6. **Auto-modificación de rol:** prohibida; el administrador recibe 403.
 7. **Aislamiento:** el propietario de cliente se deriva del token, nunca de la URL o el cuerpo.
 8. **Idempotencia de captura:** `clave_idempotencia` UUID por propietario; un reintento devuelve
    la venta existente con 200.
-9. **Idempotencia de importación:** `conjunto` y `hash_sha256` únicos; mismo contenido se omite,
-   contenido distinto se rechaza.
+9. **Idempotencia de importación:** `conjunto` y `hash_sha256` únicos; mismo contenido y mismo
+   propietario se omiten, contenido distinto u otro propietario se rechazan. El catálogo existente
+   no se sobrescribe ni se reactiva; una discrepancia revierte la carga.
 10. **Datos demo:** simulados, marcados con `es_demostracion`; no se consultan en runtime.
 11. **Formato de error:** envoltura `{ error: { codigo, mensaje, campos? } }`.
 12. **Registro y `nombre`:** el contrato lo exige; la app móvil debe enviarlo. No se modifica
@@ -727,7 +745,19 @@ npm run admin:crear
 
 ## 12. Estado de verificación
 
-- `npm test` ejecuta pruebas unitarias, de validación y HTTP con modelos simulados; no requiere MySQL.
-- `npm run test:integracion` ejecuta la capa de datos contra MySQL 8 y crea una base temporal con un sufijo único a partir de `TEST_DB_NOMBRE` y elimina solo esa base.
-- La compatibilidad entre los modelos SQL de la API y el DDL de la capa de datos sigue pendiente por
-  las diferencias documentadas en §8. No se verificó la API contra esa migración.
+- **121 de 121 pruebas unitarias/HTTP en verde** con `npm test` (`node:test`, `NODE_ENV=test`), sin
+  base de datos: validaciones, formato de errores, tokens, Argon2id, middleware de permisos,
+  aislamiento entre propietarios, serializadores, estadísticas, Ridge/línea base y umbral de
+  observaciones, validación de registros leídos, flujos HTTP con modelos simulados, validación de
+  los cinco conjuntos demo y protecciones de bases temporales/hashes.
+- **17 de 17 pruebas de integración en verde** con `npm run test:integracion` sobre MySQL 8.0.46 y
+  una base temporal única con prefijo `renefull_test_`: migración y hash, variantes CRLF/LF,
+  esquema preexistente incompatible, hash histórico de `001`, tipos `CHAR(36)`/`DECIMAL`,
+  restricciones `CHECK`/`UNIQUE`/FK compuesta, rollback, carga de 500 ventas, catálogo inmutable,
+  producto inactivo, propietario distinto, conflicto concurrente, idempotencia, aislamiento,
+  estadísticas, modelo de demanda y flujos HTTP reales.
+- `npm run db:migrar`, `npm run admin:crear`, `npm run demo:cuenta` y `npm run demo:cargar` se
+  ejecutaron contra MySQL real. La segunda carga demo no duplica ventas.
+- La verificación de referencia fue: 500 ventas, 1,287 unidades, 36,404.00 MXN, 41 productos y
+  6 categorías; 4 categorías publican predicción y 2 quedan como
+  `modelo_no_supera_linea_base`.

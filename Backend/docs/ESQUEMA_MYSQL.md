@@ -1,186 +1,149 @@
 # Esquema MySQL 8
 
-Documento de diseño de la base de datos del backend ReneFULL. La fuente
-ejecutable es [`db/migraciones/001_esquema_inicial.sql`](../db/migraciones/001_esquema_inicial.sql);
-[`db/esquema.sql`](../db/esquema.sql) es una copia de referencia y debe
-mantenerse sincronizada con la migración.
+Fuente ejecutable única:
+[`db/migraciones/001_esquema_inicial.sql`](../db/migraciones/001_esquema_inicial.sql).
+El DDL está alineado con [`API_CONTRACT.md`](API_CONTRACT.md), secciones 1 y 8.
 
 ## 1. Convenciones
 
-- Motor: MySQL 8.0, tablas InnoDB.
-- Juego de caracteres: `utf8mb4` con `utf8mb4_0900_ai_ci`.
-- Dinero: `DECIMAL(12,2)` o `DECIMAL(14,2)`, nunca punto flotante.
-- Fechas de negocio: `DATE`; marcas de tiempo: `DATETIME`.
-- Identificadores de usuario y venta interna: `BIGINT UNSIGNED AUTO_INCREMENT`.
-- Códigos de producto y de origen: `VARCHAR`, porque son códigos de texto.
-- Las rutas, tokens y contraseñas en claro no se guardan en la base.
+- Motor InnoDB, MySQL 8.0.16 o superior, juego `utf8mb4` con
+  `utf8mb4_0900_ai_ci`.
+- Identidad de usuario: `CHAR(36)` en ASCII, UUID generado por Node con
+  `crypto.randomUUID()`.
+- Códigos de producto y de venta de origen: texto ASCII, nunca números.
+- Fechas de negocio: `DATE`; marcas de tiempo: `TIMESTAMP`.
+- Dinero: `DECIMAL(12,2)` para precios y `DECIMAL(14,2)` para totales.
+- Booleanos: `TINYINT(1)` con `CHECK` de 0/1.
+- Los precios históricos viven en `ventas`; `productos.precio_actual_mxn` es el
+  precio vigente del catálogo.
 
-## 2. Relación general
+## 2. Relaciones
 
 ```text
-usuarios 1 --- N importaciones 1 --- N ventas N --- 1 productos
+usuarios 1 --- N importaciones 1 --- N ventas N --- 1 productos N --- 1 categorias
     |                                    |
     +------------- N ventas -------------+
+
+usuarios 1 --- N importaciones (importado_por, opcional)
 ```
 
-`importaciones` registra cada archivo simulado y su propietario. `ventas`
-registra la venta con el precio histórico y el código de origen. `productos`
-contiene el catálogo vigente; la categoría se conserva como etiqueta textual
-para no romper el contrato de la API.
+`ventas` usa una **FK compuesta** `(importacion_id, propietario_id)` hacia
+`importaciones(id, propietario_id)`. Así una venta importada no puede quedar
+asociada a la importación de otro cliente.
 
-## 3. Diccionario de tablas
+## 3. Tablas
 
 ### 3.1 `usuarios`
 
-| Columna | Tipo | Restricciones |
+| Columna | Tipo | Regla |
 |---|---|---|
-| `id` | `BIGINT UNSIGNED` | PK, autoincremental |
-| `nombre` | `VARCHAR(120)` | obligatorio, 1–120 caracteres |
-| `email` | `VARCHAR(254)` | obligatorio, único, minúsculas, formato de correo |
-| `password_hash` | `VARCHAR(255)` | obligatorio, debe iniciar con `$argon2id$` |
-| `rol` | `ENUM('cliente','administrador')` | obligatorio, valor por defecto `cliente` |
-| `activo` | `TINYINT(1)` | 0 o 1, por defecto 1 |
-| `creado_en` | `DATETIME` | por defecto `CURRENT_TIMESTAMP` |
-| `actualizado_en` | `DATETIME` | se actualiza con la fila |
+| `id` | `CHAR(36)` ASCII | PK, UUID en minúsculas. |
+| `nombre` | `VARCHAR(120)` | NOT NULL, 1..120. |
+| `correo` | `VARCHAR(254)` | NOT NULL, UNIQUE, minúsculas. |
+| `password_hash` | `VARCHAR(255)` | NOT NULL, prefijo `$argon2id$`. |
+| `rol` | `VARCHAR(20)` | NOT NULL, `cliente` o `administrador`. |
+| `activo` | `TINYINT(1)` | NOT NULL, default 1. |
+| `creado_en` | `TIMESTAMP` | NOT NULL, default `CURRENT_TIMESTAMP`. |
+| `actualizado_en` | `TIMESTAMP` | NOT NULL, se actualiza con la fila. |
 
-Índices: `uq_usuarios_email`, `ix_usuarios_rol`.
+Índice: `rol`. Restricciones: UUID, nombre, correo en minúsculas, hash
+Argon2id, rol permitido y activo 0/1.
 
-### 3.2 `productos`
+### 3.2 `categorias`
 
-| Columna | Tipo | Restricciones |
+| Columna | Tipo | Regla |
 |---|---|---|
-| `producto_id` | `VARCHAR(20)` | PK, patrón `^[A-Z]{1,3}[0-9]{3}$` |
-| `producto` | `VARCHAR(160)` | obligatorio |
-| `categoria` | `VARCHAR(80)` | obligatoria |
-| `precio_unitario_mxn` | `DECIMAL(12,2)` | mayor que 0 y máximo 1,000,000 |
-| `activo` | `TINYINT(1)` | 0 o 1, por defecto 1 |
-| `creado_en` | `DATETIME` | por defecto `CURRENT_TIMESTAMP` |
-| `actualizado_en` | `DATETIME` | se actualiza con la fila |
+| `id` | `SMALLINT UNSIGNED` AUTO_INCREMENT | PK. |
+| `nombre` | `VARCHAR(60)` | NOT NULL, UNIQUE, 1..60. |
 
-El catálogo guarda el precio **vigente**. El precio de cada venta se conserva
-en `ventas.precio_unitario_mxn` y no se reescribe desde el catálogo.
+### 3.3 `productos`
 
-### 3.3 `importaciones`
-
-| Columna | Tipo | Restricciones |
+| Columna | Tipo | Regla |
 |---|---|---|
-| `id` | `BIGINT UNSIGNED` | PK, autoincremental |
-| `conjunto` | `VARCHAR(80)` | obligatorio, único |
-| `archivo` | `VARCHAR(255)` | obligatorio |
-| `hash_sha256` | `CHAR(64)` | obligatorio, único, hexadecimal |
-| `perfil_demanda` | `VARCHAR(80)` | obligatorio |
-| `fuente` | `VARCHAR(40)` | por defecto y restringido a `datos_simulados` |
-| `es_demostracion` | `TINYINT(1)` | restringido a 1 |
-| `moneda` | `CHAR(3)` | restringido a `MXN` |
-| `periodo_inicio` | `DATE` | obligatorio |
-| `periodo_fin` | `DATE` | obligatorio, no anterior al inicio |
-| `cantidad_registros` | `INT UNSIGNED` | mayor que 0 |
-| `propietario_id` | `BIGINT UNSIGNED` | FK a `usuarios.id` |
-| `importado_por` | `BIGINT UNSIGNED` | FK opcional a `usuarios.id` |
-| `importado_en` | `DATETIME` | por defecto `CURRENT_TIMESTAMP` |
+| `id` | `VARCHAR(20)` ASCII | PK, patrón `^[A-Z]{1,3}[0-9]{3}$`. |
+| `nombre` | `VARCHAR(120)` | NOT NULL. |
+| `categoria_id` | `SMALLINT UNSIGNED` | FK a `categorias.id`, `ON DELETE RESTRICT`. |
+| `precio_actual_mxn` | `DECIMAL(12,2)` | NOT NULL, > 0 y <= 1,000,000. |
+| `activo` | `TINYINT(1)` | NOT NULL, default 1. |
+| `creado_en` | `TIMESTAMP` | NOT NULL, default `CURRENT_TIMESTAMP`. |
+| `actualizado_en` | `TIMESTAMP` | NOT NULL, se actualiza con la fila. |
 
-Índices: `uq_importaciones_conjunto`, `uq_importaciones_hash`,
-`uq_importaciones_id_propietario`, `ix_importaciones_propietario`,
-`ix_importaciones_importado_por`.
+Índice: `categoria_id`.
 
-La tabla solo admite fuentes de demostración simuladas. Si en el futuro se
-requieren fuentes reales, debe agregarse una migración explícita y revisarse la
-política de privacidad; no se debe relajar esta restricción sin coordinación.
+### 3.4 `importaciones`
 
-### 3.4 `ventas`
-
-| Columna | Tipo | Restricciones |
+| Columna | Tipo | Regla |
 |---|---|---|
-| `id_venta` | `BIGINT UNSIGNED` | PK interna, autoincremental |
-| `importacion_id` | `BIGINT UNSIGNED` | FK compuesta con `usuario_id`; nulo en ventas manuales |
-| `id_origen` | `VARCHAR(32)` | código del JSON; nulo en ventas manuales; único por importación |
-| `usuario_id` | `BIGINT UNSIGNED` | FK a `usuarios.id`, propietario |
-| `fecha` | `DATE` | obligatoria, desde 2000-01-01 |
-| `producto_id` | `VARCHAR(20)` | FK a `productos.producto_id` |
-| `producto` | `VARCHAR(160)` | copia histórica del nombre |
-| `categoria` | `VARCHAR(80)` | copia histórica de la categoría |
-| `precio_unitario_mxn` | `DECIMAL(12,2)` | precio histórico, mayor que 0 |
-| `cantidad` | `INT UNSIGNED` | 1–10,000 |
-| `total_mxn` | `DECIMAL(14,2)` | igual a `precio_unitario_mxn × cantidad` |
-| `creado_en` | `DATETIME` | por defecto `CURRENT_TIMESTAMP` |
+| `id` | `BIGINT UNSIGNED` AUTO_INCREMENT | PK. |
+| `conjunto` | `VARCHAR(80)` | NOT NULL, UNIQUE. |
+| `archivo` | `VARCHAR(255)` | NOT NULL. |
+| `hash_sha256` | `CHAR(64)` ASCII | NOT NULL, UNIQUE, hexadecimal. |
+| `perfil_demanda` | `VARCHAR(80)` | NOT NULL. |
+| `fuente` | `VARCHAR(40)` | NOT NULL, default `datos_simulados`. |
+| `es_demostracion` | `TINYINT(1)` | NOT NULL, default 1. |
+| `moneda` | `CHAR(3)` ASCII | NOT NULL, `MXN`. |
+| `periodo_inicio` | `DATE` | NOT NULL. |
+| `periodo_fin` | `DATE` | NOT NULL, no anterior al inicio. |
+| `cantidad_registros` | `INT` | NOT NULL, > 0. |
+| `propietario_id` | `CHAR(36)` ASCII | NOT NULL, FK a `usuarios.id`, `ON DELETE RESTRICT`. |
+| `importado_por` | `CHAR(36)` ASCII | NULL, FK a `usuarios.id`, `ON DELETE SET NULL`. |
+| `importado_en` | `TIMESTAMP` | NOT NULL, default `CURRENT_TIMESTAMP`. |
 
-Índices: `uq_ventas_importacion_origen`, `ix_ventas_usuario_fecha`,
-`ix_ventas_producto_fecha`, `ix_ventas_fecha`,
-`ix_ventas_importacion_usuario`.
+Índices y llaves: `UNIQUE(conjunto)`, `UNIQUE(hash_sha256)`,
+`UNIQUE(id, propietario_id)` (destino de la FK compuesta), índice de
+`propietario_id` e índice de `importado_por`.
 
-La llave compuesta `(importacion_id, usuario_id)` referencia
-`importaciones(id, propietario_id)`, de modo que una venta importada no puede
-quedar registrada a nombre de otro usuario.
+### 3.5 `ventas`
 
-### 3.5 `migraciones`
+| Columna | Tipo | Regla |
+|---|---|---|
+| `id` | `BIGINT UNSIGNED` AUTO_INCREMENT | PK. |
+| `importacion_id` | `BIGINT UNSIGNED` NULL | Parte de la FK compuesta. |
+| `id_origen` | `VARCHAR(64)` ASCII NULL | `id_venta` original del JSON. |
+| `propietario_id` | `CHAR(36)` ASCII | NOT NULL, FK a `usuarios.id`. |
+| `fecha` | `DATE` | NOT NULL, >= `2000-01-01`. |
+| `producto_id` | `VARCHAR(20)` ASCII | NOT NULL, FK a `productos.id`. |
+| `precio_unitario_mxn` | `DECIMAL(12,2)` | NOT NULL, > 0 y <= 1,000,000. |
+| `cantidad` | `INT` | NOT NULL, 1..10,000. |
+| `total_mxn` | `DECIMAL(14,2)` | NOT NULL, > 0, <= 10,000,000 y coherente. |
+| `clave_idempotencia` | `CHAR(36)` ASCII NULL | UUID de captura manual. |
+| `creado_en` | `TIMESTAMP` | NOT NULL, default `CURRENT_TIMESTAMP`. |
 
-Tabla de control del migrador: `id`, `nombre`, `hash_sha256`, `aplicada_en`.
-Permite detectar migraciones ya aplicadas y cambios de contenido.
+Restricciones e índices:
 
-## 4. Mapa de identificadores
+- FK compuesta `(importacion_id, propietario_id)` a
+  `importaciones(id, propietario_id)`, `ON DELETE RESTRICT`.
+- FKs simples de propietario y producto, `ON DELETE RESTRICT`.
+- `UNIQUE(importacion_id, id_origen)` para no repetir el origen de una
+  importación.
+- `UNIQUE(propietario_id, clave_idempotencia)` para reintentos de captura.
+- Índices `(propietario_id, fecha)`, `(producto_id, fecha)`, `fecha` e
+  `importacion_id`.
+- `CHECK ((importacion_id IS NULL) = (id_origen IS NULL))`.
+- `CHECK` de longitud y patrón de `id_origen`.
+- `CHECK` de UUID de propietario y clave de idempotencia.
+- `CHECK` de cantidad, precio, total y coherencia
+  `ABS(total_mxn - precio × cantidad) <= 0.01`.
 
-| Concepto | Columna | Tipo | Ejemplo |
-|---|---|---|---|
-| Venta interna | `ventas.id_venta` | `BIGINT` autoincremental | `1` |
-| Venta de origen | `ventas.id_origen` | `VARCHAR(32)` | `D01-066` |
-| Producto | `productos.producto_id` | `VARCHAR(20)` | `B003` |
-| Usuario | `usuarios.id` | `BIGINT` autoincremental | `4` |
-| Importación | `importaciones.id` | `BIGINT` autoincremental | `1` |
+En MySQL los valores `NULL` de una clave única se consideran distintos; por eso
+`UNIQUE(importacion_id, id_origen)` y
+`UNIQUE(propietario_id, clave_idempotencia)` reproducen la semántica de los
+índices únicos parciales del modelo lógico.
 
-Reglas:
+## 4. Tabla de control de migraciones
 
-1. El `id_venta` interno nunca se toma del JSON ni se envía como identificador
-   de origen.
-2. El código del JSON se guarda en `id_origen` y se conserva como texto.
-3. El `producto_id` se guarda como texto; no se convierte a `Number`.
-4. La unicidad de origen es `(importacion_id, id_origen)`, no solo
-   `id_origen`, porque distintas fuentes podrían reutilizar códigos.
-5. Las ventas manuales de la API tienen `importacion_id = NULL` e
-   `id_origen = NULL`; MySQL permite múltiples nulos en la clave única.
+`migraciones` guarda `id`, `nombre`, `hash_sha256` y `aplicado_en`. El runner
+calcula el SHA-256 del contenido con finales de línea normalizados a LF y acepta
+al comparar las variantes CRLF y CR, de modo que el mismo archivo no cambia de
+hash entre Windows y otros sistemas.
 
-## 5. Normalización y decisiones
+Antes de registrar una migración, el runner verifica tablas, columnas, tipos,
+nulabilidad, restricciones `UNIQUE`, `CHECK` y claves foráneas. Si la base ya
+tenía tablas de negocio y la tabla `migraciones` está vacía, verifica el esquema
+completo antes de ejecutar cualquier DDL. Una migración solo se registra después
+de crearla o de verificarla.
 
-- `usuarios` y `productos` son catálogos independientes.
-- `importaciones` es la entidad que representa la fuente y su propietario.
-- `ventas` es la tabla transaccional; guarda una **copia histórica** del nombre,
-  categoría y precio del producto para que un cambio de catálogo no altere el
-  pasado.
-- La categoría se guarda como etiqueta textual en `productos` y `ventas` para
-  mantener el contrato de la API (`productos.categoria`). No se crea una tabla
-  de categorías porque no tiene atributos propios en el alcance actual.
-- El total se guarda y se valida contra precio × cantidad; no se recalcula
-  silenciosamente al leer.
-- El hash SHA-256 identifica el contenido de cada archivo y evita reimportar
-  contenido distinto bajo el mismo conjunto.
-
-## 6. Restricciones relevantes
-
-- `ck_usuarios_hash`: solo hashes Argon2id.
-- `ck_productos_id` y `ck_productos_precio`.
-- `ck_importaciones_hash`, `ck_importaciones_fechas`,
-  `ck_importaciones_registros`, `ck_importaciones_fuente`,
-  `ck_importaciones_demostracion`, `ck_importaciones_moneda`.
-- `ck_ventas_origen`: importación e identidad de origen van juntas o ambas son
-  nulas.
-- `ck_ventas_total`: el total debe coincidir exactamente con precio × cantidad.
-- `ck_ventas_cantidad`, `ck_ventas_precio`, `ck_ventas_fecha`.
-- Claves foráneas con `ON DELETE RESTRICT` para no perder ventas ni catálogo;
-  `importado_por` usa `ON DELETE SET NULL`.
-
-## 7. Migración reproducible
-
-```bash
-npm run db:migrar
-```
-
-El migrador:
-
-1. crea la base si no existe (el usuario debe tener permiso);
-2. crea la tabla `migraciones`;
-3. ordena los archivos `.sql`;
-4. aplica los pendientes y registra su hash;
-5. se niega a continuar si una migración ya aplicada cambió de contenido.
-
-MySQL no permite transacciones DDL. Por eso el archivo inicial usa
-`CREATE TABLE IF NOT EXISTS`: si una ejecución falla después de crear algunas
-tablas, el reintento es seguro. La carga de datos sí es transaccional.
+Si el hash registrado corresponde al `001` histórico incompatible de `43c2886`,
+el runner aborta sin modificar la base ni la tabla `migraciones`. La evidencia y
+la decisión están en [`HISTORIAL_MIGRACIONES.md`](HISTORIAL_MIGRACIONES.md). Para
+evolucionar el esquema se agrega un archivo nuevo; no se edita uno aplicado.

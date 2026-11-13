@@ -11,6 +11,15 @@ const {
 } = require('../src/servicios/importacionDemo');
 
 const DIRECTORIO_DEMO = path.join(__dirname, '..', 'data', 'demo');
+const TOTALES_OFICIALES = {
+  archivos: 5,
+  ventas: 500,
+  ventasPorArchivo: 100,
+  unidades: 1287,
+  importeCentavos: 3640400,
+  productos: 41,
+  categorias: 6,
+};
 
 function metadata(extra = {}) {
   return {
@@ -45,26 +54,140 @@ function enDirectorioTemporal(contenido) {
   return directorio;
 }
 
-test('los cinco conjuntos reales se validan y comparten catálogo', () => {
+test('el paquete oficial de cinco JSON coincide con los totales documentados', () => {
   const { archivos, catalogo } = cargarDirectorioDemo(DIRECTORIO_DEMO);
+  const archivosJson = fs
+    .readdirSync(DIRECTORIO_DEMO)
+    .filter((archivo) => archivo.toLowerCase().endsWith('.json'));
 
-  assert.equal(archivos.length, 5);
+  assert.equal(archivosJson.length, TOTALES_OFICIALES.archivos);
+  assert.equal(archivos.length, TOTALES_OFICIALES.archivos);
   assert.equal(
     archivos.reduce((total, archivo) => total + archivo.ventas.length, 0),
-    500
+    TOTALES_OFICIALES.ventas
   );
-  assert.equal(catalogo.size, 41);
+  assert.equal(
+    archivos.reduce((total, archivo) => total + archivo.ventas.reduce((suma, venta) => suma + venta.cantidad, 0), 0),
+    TOTALES_OFICIALES.unidades
+  );
+  assert.equal(
+    archivos.reduce(
+      (total, archivo) =>
+        total + archivo.ventas.reduce((suma, venta) => suma + Math.round(venta.total_mxn * 100), 0),
+      0
+    ),
+    TOTALES_OFICIALES.importeCentavos
+  );
+  assert.equal(catalogo.size, TOTALES_OFICIALES.productos);
+  assert.equal(
+    new Set([...catalogo.values()].map((producto) => producto.categoria)).size,
+    TOTALES_OFICIALES.categorias
+  );
   assert.equal(new Set(archivos.map((archivo) => archivo.metadata.conjunto)).size, 5);
+  assert.equal(new Set(archivos.map((archivo) => archivo.hash_sha256)).size, 5);
 
   for (const archivo of archivos) {
     assert.match(archivo.hash_sha256, /^[a-f0-9]{64}$/);
     assert.equal(archivo.metadata.moneda, 'MXN');
     assert.equal(archivo.metadata.datos_simulados, true);
+    assert.equal(archivo.ventas.length, TOTALES_OFICIALES.ventasPorArchivo);
     assert.equal(archivo.ventas.length, archivo.metadata.cantidad_registros);
     for (const ventaImportada of archivo.ventas) {
       assert.equal(typeof ventaImportada.id_venta, 'string');
       assert.equal(typeof ventaImportada.producto_id, 'string');
+      assert.equal(catalogo.get(ventaImportada.producto_id).producto, ventaImportada.producto);
+      assert.equal(catalogo.get(ventaImportada.producto_id).categoria, ventaImportada.categoria);
+      assert.equal(
+        catalogo.get(ventaImportada.producto_id).precio_unitario_mxn,
+        ventaImportada.precio_unitario_mxn
+      );
     }
+  }
+});
+
+test('el importador general acepta un directorio configurable con dos JSON válidos', () => {
+  const directorio = fs.mkdtempSync(path.join(os.tmpdir(), 'renefull-demo-'));
+  fs.writeFileSync(
+    path.join(directorio, 'uno.json'),
+    JSON.stringify({ metadata: metadata(), ventas: [venta()] }),
+    'utf8'
+  );
+  fs.writeFileSync(
+    path.join(directorio, 'dos.json'),
+    JSON.stringify({
+      metadata: metadata({ conjunto: 'prueba_demo_2' }),
+      ventas: [venta({ id_venta: 'D01-002' })],
+    }),
+    'utf8'
+  );
+
+  try {
+    const { archivos } = cargarDirectorioDemo(directorio);
+    assert.equal(archivos.length, 2);
+    assert.equal(
+      archivos.reduce((total, archivo) => total + archivo.ventas.length, 0),
+      2
+    );
+  } finally {
+    fs.rmSync(directorio, { recursive: true, force: true });
+  }
+});
+
+test('el importador general rechaza un directorio sin JSON', () => {
+  const directorio = fs.mkdtempSync(path.join(os.tmpdir(), 'renefull-demo-'));
+  try {
+    assert.throws(
+      () => cargarDirectorioDemo(directorio),
+      (error) =>
+        error instanceof ErrorImportacion &&
+        error.detalles.some(
+          (detalle) =>
+            detalle.campo === 'directorio' &&
+            /No se encontraron archivos JSON/.test(detalle.motivo)
+        )
+    );
+  } finally {
+    fs.rmSync(directorio, { recursive: true, force: true });
+  }
+});
+
+test('reporta archivo, fila y campo cuando el JSON o una venta son inválidos', () => {
+  const invalido = fs.mkdtempSync(path.join(os.tmpdir(), 'renefull-demo-'));
+  fs.writeFileSync(path.join(invalido, 'invalido.json'), '{', 'utf8');
+  try {
+    assert.throws(
+      () => cargarDirectorioDemo(invalido),
+      (error) =>
+        error instanceof ErrorImportacion &&
+        error.detalles.some(
+          (detalle) =>
+            detalle.archivo === 'invalido.json' &&
+            detalle.fila === null &&
+            detalle.campo === 'archivo'
+        )
+    );
+  } finally {
+    fs.rmSync(invalido, { recursive: true, force: true });
+  }
+
+  const filaInvalida = enDirectorioTemporal({
+    metadata: metadata(),
+    ventas: [venta({ cantidad: 0 })],
+  });
+  try {
+    assert.throws(
+      () => cargarDirectorioDemo(filaInvalida),
+      (error) =>
+        error instanceof ErrorImportacion &&
+        error.detalles.some(
+          (detalle) =>
+            detalle.archivo === 'demo.json' &&
+            detalle.fila === 1 &&
+            detalle.campo === 'cantidad'
+        )
+    );
+  } finally {
+    fs.rmSync(filaInvalida, { recursive: true, force: true });
   }
 });
 
@@ -158,6 +281,30 @@ test('rechaza campos desconocidos en metadata y en cada venta', () => {
   }
 });
 
+test('rechaza un producto con precio distinto entre archivos', () => {
+  const directorio = fs.mkdtempSync(path.join(os.tmpdir(), 'renefull-demo-'));
+  const primero = { metadata: metadata(), ventas: [venta()] };
+  const segundo = {
+    metadata: metadata({ conjunto: 'prueba_demo_2' }),
+    ventas: [
+      venta({ id_venta: 'D01-002', precio_unitario_mxn: 32, total_mxn: 64 }),
+    ],
+  };
+  fs.writeFileSync(path.join(directorio, 'uno.json'), JSON.stringify(primero), 'utf8');
+  fs.writeFileSync(path.join(directorio, 'dos.json'), JSON.stringify(segundo), 'utf8');
+
+  try {
+    assert.throws(
+      () => cargarDirectorioDemo(directorio),
+      (error) =>
+        error instanceof ErrorImportacion &&
+        error.detalles.some((detalle) => /nombre, categoría o precio distintos/.test(detalle.motivo))
+    );
+  } finally {
+    fs.rmSync(directorio, { recursive: true, force: true });
+  }
+});
+
 test('rechaza un producto con nombre distinto entre archivos', () => {
   const directorio = fs.mkdtempSync(path.join(os.tmpdir(), 'renefull-demo-'));
   const primero = { metadata: metadata(), ventas: [venta()] };
@@ -173,7 +320,7 @@ test('rechaza un producto con nombre distinto entre archivos', () => {
       () => cargarDirectorioDemo(directorio),
       (error) =>
         error instanceof ErrorImportacion &&
-        error.detalles.some((detalle) => /nombre o categoría distintos/.test(detalle.motivo))
+        error.detalles.some((detalle) => /nombre, categoría o precio distintos/.test(detalle.motivo))
     );
   } finally {
     fs.rmSync(directorio, { recursive: true, force: true });
