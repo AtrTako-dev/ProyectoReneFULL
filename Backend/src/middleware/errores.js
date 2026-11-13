@@ -37,6 +37,11 @@ const errores = {
 // el mensaje original porque puede incluir nombres de tablas o valores.
 const ERRORES_BD = {
   ER_DUP_ENTRY: [409, 'CONFLICTO', 'Ya existe un registro con esos datos.'],
+  ER_CHECK_CONSTRAINT_VIOLATED: [
+    422,
+    'VALIDACION_DATOS',
+    'Uno de los valores no cumple las restricciones del registro.',
+  ],
   ER_NO_REFERENCED_ROW: [422, 'VALIDACION_DATOS', 'La referencia indicada no existe.'],
   ER_NO_REFERENCED_ROW_2: [422, 'VALIDACION_DATOS', 'La referencia indicada no existe.'],
   ER_ROW_IS_REFERENCED_2: [

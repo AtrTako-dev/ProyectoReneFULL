@@ -70,7 +70,7 @@ Formato único de error:
   `NO_ENCONTRADO`, `CONFLICTO`, `ERROR_INTERNO`.
 - `campos` solo aparece en `VALIDACION_DATOS`.
 - Los errores de MySQL se traducen sin exponer el mensaje original: duplicado → 409, referencia
-  inexistente o dato truncado/fuera de rango → 422, resto → 500.
+  inexistente, dato truncado/fuera de rango o restricción `CHECK` → 422, resto → 500.
 
 ## 4. Endpoints
 
@@ -510,7 +510,9 @@ Las filas inválidas **nunca** se devuelven ni se usan en cálculos; se cuentan 
 - **Solo se emite `prediccion` si el MAE del modelo es estrictamente menor que el de la línea
   base.** En caso contrario se informa `modelo_no_supera_linea_base`.
 - Mínimos: **12 semanas completas** y **8 semanas con unidades positivas**; además se requieren
-  al menos `5 + 5 = 10` observaciones para entrenar y evaluar.
+  al menos `5 + 5 = 10` observaciones para entrenar y evaluar. Como cada observación consume las
+  4 semanas previas, el mínimo efectivo es de **14 semanas completas**; con 12 o 13 nunca se emite
+  `prediccion`.
 - No se leen JSON en tiempo de ejecución ni se inventan valores.
 - La predicción de cliente usa solo sus ventas; la administrativa exige `cliente_id` y usa solo
   las ventas de ese usuario.
@@ -725,9 +727,9 @@ entorno o de `.env` local, nunca se imprimen ni se guardan en el repositorio.
 1. **Precio de venta:** debe coincidir con el catálogo; tolerancia máxima de 0.01 MXN por redondeo.
 2. **Token:** 8 horas, solo identidad, sin renovación automática.
 3. **Límites:** consultas de hasta **730 días**; listado con `limite` 1..500 (default 100).
-4. **Predicción:** Ridge `alpha = 1`, semanas ISO completas, mínimos 12/8, evaluación de 5
-   semanas y línea base de la semana anterior. Si el modelo no supera la línea base, no se
-   publican valores.
+4. **Predicción:** Ridge `alpha = 1`, semanas ISO completas, mínimos 12/8 y 10 observaciones
+   (14 semanas completas efectivas), evaluación de 5 semanas y línea base de la semana anterior.
+   Si el modelo no supera la línea base, no se publican valores.
 5. **Registro:** siempre `cliente`; la propiedad `rol` se rechaza con 422.
 6. **Auto-modificación de rol:** prohibida; el administrador recibe 403.
 7. **Aislamiento:** el propietario de cliente se deriva del token, nunca de la URL o el cuerpo.
@@ -742,14 +744,15 @@ entorno o de `.env` local, nunca se imprimen ni se guardan en el repositorio.
 
 ## 12. Estado de verificación
 
-- **112 de 112 pruebas unitarias/HTTP en verde** con `npm test` (`node:test`, `NODE_ENV=test`), sin
+- **115 de 115 pruebas unitarias/HTTP en verde** con `npm test` (`node:test`, `NODE_ENV=test`), sin
   base de datos: validaciones, formato de errores, tokens, Argon2id, middleware de permisos,
-  aislamiento entre propietarios, serializadores, estadísticas, Ridge/línea base, validación de
-  registros leídos, flujos HTTP con modelos simulados y validación de los cinco conjuntos demo.
-- **9 de 9 pruebas de integración en verde** con `npm run test:integracion` sobre MySQL 8.0.46 y la
-  base desechable `proyectorenefull_test`: migración y hash, tipos `CHAR(36)`/`DECIMAL`, FK
-  compuesta, rollback, carga de 500 ventas, idempotencia, aislamiento, estadísticas, modelo de
-  demanda y flujos HTTP reales.
+  aislamiento entre propietarios, serializadores, estadísticas, Ridge/línea base y umbral de
+  observaciones, validación de registros leídos, flujos HTTP con modelos simulados y validación de
+  los cinco conjuntos demo.
+- **10 de 10 pruebas de integración en verde** con `npm run test:integracion` sobre MySQL 8.0.46 y
+  la base desechable `proyectorenefull_test`: migración y hash, tipos `CHAR(36)`/`DECIMAL`,
+  restricciones `CHECK`/`UNIQUE`/FK compuesta, rollback, carga de 500 ventas, idempotencia,
+  aislamiento, estadísticas, modelo de demanda y flujos HTTP reales.
 - `npm run db:migrar`, `npm run admin:crear`, `npm run demo:cuenta` y `npm run demo:cargar` se
   ejecutaron contra MySQL real. La segunda carga demo no duplica ventas.
 - La verificación de referencia fue: 500 ventas, 1,287 unidades, 36,404.00 MXN, 41 productos y

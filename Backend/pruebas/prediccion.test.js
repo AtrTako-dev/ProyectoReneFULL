@@ -9,6 +9,7 @@ const {
   MINIMO_SEMANAS_COMPLETAS,
   MINIMO_SEMANAS_CON_UNIDADES,
   SEMANAS_EVALUACION,
+  MINIMO_OBSERVACIONES,
   ALGORITMO,
   ALPHA,
   VARIABLES,
@@ -110,6 +111,38 @@ test('con suficientes semanas pero pocas con unidades no estima', () => {
   assert.equal(resultado.valores, undefined);
 });
 
+test('doce semanas completas no bastan si faltan observaciones para entrenar y evaluar', () => {
+  // 13 ventas semanales producen 12 semanas completas, pero solo 8 muestras:
+  // construirMuestras exige 5 de entrenamiento + 5 de evaluación.
+  const ventas = ventasSemanales(MINIMO_SEMANAS_COMPLETAS + 1);
+  const resultado = predecirDemandaCategoria(ventas, {
+    categoria: 'Bebidas',
+    hoy: '2026-06-30',
+  });
+
+  assert.equal(resultado.tipo_resultado, 'sin_historial_suficiente');
+  assert.equal(resultado.semanas_completas, MINIMO_SEMANAS_COMPLETAS);
+  assert.equal(resultado.minimo_semanas_completas, MINIMO_SEMANAS_COMPLETAS);
+  assert.equal(MINIMO_OBSERVACIONES, 10);
+  assert.match(resultado.motivo, /observaciones/);
+  assert.equal(resultado.valores, undefined);
+});
+
+test('con catorce semanas completas hay observaciones suficientes y el estado es explícito', () => {
+  // 15 ventas semanales producen 14 semanas completas y 10 muestras.
+  const ventas = ventasSemanales(MINIMO_SEMANAS_COMPLETAS + 3, {
+    unidades: (indice) => 10 + indice,
+  });
+  const resultado = predecirDemandaCategoria(ventas, {
+    categoria: 'Bebidas',
+    hoy: '2026-07-01',
+  });
+
+  assert.ok(['prediccion', 'modelo_no_supera_linea_base'].includes(resultado.tipo_resultado));
+  assert.notEqual(resultado.tipo_resultado, 'sin_historial_suficiente');
+  assert.equal(resultado.valores === undefined, resultado.tipo_resultado !== 'prediccion');
+});
+
 test('con historial suficiente devuelve un contrato explícito y no inventa valores', () => {
   const ventas = ventasSemanales(24, { unidades: (indice) => 10 + indice });
   const resultado = predecirDemandaCategoria(ventas, {
@@ -162,6 +195,7 @@ test('expone las constantes del modelo acordado con Ismael', () => {
   assert.equal(MINIMO_SEMANAS_COMPLETAS, 12);
   assert.equal(MINIMO_SEMANAS_CON_UNIDADES, 8);
   assert.equal(SEMANAS_EVALUACION, 5);
+  assert.equal(MINIMO_OBSERVACIONES, 10);
   assert.equal(ALGORITMO, 'Ridge');
   assert.equal(ALPHA, 1);
   assert.equal(fechaDeHoy().length, 10);
