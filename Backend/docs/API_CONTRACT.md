@@ -728,7 +728,6 @@ npm run admin:crear
 ## 12. Estado de verificación
 
 - `npm test` ejecuta pruebas unitarias, de validación y HTTP con modelos simulados; no requiere MySQL.
-- `npm run test:integracion` ejecuta la capa de datos contra MySQL 8 y elimina/recrea la base indicada
-  por `TEST_DB_NOMBRE`. Use exclusivamente una base desechable.
+- `npm run test:integracion` ejecuta la capa de datos contra MySQL 8 y crea una base temporal con un sufijo único a partir de `TEST_DB_NOMBRE` y elimina solo esa base.
 - La compatibilidad entre los modelos SQL de la API y el DDL de la capa de datos sigue pendiente por
   las diferencias documentadas en §8. No se verificó la API contra esa migración.

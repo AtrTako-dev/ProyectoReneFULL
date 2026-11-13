@@ -105,9 +105,8 @@ La ruta `GET /api/salud` responde `{ "estado": "ok" }` cuando el proceso está a
 
 `npm test` ejecuta las pruebas de API y unitarias con `node:test`, sin conectarse a MySQL.
 
-`npm run test:integracion` requiere una instancia MySQL 8 y una base desechable configurada en
-`TEST_DB_NOMBRE`. La suite borra y vuelve a crear esa base; no use una base con información que
-quiera conservar.
+`npm run test:integracion` requiere una instancia MySQL 8 y una instancia MySQL 8. `TEST_DB_NOMBRE` se usa como prefijo; la suite añade un sufijo único y borra
+solo la base temporal que crea durante esa ejecución.
 
 Las pruebas cubren:
 

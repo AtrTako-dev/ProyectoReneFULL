@@ -1,9 +1,16 @@
+const { randomBytes } = require('node:crypto');
+
 process.env.NODE_ENV = 'test';
 process.env.DB_HOST = process.env.DB_HOST || '127.0.0.1';
 process.env.DB_PUERTO = process.env.DB_PUERTO || '3306';
 process.env.DB_USUARIO = process.env.DB_USUARIO || 'root';
 process.env.DB_CONTRASENA = process.env.DB_CONTRASENA || '';
-const NOMBRE_BASE = process.env.TEST_DB_NOMBRE || 'proyectorenefull_test';
+const PREFIJO_BASE = process.env.TEST_DB_NOMBRE || 'proyectorenefull_test';
+if (!/^[A-Za-z0-9_]{1,40}$/.test(PREFIJO_BASE)) {
+  throw new Error('TEST_DB_NOMBRE debe ser un prefijo de 1 a 40 letras, números o guiones bajos.');
+}
+const NOMBRE_BASE = `${PREFIJO_BASE}_${process.pid}_${randomBytes(4).toString('hex')}`;
+process.env.TEST_DB_NOMBRE = NOMBRE_BASE;
 process.env.DB_NOMBRE = NOMBRE_BASE;
 process.env.DEMO_EMAIL = 'cliente.demo@example.com';
 process.env.DEMO_NOMBRE = 'Cliente de Demostracion';
