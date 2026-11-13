@@ -142,8 +142,7 @@ Pruebas de integración con MySQL real. Usan una base temporal única con prefij
 $env:DB_PUERTO='3306'
 $env:DB_USUARIO='root'
 $env:DB_CONTRASENA=''
-# Opcional: si se omite, la prueba genera un nombre único.
-$env:TEST_DB_NOMBRE='renefull_test_<sufijo>'
+# TEST_DB_NOMBRE se puede omitir; la prueba genera un nombre único.
 npm run test:integracion
 ```
 
