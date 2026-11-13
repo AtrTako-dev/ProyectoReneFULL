@@ -1,140 +1,142 @@
-# Backend Proyecto ReneFULL
+# Backend Proyecto ReneFULL — datos y demanda
 
-Base de datos, analitica y prediccion de demanda del backend. El alcance de esta
-rama es exclusivamente `Backend/`: esquema PostgreSQL, migraciones Alembic,
-carga de los cinco conjuntos simulados de demostracion, estadisticas y modelo
-de demanda. Las rutas HTTP, la autenticacion y la app movil se integran en otras
-ramas.
+Este directorio contiene la parte de **Node.js + MySQL 8** del backend que
+trabaja Ismael: esquema, migraciones, carga de los cinco conjuntos simulados de
+demostración, consultas internas, estadísticas y modelo de demanda. La API HTTP
+con **Express**, la autenticación y las rutas pertenecen al área de Mia-Paola;
+este paquete no las reimplementa, pero expone las consultas y el formato de
+salida que la API puede consumir.
+
+> Los cinco JSON de `data/demo/` son **datos simulados de demostración**. No son
+> ventas reales, no se presentan como tales y no deben usarse para decisiones de
+> negocio.
 
 ## Requisitos
 
-- Python 3.12 o superior.
-- PostgreSQL 16 o superior.
-- Los cinco archivos JSON de `data/demo/` (datos simulados, no ventas reales).
+- Node.js 20.12 o superior.
+- MySQL 8.0.
+- Los cinco archivos de `data/demo/` (100 ventas cada uno).
 
-## Instalacion
+## Instalación
 
-```powershell
-cd Backend
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[test]"
-Copy-Item .env.example .env
+Desde `Backend/`:
+
+```bash
+npm install
 ```
 
-Edite `.env` con una cadena de conexion real. No versione `.env` ni contrasenas.
-La aplicacion usa SQLAlchemy 2, psycopg 3, Pydantic 2 y Argon2id.
+Copie `.env.example` a `.env` y ajuste las variables `DB_*`. El archivo `.env`
+está excluido de Git; no incluya contraseñas ni secretos en el repositorio.
 
 ## Base de datos
 
-Cree una base vacia:
-
-```sql
-CREATE DATABASE proyectorenefull;
+```bash
+npm run db:migrar
 ```
 
-Aplique las migraciones:
+El comando crea la base `DB_NOMBRE` si el usuario tiene permiso y aplica las
+migraciones pendientes de `db/migraciones/`. La migración inicial crea
+`usuarios`, `productos`, `importaciones`, `ventas` y `migraciones`, con claves,
+índices y restricciones. El detalle está en
+[`docs/ESQUEMA_MYSQL.md`](docs/ESQUEMA_MYSQL.md).
+
+## Cuenta y catálogo de demostración
+
+La cuenta demo se crea sin guardar la contraseña en el repositorio:
 
 ```powershell
-alembic upgrade head
+$env:DEMO_PASSWORD='una-contraseña-local'
+npm run demo:cuenta
 ```
 
-Para revertir todo el esquema:
+En Bash:
 
-```powershell
-alembic downgrade base
+```bash
+DEMO_PASSWORD='una-contraseña-local' npm run demo:cuenta
 ```
 
-`DATABASE_URL` debe tener el formato
-`postgresql+psycopg://usuario:password@host:5432/proyectorenefull`.
+El correo y el nombre se configuran con `DEMO_EMAIL` y `DEMO_NOMBRE`. La carga
+crea el catálogo de productos a partir de los JSON y lo asocia a la cuenta
+cliente.
 
-## Inicializacion de cuentas
+## Carga de los cinco conjuntos
 
-La primera cuenta administradora se crea por un procedimiento controlado, nunca
-desde el registro publico. El hash se genera con Argon2id y la contrasena se
-solicita de forma interactiva o por variable de entorno temporal:
-
-```powershell
-python -m app.scripts.crear_admin
+```bash
+npm run demo:cargar
 ```
 
-Tambien se puede usar `--correo`, `--nombre` y `ADMIN_PASSWORD`. No guarde la
-contrasena en el repositorio. La opcion `--permitir-adicional` solo debe usarse
-en una inicializacion controlada.
+La carga:
 
-El registro publico siempre crea cuentas con rol `cliente`; no acepta roles
-enviados por formularios, URLs ni clientes HTTP.
+- valida metadatos, fechas, códigos de texto, productos, categorías, cantidades,
+  precios y totales antes de abrir la transacción;
+- conserva `producto_id` como texto (`B003`) y el código de origen
+  (`D01-066`) en `ventas.id_origen`;
+- conserva el precio histórico de cada venta;
+- registra la fuente en `importaciones` con hash SHA-256;
+- es idempotente: repetirla no duplica ventas;
+- revierte la transacción completa si MySQL falla durante la inserción.
 
-Cliente de demostracion (opcional):
+Resultado esperado de la carga de demostración:
 
-```powershell
-python -m app.scripts.crear_cliente_demo
-```
+- 5 archivos;
+- 500 ventas;
+- 1,287 unidades;
+- 36,404.00 MXN.
 
-## Carga de datos de demostracion
+Los detalles de proceso y errores están en
+[`docs/PROCESOS_MYSQL.md`](docs/PROCESOS_MYSQL.md) y
+[`docs/VALIDACIONES_MYSQL.md`](docs/VALIDACIONES_MYSQL.md).
 
-Los cinco JSON de `data/demo/` son datos simulados para la demostracion. No son
-ventas reales y no deben sustituirse por datos inventados. La carga es
-transaccional e idempotente: si un archivo ya se importo con el mismo contenido,
-se informa `ya_importado`; si el conjunto o el hash cambian, se rechaza el
-conflicto.
+## Consultas y modelo
 
-```powershell
-$env:DEMO_CLIENTE_CORREO = "cliente.demo@example.com"
-$env:ADMIN_CORREO = "admin@example.com"   # opcional, para registrar quien importa
-python -m app.scripts.cargar_demo
-```
+Las consultas filtran por propietario y validan cada fila contra el catálogo
+antes de calcular estadísticas o alimentar el modelo. Las filas inválidas se
+excluyen y se reportan; una consulta individual inválida produce un error
+controlado.
 
-Los archivos se validan fila por fila antes de escribir. Un archivo invalido
-revierte la transaccion completa. Las filas invalidas que lleguen a existir en
-la base se excluyen de listados, estadisticas y predicciones; una consulta
-individual devuelve un error controlado.
+El modelo de demanda:
+
+- agrega unidades por semana y categoría;
+- entrena una regresión Ridge en JavaScript;
+- evalúa en orden cronológico contra la línea base de la semana anterior;
+- usa MAE como métrica interpretable;
+- si no hay historial suficiente o el modelo no supera la línea base, devuelve
+  un estado controlado sin valores inventados.
+
+La interfaz exacta para Mia-Paola está en
+[`docs/INTERFAZ_MIA.md`](docs/INTERFAZ_MIA.md).
 
 ## Pruebas
 
-Las pruebas de integracion requieren una base PostgreSQL desechable. El fixture
-elimina y recrea el esquema `public` de esa base y aplica todas las migraciones.
-Nunca apunte `TEST_DATABASE_URL` a una base con datos reales.
+Con una instancia MySQL desechable configurada por variables de entorno:
 
 ```powershell
-$env:TEST_DATABASE_URL = "postgresql+psycopg://postgres:postgres@localhost:5432/proyectorenefull_test"
-pytest
+$env:DB_HOST='127.0.0.1'
+$env:DB_PUERTO='3306'
+$env:DB_USUARIO='root'
+$env:DB_CONTRASENA=''
+$env:TEST_DB_NOMBRE='proyectorenefull_test'
+npm test
 ```
 
-Pruebas cubiertas:
+Las pruebas de integración crean y eliminan únicamente la base
+`TEST_DB_NOMBRE`. No usan la base de desarrollo ni datos reales.
 
-- migracion completa y restricciones del esquema;
-- rechazo de valores invalidos por restricciones de PostgreSQL;
-- validacion estructural de JSON, rechazo transaccional e idempotencia;
-- aislamiento por propietario y errores controlados para filas invalidas;
-- estadisticas de cliente y administrador calculadas desde PostgreSQL;
-- corte cronologico del modelo, historial insuficiente, comparacion contra la
-  linea base y prediccion determinista.
-
-## Documentación
-
-- `docs/CONTRATO_BACKEND.md`: contrato aprobado de base de datos, consultas y
-  Machine Learning.
-- `docs/MODELO_DATOS.md`: DER, modelo relacional, diccionario de datos y
-  normalización.
-- `docs/PROCESOS.md`: procesos, decisiones, transacciones y manejo de errores.
-- `docs/VALIDACIONES.md`: catálogo de validaciones y trazabilidad con las
-  pruebas.
+Resultado verificado: **21 pruebas aprobadas** (12 unitarias y 9 de integración
+con MySQL 8).
 
 ## Estructura
 
 ```text
 Backend/
-  app/
-    db/            modelos y sesion SQLAlchemy
-    ml/            modelo Ridge de demanda semanal
-    repositorios/  consultas con alcance por propietario
-    schemas/       contratos Pydantic de lectura
-    scripts/       inicializacion y carga de demostracion
-    seguridad/     Argon2id y politica de contrasenas
-    servicios/     importacion, usuarios y analitica
-  data/demo/       cinco conjuntos simulados
-  docs/            contrato de base de datos y ML
-  migrations/      migraciones Alembic
-  tests/           pruebas de integracion y de modelo
+  data/demo/                 Cinco JSON simulados
+  db/migraciones/            Migraciones SQL ejecutables
+  db/esquema.sql             Copia de referencia del esquema
+  src/config/                Configuración por variables de entorno
+  src/db/                    Pool, transacciones y migrador
+  src/datos/                 Validación, carga, consultas y cuentas
+  src/ml/                    Ridge y modelo de demanda semanal
+  scripts/                   Comandos de migración, cuenta y carga
+  pruebas/datos/             Pruebas unitarias y de integración
+  docs/                      Contrato y documentación de la implementación
 ```
