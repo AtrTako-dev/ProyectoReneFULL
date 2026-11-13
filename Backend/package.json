@@ -11,7 +11,7 @@
     "admin:crear": "node scripts/crearAdmin.js",
     "demo:cuenta": "node scripts/crearClienteDemo.js",
     "demo:cargar": "node scripts/cargarDemo.js",
-    "test": "node --test --test-concurrency=1 pruebas/api.test.js pruebas/authMiddleware.test.js pruebas/errores.test.js pruebas/estadisticas.test.js pruebas/flujosApi.test.js pruebas/importacionDemo.test.js pruebas/password.test.js pruebas/prediccion.test.js pruebas/registros.test.js pruebas/serializadores.test.js pruebas/token.test.js pruebas/validaciones.test.js",
+    "test": "node --test --test-concurrency=1 pruebas/api.test.js pruebas/authMiddleware.test.js pruebas/errores.test.js pruebas/estadisticas.test.js pruebas/flujosApi.test.js pruebas/importacionDemo.test.js pruebas/migraciones.test.js pruebas/password.test.js pruebas/prediccion.test.js pruebas/registros.test.js pruebas/serializadores.test.js pruebas/token.test.js pruebas/validaciones.test.js",
     "test:integracion": "node --test --test-concurrency=1 pruebas/integracion/baseDatos.test.js"
   },
   "engines": {

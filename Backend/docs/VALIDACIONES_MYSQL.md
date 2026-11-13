@@ -19,8 +19,13 @@ transacción.
 | `moneda` | Debe ser exactamente `MXN`. |
 | `periodo_inicio`, `periodo_fin` | Fechas reales; el fin no puede ser anterior al inicio. |
 | `cantidad_registros` | Entero de 1..100000 e igual al número de ventas. |
-| Número de archivos | Debe haber al menos un `.json` válido; la demo versionada contiene cinco conjuntos, pero la carga no exige un número fijo. |
+| Número de archivos | Debe haber al menos un `.json` válido; el paquete oficial contiene cinco, pero la carga acepta cualquier directorio con al menos un JSON válido. |
 | Duplicados | `conjunto` y `hash_sha256` no pueden repetirse entre archivos. |
+
+El paquete oficial `data/demo/` es un conjunto versionado de demostración: cinco
+archivos, 100 ventas por archivo, 500 en total, 1,287 unidades, 36,404.00 MXN, 41
+productos y 6 categorías. Otros directorios pueden tener otro número de archivos
+y de ventas; el importador no impone los totales del paquete oficial.
 
 ## 2. Filas de venta importadas
 
@@ -72,6 +77,25 @@ insertar datos que violan un `CHECK`, un `UNIQUE` y la FK compuesta, y comprueba
 los códigos `ER_CHECK_CONSTRAINT_VIOLATED`, `ER_DUP_ENTRY` y
 `ER_NO_REFERENCED_ROW_2`. La traducción de `ER_CHECK_CONSTRAINT_VIOLATED` a
 `422 VALIDACION_DATOS` también se prueba en `pruebas/errores.test.js`.
+
+## 3.1 Carga demo y catálogo
+
+Además de validar los archivos antes de la transacción, la carga comprueba el
+estado de MySQL:
+
+| Validación | Regla |
+|---|---|
+| Propietario | `DEMO_EMAIL` debe existir, estar activo y tener rol `cliente`. |
+| Importador | Si se define `ADMIN_EMAIL`, debe existir, estar activo y tener rol `administrador`. |
+| Catálogo inmutable | Un producto existente solo se acepta si coinciden nombre, categoría, precio vigente (comparado en centavos) y `activo = 1`. La carga no sobrescribe ni reactiva. |
+| Precio histórico | `ventas.precio_unitario_mxn` conserva el precio de cada venta; `productos.precio_actual_mxn` no se actualiza. |
+| Conjunto existente | Se omite solo si coinciden hash y propietario. |
+| Conjunto ajeno | Si el conjunto o el hash existe con otro propietario, falla y no reasigna ventas. |
+| Concurrencia | `ER_DUP_ENTRY` o `ER_LOCK_DEADLOCK` se traducen a un conflicto controlado con `ROLLBACK`. |
+
+Cualquier discrepancia de catálogo, propietario o contenido revierte la
+transacción completa: no quedan categorías, productos, importaciones ni ventas
+parciales.
 
 ## 4. Consultas y filas leídas de MySQL
 
@@ -150,8 +174,12 @@ errores se imprimen en la consola y no usan este catálogo HTTP.
 ## 8. Trazabilidad de pruebas
 
 - `pruebas/importacionDemo.test.js`: metadatos, campos cerrados, identificadores
-  de texto, centavos, totales, fechas, y coherencia de nombre, categoría y precio
-  del catálogo.
+  de texto, centavos, totales, fechas, coherencia de nombre/categoría/precio del
+  catálogo, paquete oficial de cinco archivos y directorio flexible con al menos
+  un JSON válido.
+- `pruebas/migraciones.test.js`: prefijo exclusivo `renefull_test_`, nombres
+  inválidos, unicidad de nombres temporales y hash canónico con variantes
+  CRLF/LF/CR.
 - `pruebas/registros.test.js`: validación de filas leídas y exclusión de
   registros inválidos.
 - `pruebas/prediccion.test.js`: semanas completas, Ridge, línea base y estados
@@ -159,8 +187,11 @@ errores se imprimen en la consola y no usan este catálogo HTTP.
 - `pruebas/validaciones.test.js`: reglas de entrada de la API.
 - `pruebas/integracion/baseDatos.test.js`: DDL, tipos, restricciones `CHECK`,
   `UNIQUE` y FK compuesta, rollback, carga de 500 ventas, idempotencia,
-  aislamiento, estadísticas, modelo y flujos HTTP reales.
+  catálogo inmutable, producto inactivo, propietario distinto, conflicto
+  concurrente, esquema preexistente incompatible, hash histórico, aislamiento,
+  estadísticas, modelo y flujos HTTP reales.
 
-Resultado verificado: **115 pruebas unitarias/HTTP** y **10 pruebas de
+Resultado verificado: **121 pruebas unitarias/HTTP** y **17 pruebas de
 integración MySQL** aprobadas con MySQL 8.0.46. Las primeras usan modelos
-simulados y no requieren base; las segundas usan MySQL 8 desechable.
+simulados y no requieren base; las segundas usan una base temporal única con
+prefijo `renefull_test_` que se crea y se elimina en la misma ejecución.

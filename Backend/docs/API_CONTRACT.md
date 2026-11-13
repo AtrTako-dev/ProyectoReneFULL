@@ -717,7 +717,7 @@ npm run admin:crear
 | `DEMO_NOMBRE` | Nombre del cliente demo | `Cliente de Demostracion` |
 | `DEMO_CONTRASENA` | Contraseña usada por `demo:cuenta` | vacío |
 | `DEMO_DIRECTORIO` | Directorio alternativo de JSON demo | `Backend/data/demo` |
-| `TEST_DB_NOMBRE` | Base desechable de integración | `proyectorenefull_test` |
+| `TEST_DB_NOMBRE` | Base temporal exclusiva de integración (prefijo `renefull_test_`; si se omite, se genera) | vacío |
 
 `.env` y `node_modules` están ignorados por Git. `DEMO_CONTRASENA` y `ADMIN_CONTRASENA` se leen del
 entorno o de `.env` local, nunca se imprimen ni se guardan en el repositorio.
@@ -735,8 +735,9 @@ entorno o de `.env` local, nunca se imprimen ni se guardan en el repositorio.
 7. **Aislamiento:** el propietario de cliente se deriva del token, nunca de la URL o el cuerpo.
 8. **Idempotencia de captura:** `clave_idempotencia` UUID por propietario; un reintento devuelve
    la venta existente con 200.
-9. **Idempotencia de importación:** `conjunto` y `hash_sha256` únicos; mismo contenido se omite,
-   contenido distinto se rechaza.
+9. **Idempotencia de importación:** `conjunto` y `hash_sha256` únicos; mismo contenido y mismo
+   propietario se omiten, contenido distinto u otro propietario se rechazan. El catálogo existente
+   no se sobrescribe ni se reactiva; una discrepancia revierte la carga.
 10. **Datos demo:** simulados, marcados con `es_demostracion`; no se consultan en runtime.
 11. **Formato de error:** envoltura `{ error: { codigo, mensaje, campos? } }`.
 12. **Registro y `nombre`:** el contrato lo exige; la app móvil debe enviarlo. No se modifica
@@ -744,15 +745,17 @@ entorno o de `.env` local, nunca se imprimen ni se guardan en el repositorio.
 
 ## 12. Estado de verificación
 
-- **115 de 115 pruebas unitarias/HTTP en verde** con `npm test` (`node:test`, `NODE_ENV=test`), sin
+- **121 de 121 pruebas unitarias/HTTP en verde** con `npm test` (`node:test`, `NODE_ENV=test`), sin
   base de datos: validaciones, formato de errores, tokens, Argon2id, middleware de permisos,
   aislamiento entre propietarios, serializadores, estadísticas, Ridge/línea base y umbral de
-  observaciones, validación de registros leídos, flujos HTTP con modelos simulados y validación de
-  los cinco conjuntos demo.
-- **10 de 10 pruebas de integración en verde** con `npm run test:integracion` sobre MySQL 8.0.46 y
-  la base desechable `proyectorenefull_test`: migración y hash, tipos `CHAR(36)`/`DECIMAL`,
-  restricciones `CHECK`/`UNIQUE`/FK compuesta, rollback, carga de 500 ventas, idempotencia,
-  aislamiento, estadísticas, modelo de demanda y flujos HTTP reales.
+  observaciones, validación de registros leídos, flujos HTTP con modelos simulados, validación de
+  los cinco conjuntos demo y protecciones de bases temporales/hashes.
+- **17 de 17 pruebas de integración en verde** con `npm run test:integracion` sobre MySQL 8.0.46 y
+  una base temporal única con prefijo `renefull_test_`: migración y hash, variantes CRLF/LF,
+  esquema preexistente incompatible, hash histórico de `001`, tipos `CHAR(36)`/`DECIMAL`,
+  restricciones `CHECK`/`UNIQUE`/FK compuesta, rollback, carga de 500 ventas, catálogo inmutable,
+  producto inactivo, propietario distinto, conflicto concurrente, idempotencia, aislamiento,
+  estadísticas, modelo de demanda y flujos HTTP reales.
 - `npm run db:migrar`, `npm run admin:crear`, `npm run demo:cuenta` y `npm run demo:cargar` se
   ejecutaron contra MySQL real. La segunda carga demo no duplica ventas.
 - La verificación de referencia fue: 500 ventas, 1,287 unidades, 36,404.00 MXN, 41 productos y

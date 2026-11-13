@@ -17,7 +17,8 @@ El contrato estable de endpoints, DTOs, validaciones y esquema está en
 - Node.js 20.12 o superior.
 - MySQL 8.0.16 o superior (probado con 8.0.46).
 - Una cuenta MySQL con permisos para crear la base de desarrollo, crear tablas,
-  insertar y consultar.
+  insertar y consultar. Para `npm run test:integracion` la misma cuenta debe poder
+  crear y eliminar bases temporales con prefijo `renefull_test_`.
 
 ## Instalación
 
@@ -62,9 +63,13 @@ npm run db:migrar
 ```
 
 La migración crea la base si no existe, aplica los archivos pendientes de
-`db/migraciones/`, registra el nombre y el SHA-256 en la tabla `migraciones` y
-omite las ya aplicadas. Si una migración aplicada cambia de contenido, el
-proceso aborta para no alterar un esquema existente.
+`db/migraciones/`, verifica tablas, columnas, tipos, `UNIQUE`, `CHECK` y claves
+foráneas, y solo entonces registra el nombre y el SHA-256 en la tabla
+`migraciones`. Las ya aplicadas se omiten si el hash coincide; el hash se compara
+con finales de línea normalizados y acepta las variantes CRLF/LF/CR. Si una
+migración aplicada cambió de contenido, el proceso aborta para no alterar un
+esquema existente. La evidencia de las versiones de `001` está en
+[`docs/HISTORIAL_MIGRACIONES.md`](docs/HISTORIAL_MIGRACIONES.md).
 
 Tablas resultantes: `usuarios`, `categorias`, `productos`, `importaciones`,
 `ventas` y `migraciones`.
@@ -96,10 +101,17 @@ a un administrador activo:
 npm run demo:cargar
 ```
 
-- Valida los cinco JSON completos antes de abrir la transacción.
+- Valida todos los JSON del directorio antes de abrir la transacción. El paquete
+  oficial de `data/demo/` tiene cinco archivos de 100 ventas; `DEMO_DIRECTORIO`
+  admite cualquier directorio con al menos un JSON válido.
 - Carga 500 ventas, 41 productos y 6 categorías en una sola transacción.
 - Es idempotente: un segundo intento con el mismo contenido omite los conjuntos
   ya importados y no duplica ventas.
+- No sobrescribe el catálogo: crea solo lo que falta; si un producto existente
+  difiere en nombre, categoría, precio o está inactivo, falla y revierte.
+- No reasigna un conjunto a otro propietario.
+- Si dos cargas concurrentes chocan en un `UNIQUE`, reporta un conflicto y hace
+  `ROLLBACK`.
 - Si algo falla, hace `ROLLBACK` de catálogo, importaciones y ventas.
 - Conserva `producto_id` y `id_venta` como texto y el precio histórico en
   `ventas.precio_unitario_mxn`.
@@ -123,21 +135,26 @@ Pruebas unitarias y HTTP con modelos simulados, sin base de datos:
 npm test
 ```
 
-Pruebas de integración con MySQL real. Usan una base desechable
-`proyectorenefull_test` que se crea y se elimina en cada ejecución:
+Pruebas de integración con MySQL real. Usan una base temporal única con prefijo
+`renefull_test_` que se crea y se elimina en cada ejecución:
 
 ```powershell
 $env:DB_PUERTO='3306'
 $env:DB_USUARIO='root'
 $env:DB_CONTRASENA=''
-$env:TEST_DB_NOMBRE='proyectorenefull_test'
+# Opcional: si se omite, la prueba genera un nombre único.
+$env:TEST_DB_NOMBRE='renefull_test_<sufijo>'
 npm run test:integracion
 ```
 
+La prueba rechaza cualquier nombre sin el prefijo, aborta si la base ya existe y
+solo elimina la base que creó el proceso actual. Nunca toca `proyecto_renefull`
+ni una base compartida.
+
 Las pruebas de integración cubren la migración y sus hashes, los tipos
-`CHAR(36)`/`DECIMAL`, la FK compuesta, el rollback, la carga demo, la
-idempotencia, el aislamiento por propietario, las estadísticas, el modelo de
-demanda y los flujos HTTP reales.
+`CHAR(36)`/`DECIMAL`, la FK compuesta, el rollback, la carga demo, el catálogo
+inmutable, la idempotencia, el aislamiento por propietario, las estadísticas, el
+modelo de demanda y los flujos HTTP reales.
 
 ## Estructura
 
@@ -161,5 +178,6 @@ Backend/
 
 Más detalle: [`docs/ESQUEMA_MYSQL.md`](docs/ESQUEMA_MYSQL.md),
 [`docs/PROCESOS_MYSQL.md`](docs/PROCESOS_MYSQL.md),
-[`docs/VALIDACIONES_MYSQL.md`](docs/VALIDACIONES_MYSQL.md) y
+[`docs/VALIDACIONES_MYSQL.md`](docs/VALIDACIONES_MYSQL.md),
+[`docs/HISTORIAL_MIGRACIONES.md`](docs/HISTORIAL_MIGRACIONES.md) y
 [`docs/ALINEACION_MIA.md`](docs/ALINEACION_MIA.md).

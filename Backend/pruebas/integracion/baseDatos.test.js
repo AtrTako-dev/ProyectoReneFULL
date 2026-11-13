@@ -1,10 +1,37 @@
 process.env.NODE_ENV = 'test';
-process.env.JWT_SECRETO = 'secreto-de-pruebas-integracion-1234567890';
+process.env.JWT_SECRETO =
+  process.env.JWT_SECRETO || 'secreto-de-pruebas-integracion-1234567890';
+
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+// Se carga .env (si existe) antes de fijar DB_NOMBRE. Las variables definidas en
+// el entorno del proceso tienen prioridad. Después se impone y valida el nombre
+// temporal, de modo que .env nunca puede apuntar a la base de desarrollo.
+try {
+  process.loadEnvFile(path.join(__dirname, '..', '..', '.env'));
+} catch {
+  // Sin .env se usan las variables del proceso y los valores por defecto.
+}
+
 process.env.DB_HOST = process.env.DB_HOST || '127.0.0.1';
 process.env.DB_PUERTO = process.env.DB_PUERTO || '3306';
 process.env.DB_USUARIO = process.env.DB_USUARIO || 'root';
 process.env.DB_CONTRASENA = process.env.DB_CONTRASENA || '';
-const NOMBRE_BASE = process.env.TEST_DB_NOMBRE || 'proyectorenefull_test';
+
+const PREFIJO_BASE_PRUEBAS = 'renefull_test_';
+
+function generarNombreTemporal() {
+  return `${PREFIJO_BASE_PRUEBAS}${Date.now().toString(36)}_${crypto
+    .randomBytes(6)
+    .toString('hex')}`;
+}
+
+// El nombre se fija antes de cargar la configuración: el pool y las pruebas
+// nunca deben apuntar a DB_NOMBRE ni a una base de desarrollo.
+const NOMBRE_BASE = process.env.TEST_DB_NOMBRE || generarNombreTemporal();
 process.env.DB_NOMBRE = NOMBRE_BASE;
 process.env.DEMO_EMAIL = 'cliente.demo@example.com';
 process.env.DEMO_NOMBRE = 'Cliente de Demostracion';
@@ -14,18 +41,22 @@ process.env.ADMIN_CONTRASENA = 'AdminDemo123!';
 
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const crypto = require('node:crypto');
-const path = require('node:path');
 const mysql = require('mysql2/promise');
 
 const { configuracion } = require('../../src/config/entorno');
-const { aplicarMigraciones, validarNombreBase } = require('../../src/db/migraciones');
+const {
+  aplicarMigraciones,
+  generarNombreBasePruebas,
+  hashContenido,
+  validarNombreBasePruebas,
+} = require('../../src/db/migraciones');
 const { cerrarPool, obtenerPool } = require('../../src/db/conexion');
 const usuarioModelo = require('../../src/modelos/usuarioModelo');
 const productoModelo = require('../../src/modelos/productoModelo');
 const ventaModelo = require('../../src/modelos/ventaModelo');
 const { hashear, verificar } = require('../../src/servicios/password');
 const { cargarDemo } = require('../../src/servicios/cargaDemo');
+const { ErrorImportacion } = require('../../src/servicios/importacionDemo');
 const { filtrarVentasValidas } = require('../../src/servicios/registros');
 const { estadisticasCliente } = require('../../src/servicios/estadisticas');
 const { predecirTodasLasCategorias } = require('../../src/servicios/prediccion');
@@ -35,7 +66,8 @@ const app = require('../../src/app');
 const DIRECTORIO_DEMO = path.join(__dirname, '..', '..', 'data', 'demo');
 const CONTRASENA = 'DemoCliente123!';
 
-let conexionAdmin;
+// Solo se eliminan las bases anotadas aquí por este proceso.
+const BASES_CREADAS = new Set();
 let servidor;
 let baseUrl;
 let demo;
@@ -50,6 +82,72 @@ function conexionSinBase() {
     password: configuracion.db.contrasena,
     multipleStatements: true,
   });
+}
+
+function conexionBase(nombre) {
+  return mysql.createConnection({
+    host: configuracion.db.host,
+    port: configuracion.db.puerto,
+    user: configuracion.db.usuario,
+    password: configuracion.db.contrasena,
+    database: nombre,
+    multipleStatements: true,
+  });
+}
+
+async function crearBaseTemporal(nombre) {
+  validarNombreBasePruebas(nombre);
+  const conexion = await conexionSinBase();
+  try {
+    const [existentes] = await conexion.query('SHOW DATABASES LIKE ?', [nombre]);
+    if (existentes.length > 0) {
+      throw new Error(
+        `La base temporal ${nombre} ya existe. La prueba se aborta sin borrarla ni reutilizarla.`
+      );
+    }
+    await conexion.query(
+      `CREATE DATABASE \`${nombre}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci`
+    );
+    BASES_CREADAS.add(nombre);
+  } finally {
+    await conexion.end();
+  }
+}
+
+async function eliminarBaseTemporal(nombre) {
+  if (!BASES_CREADAS.has(nombre)) {
+    return false;
+  }
+  const conexion = await conexionSinBase();
+  try {
+    await conexion.query(`DROP DATABASE IF EXISTS \`${nombre}\``);
+    BASES_CREADAS.delete(nombre);
+    return true;
+  } finally {
+    await conexion.end();
+  }
+}
+
+async function instantaneaCatalogo() {
+  const [productos] = await obtenerPool().query(
+    `SELECT id, nombre, categoria_id, precio_actual_mxn, activo, creado_en, actualizado_en
+       FROM productos
+      ORDER BY id`
+  );
+  const [categorias] = await obtenerPool().query(
+    'SELECT id, nombre FROM categorias ORDER BY id'
+  );
+  return { productos, categorias };
+}
+
+async function instantaneaImportaciones() {
+  const [filas] = await obtenerPool().query(
+    `SELECT id, conjunto, archivo, hash_sha256, propietario_id,
+            cantidad_registros, importado_en
+       FROM importaciones
+      ORDER BY id`
+  );
+  return filas;
 }
 
 async function contar(tabla) {
@@ -82,13 +180,9 @@ async function peticion(ruta, token, opciones = {}) {
 }
 
 before(async () => {
-  validarNombreBase(NOMBRE_BASE);
-  conexionAdmin = await conexionSinBase();
-  await conexionAdmin.query(`DROP DATABASE IF EXISTS \`${NOMBRE_BASE}\``);
-  await conexionAdmin.end();
-  conexionAdmin = null;
-
-  await aplicarMigraciones({ crearBase: true });
+  validarNombreBasePruebas(NOMBRE_BASE);
+  await crearBaseTemporal(NOMBRE_BASE);
+  await aplicarMigraciones({ crearBase: false });
 
   const hash = await hashear(CONTRASENA);
   demo = await usuarioModelo.crear({
@@ -116,17 +210,33 @@ before(async () => {
 });
 
 after(async () => {
-  if (servidor) {
-    await new Promise((resolver) => servidor.close(resolver));
+  const errores = [];
+  try {
+    if (servidor) {
+      await new Promise((resolver) => servidor.close(resolver));
+    }
+  } catch (error) {
+    errores.push(error);
   }
-  await cerrarPool();
-  if (conexionAdmin) {
-    await conexionAdmin.end();
-    conexionAdmin = null;
+  try {
+    await cerrarPool();
+  } catch (error) {
+    errores.push(error);
   }
-  conexionAdmin = await conexionSinBase();
-  await conexionAdmin.query(`DROP DATABASE IF EXISTS \`${NOMBRE_BASE}\``);
-  await conexionAdmin.end();
+
+  // Solo se eliminan bases anotadas como creadas por este proceso. Si el setup
+  // falló antes de crearlas, BASES_CREADAS está vacío y no se toca nada.
+  for (const nombre of [...BASES_CREADAS]) {
+    try {
+      await eliminarBaseTemporal(nombre);
+    } catch (error) {
+      errores.push(error);
+    }
+  }
+
+  if (errores.length > 0) {
+    throw errores[0];
+  }
 });
 
 test('la migración crea el esquema MySQL del contrato sin convertir IDs a números', async () => {
@@ -175,11 +285,93 @@ test('la migración crea el esquema MySQL del contrato sin convertir IDs a núme
     [NOMBRE_BASE]
   );
   assert.deepEqual(fk.map((fila) => fila.COLUMN_NAME), ['importacion_id', 'propietario_id']);
+
+  const [registro] = await obtenerPool().execute(
+    'SELECT hash_sha256 FROM migraciones WHERE nombre = ?',
+    ['001_esquema_inicial.sql']
+  );
+  const contenido = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'db', 'migraciones', '001_esquema_inicial.sql')
+  );
+  assert.equal(registro[0].hash_sha256, hashContenido(contenido));
   assert.equal(await contar('migraciones'), 1);
 
-  const segunda = await aplicarMigraciones({ crearBase: true });
+  const segunda = await aplicarMigraciones({ crearBase: false });
   assert.deepEqual(segunda.aplicadas, []);
   assert.deepEqual(segunda.omitidas, ['001_esquema_inicial.sql']);
+});
+
+test('la integración exige un nombre temporal con el prefijo exclusivo', () => {
+  assert.match(NOMBRE_BASE, /^renefull_test_/);
+  for (const nombre of [
+    'proyecto_renefull',
+    'proyectorenefull_test',
+    'renefull_test',
+    'renefull_test_',
+  ]) {
+    assert.throws(() => validarNombreBasePruebas(nombre), /renefull_test_/);
+  }
+});
+
+test('el migrador rechaza un esquema preexistente incompatible y no registra la migración', async () => {
+  const nombre = generarNombreBasePruebas();
+  await crearBaseTemporal(nombre);
+  let conexion;
+  try {
+    conexion = await conexionBase(nombre);
+    await conexion.query(
+      `CREATE TABLE usuarios (
+         id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+         nombre VARCHAR(120) NOT NULL,
+         email VARCHAR(254) NOT NULL,
+         PRIMARY KEY (id)
+       ) ENGINE=InnoDB`
+    );
+
+    await assert.rejects(
+      () => aplicarMigraciones({ crearBase: false, nombreBase: nombre }),
+      /esquema existente no coincide/i
+    );
+
+    const [filas] = await conexion.query('SELECT COUNT(*) AS total FROM migraciones');
+    assert.equal(Number(filas[0].total), 0);
+  } finally {
+    if (conexion) {
+      await conexion.end();
+    }
+    await eliminarBaseTemporal(nombre);
+  }
+});
+
+test('el migrador no altera un registro histórico incompatible de 001', async () => {
+  const nombre = generarNombreBasePruebas();
+  const hashHistorico = '2d2e24dccc55d24d9b16dbec11e25c8609a18557964ba9d5aa0ec7a2c3460df3';
+  await crearBaseTemporal(nombre);
+  let conexion;
+  try {
+    await aplicarMigraciones({ crearBase: false, nombreBase: nombre });
+    conexion = await conexionBase(nombre);
+    await conexion.execute(
+      'UPDATE migraciones SET hash_sha256 = ? WHERE nombre = ?',
+      [hashHistorico, '001_esquema_inicial.sql']
+    );
+
+    await assert.rejects(
+      () => aplicarMigraciones({ crearBase: false, nombreBase: nombre }),
+      /DDL anterior incompatible/
+    );
+
+    const [filas] = await conexion.execute(
+      'SELECT hash_sha256 FROM migraciones WHERE nombre = ?',
+      ['001_esquema_inicial.sql']
+    );
+    assert.equal(filas[0].hash_sha256, hashHistorico);
+  } finally {
+    if (conexion) {
+      await conexion.end();
+    }
+    await eliminarBaseTemporal(nombre);
+  }
 });
 
 test('un fallo durante la carga hace rollback completo de catálogo e importaciones', async () => {
@@ -275,7 +467,11 @@ test('carga los cinco conjuntos de forma transaccional con el catálogo y totale
   assert.deepEqual(importador.map((fila) => fila.importado_por), [admin.id]);
 });
 
-test('una segunda carga del mismo contenido se omite sin duplicar ventas', async () => {
+test('una segunda carga del mismo contenido se omite sin mutar catálogo ni datos', async () => {
+  const catalogoAntes = await instantaneaCatalogo();
+  const importacionesAntes = await instantaneaImportaciones();
+  const ventasAntes = await contar('ventas');
+
   const resumen = await cargarDemo({
     directorio: DIRECTORIO_DEMO,
     correoPropietario: configuracion.demo.email,
@@ -287,7 +483,103 @@ test('una segunda carga del mismo contenido se omite sin duplicar ventas', async
   assert.equal(resumen.ventas_insertadas, 0);
   assert.equal(resumen.ventas_omitidas, 500);
   assert.equal(await contar('importaciones'), 5);
+  assert.equal(await contar('ventas'), ventasAntes);
+  assert.deepEqual(await instantaneaCatalogo(), catalogoAntes);
+  assert.deepEqual(await instantaneaImportaciones(), importacionesAntes);
+});
+
+test('la carga demo detecta un catálogo alterado, no lo sobrescribe y revierte', async () => {
+  const [producto] = await obtenerPool().query(
+    'SELECT id, precio_actual_mxn FROM productos ORDER BY id LIMIT 1'
+  );
+  const precioOriginal = producto[0].precio_actual_mxn;
+  const precioAlterado = Number(precioOriginal) + 1;
+
+  await obtenerPool().execute(
+    'UPDATE productos SET precio_actual_mxn = ? WHERE id = ?',
+    [precioAlterado, producto[0].id]
+  );
+  try {
+    await assert.rejects(
+      () =>
+        cargarDemo({
+          directorio: DIRECTORIO_DEMO,
+          correoPropietario: configuracion.demo.email,
+          correoImportador: configuracion.admin.email,
+        }),
+      (error) =>
+        error instanceof ErrorImportacion &&
+        /no sobrescribe el catálogo/.test(error.message) &&
+        /precio vigente/.test(error.message)
+    );
+  } finally {
+    await obtenerPool().execute(
+      'UPDATE productos SET precio_actual_mxn = ? WHERE id = ?',
+      [precioOriginal, producto[0].id]
+    );
+  }
+
+  assert.equal(await contar('importaciones'), 5);
   assert.equal(await contar('ventas'), 500);
+});
+
+test('la carga demo no reactiva un producto inactivo', async () => {
+  const [producto] = await obtenerPool().query(
+    'SELECT id FROM productos ORDER BY id LIMIT 1'
+  );
+
+  await obtenerPool().execute('UPDATE productos SET activo = 0 WHERE id = ?', [producto[0].id]);
+  try {
+    await assert.rejects(
+      () =>
+        cargarDemo({
+          directorio: DIRECTORIO_DEMO,
+          correoPropietario: configuracion.demo.email,
+          correoImportador: configuracion.admin.email,
+        }),
+      (error) =>
+        error instanceof ErrorImportacion &&
+        /está inactivo y no se reactiva/.test(error.message)
+    );
+  } finally {
+    await obtenerPool().execute('UPDATE productos SET activo = 1 WHERE id = ?', [producto[0].id]);
+  }
+
+  assert.equal(await contar('importaciones'), 5);
+  assert.equal(await contar('ventas'), 500);
+});
+
+test('la carga demo no reasigna conjuntos a otro propietario', async () => {
+  const [antes] = await obtenerPool().query(
+    `SELECT propietario_id, COUNT(*) AS total
+       FROM ventas
+      GROUP BY propietario_id
+      ORDER BY propietario_id`
+  );
+
+  await assert.rejects(
+    () =>
+      cargarDemo({
+        directorio: DIRECTORIO_DEMO,
+        correoPropietario: 'otro.cliente@example.com',
+        correoImportador: configuracion.admin.email,
+      }),
+    (error) => error instanceof ErrorImportacion && /otro propietario/.test(error.message)
+  );
+
+  const [despues] = await obtenerPool().query(
+    `SELECT propietario_id, COUNT(*) AS total
+       FROM ventas
+      GROUP BY propietario_id
+      ORDER BY propietario_id`
+  );
+  assert.deepEqual(despues, antes);
+
+  const [ventasOtro] = await obtenerPool().query(
+    'SELECT COUNT(*) AS total FROM ventas WHERE propietario_id = ?',
+    [otro.id]
+  );
+  assert.equal(Number(ventasOtro[0].total), 0);
 });
 
 test('las estadísticas y el modelo de demanda se calculan solo con MySQL', async () => {
@@ -517,4 +809,117 @@ test('el DDL aplica CHECK, UNIQUE y la FK compuesta y traduce los errores', asyn
       }),
     (error) => error.code === 'ER_NO_REFERENCED_ROW_2'
   );
+});
+
+test('captura un conflicto de unicidad concurrente sin duplicar importaciones ni ventas', async () => {
+  const [productos] = await obtenerPool().query(
+    `SELECT p.id, p.nombre AS producto, c.nombre AS categoria, p.precio_actual_mxn
+       FROM productos p
+       INNER JOIN categorias c ON c.id = p.categoria_id
+      ORDER BY p.id
+      LIMIT 1`
+  );
+  const producto = productos[0];
+  const fecha = '2026-07-01';
+  const conjunto = `concurrente_${crypto.randomUUID()}`;
+  const directorio = fs.mkdtempSync(path.join(os.tmpdir(), 'renefull-concurrencia-'));
+  fs.writeFileSync(
+    path.join(directorio, 'concurrente.json'),
+    JSON.stringify({
+      metadata: {
+        conjunto,
+        perfil_demanda: 'balanceado',
+        datos_simulados: true,
+        moneda: 'MXN',
+        periodo_inicio: fecha,
+        periodo_fin: fecha,
+        cantidad_registros: 1,
+      },
+      ventas: [
+        {
+          id_venta: 'C01-001',
+          fecha,
+          producto_id: producto.id,
+          producto: producto.producto,
+          categoria: producto.categoria,
+          precio_unitario_mxn: Number(producto.precio_actual_mxn),
+          cantidad: 1,
+          total_mxn: Number(producto.precio_actual_mxn),
+        },
+      ],
+    }),
+    'utf8'
+  );
+
+  const bloqueo = await obtenerPool().getConnection();
+  let importacionId = null;
+  try {
+    await bloqueo.beginTransaction();
+    const [insertado] = await bloqueo.execute(
+      `INSERT INTO importaciones
+         (conjunto, archivo, hash_sha256, perfil_demanda, fuente, es_demostracion, moneda,
+          periodo_inicio, periodo_fin, cantidad_registros, propietario_id, importado_por)
+       VALUES (?, ?, ?, ?, 'datos_simulados', 1, 'MXN', ?, ?, 1, ?, ?)`,
+      [
+        conjunto,
+        'concurrente.json',
+        'f'.repeat(64),
+        'balanceado',
+        fecha,
+        fecha,
+        demo.id,
+        admin.id,
+      ]
+    );
+    importacionId = insertado.insertId;
+
+    const promesa = cargarDemo({
+      directorio,
+      correoPropietario: configuracion.demo.email,
+      correoImportador: configuracion.admin.email,
+    });
+
+    // La otra transacción mantiene bloqueada la clave única hasta el commit;
+    // la carga debe esperar y recibir un ER_DUP_ENTRY controlado.
+    await new Promise((resolver) => setTimeout(resolver, 500));
+    await bloqueo.commit();
+
+    const resultado = await promesa.then(
+      (valor) => ({ valor }),
+      (error) => ({ error })
+    );
+    assert.ok(
+      resultado.error instanceof ErrorImportacion,
+      'la carga concurrente debe terminar como conflicto de importación'
+    );
+    assert.match(resultado.error.message, /concurrente|contenido distinto|ya existe/);
+
+    const [filas] = await obtenerPool().execute(
+      'SELECT id FROM importaciones WHERE conjunto = ?',
+      [conjunto]
+    );
+    assert.equal(filas.length, 1);
+    const [ventas] = await obtenerPool().execute(
+      'SELECT COUNT(*) AS total FROM ventas WHERE importacion_id = ?',
+      [filas[0].id]
+    );
+    assert.equal(Number(ventas[0].total), 0);
+  } finally {
+    try {
+      await bloqueo.rollback();
+    } catch {
+      // La transacción ya pudo haberse confirmado; el borrado de abajo limpia.
+    }
+    bloqueo.release();
+
+    try {
+      if (importacionId !== null) {
+        await obtenerPool().execute('DELETE FROM ventas WHERE importacion_id = ?', [importacionId]);
+      }
+      await obtenerPool().execute('DELETE FROM importaciones WHERE conjunto = ?', [conjunto]);
+    } catch {
+      // La base temporal se elimina completa en el teardown.
+    }
+    fs.rmSync(directorio, { recursive: true, force: true });
+  }
 });

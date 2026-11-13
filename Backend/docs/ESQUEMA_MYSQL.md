@@ -133,5 +133,17 @@ En MySQL los valores `NULL` de una clave única se consideran distintos; por eso
 ## 4. Tabla de control de migraciones
 
 `migraciones` guarda `id`, `nombre`, `hash_sha256` y `aplicado_en`. El runner
-compara el SHA-256 del archivo con el registrado; si cambia, aborta. Para
-evolucionar el esquema se agrega un archivo nuevo, no se edita uno aplicado.
+calcula el SHA-256 del contenido con finales de línea normalizados a LF y acepta
+al comparar las variantes CRLF y CR, de modo que el mismo archivo no cambia de
+hash entre Windows y otros sistemas.
+
+Antes de registrar una migración, el runner verifica tablas, columnas, tipos,
+nulabilidad, restricciones `UNIQUE`, `CHECK` y claves foráneas. Si la base ya
+tenía tablas de negocio y la tabla `migraciones` está vacía, verifica el esquema
+completo antes de ejecutar cualquier DDL. Una migración solo se registra después
+de crearla o de verificarla.
+
+Si el hash registrado corresponde al `001` histórico incompatible de `43c2886`,
+el runner aborta sin modificar la base ni la tabla `migraciones`. La evidencia y
+la decisión están en [`HISTORIAL_MIGRACIONES.md`](HISTORIAL_MIGRACIONES.md). Para
+evolucionar el esquema se agrega un archivo nuevo; no se edita uno aplicado.

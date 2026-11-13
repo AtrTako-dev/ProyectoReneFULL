@@ -1,8 +1,10 @@
 # Alineación con la API de Mia-Paola
 
 Registro de la verificación realizada contra la versión remota
-`origin/Mia-Paola` (`260bf01`). La rama `Ismael` usa ese contrato como fuente de
-verdad y no mantiene una segunda API ni un segundo esquema.
+`origin/Mia-Paola` (`e2b8af3`, con las correcciones `60154c2` y `e2b8af3`). La
+rama `Ismael` integró esos commits mediante un merge `--no-ff` (`44d0c6f`) y usa
+ese contrato como fuente de verdad; no mantiene una segunda API ni un segundo
+esquema.
 
 ## 1. Alcance verificado
 
@@ -14,6 +16,9 @@ verdad y no mantiene una segunda API ni un segundo esquema.
 | `Backend/src/modelos/` | Idéntico a `origin/Mia-Paola`. |
 | `Backend/src/validaciones/` | Idéntico a `origin/Mia-Paola`. |
 | `Backend/src/servicios/estadisticas.js`, `prediccion.js`, `registros.js` | Idénticos a `origin/Mia-Paola`. |
+| `Backend/src/servicios/cargaDemo.js` | Protecciones propias de Ismael: catálogo inmutable, propietario y concurrencia. |
+| `Backend/src/middleware/errores.js` | Conserva la traducción de `ER_CHECK_CONSTRAINT_VIOLATED` a `422` sin filtrar mensajes de MySQL. |
+| Predicción | Conserva las 10 observaciones / 14 semanas completas efectivas de Mia. |
 | Capa de datos de Ismael anterior | Retirada (`src/datos`, `src/ml`, `src/db/mysql.js`, `src/config/entornoDatos.js`). |
 | DDL MySQL | Implementado en `db/migraciones/001_esquema_inicial.sql`. |
 
@@ -43,20 +48,23 @@ y el runner de migraciones, la carga demo, el empaquetado y la documentación.
 npm test
 ```
 
-Resultado: **112 pruebas unitarias/HTTP aprobadas**.
+Resultado: **121 pruebas unitarias/HTTP aprobadas**, sin conexión a MySQL.
 
 ```powershell
 $env:DB_PUERTO='3306'
 $env:DB_USUARIO='root'
 $env:DB_CONTRASENA=''
-$env:TEST_DB_NOMBRE='proyectorenefull_test'
+$env:TEST_DB_NOMBRE='renefull_test_<sufijo>'
 npm run test:integracion
 ```
 
-Resultado: **9 pruebas de integración MySQL aprobadas** con MySQL 8.0.46. La
-base se crea y se elimina en la misma ejecución; las pruebas cubren migración,
-tipos del contrato, FK compuesta, rollback, carga demo, idempotencia,
-aislamiento, estadísticas, modelo Ridge y flujos HTTP reales.
+Resultado: **17 pruebas de integración MySQL aprobadas** con MySQL 8.0.46. La
+base temporal debe llevar el prefijo `renefull_test_`; solo se elimina la base
+creada por el proceso actual. Las pruebas cubren migración, hashes y variantes
+CRLF/LF, esquema preexistente incompatible, registro histórico de `001`, tipos
+del contrato, FK compuesta, rollback, carga demo, catálogo inmutable, producto
+inactivo, propietario distinto, conflicto concurrente, idempotencia, aislamiento,
+estadísticas, modelo Ridge y flujos HTTP reales.
 
 ## 4. Regla para cambios futuros
 
