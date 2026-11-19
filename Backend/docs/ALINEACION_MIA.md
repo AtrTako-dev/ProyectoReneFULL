@@ -19,7 +19,7 @@ esquema.
 | `Backend/src/servicios/cargaDemo.js` | Protecciones propias de Ismael: catálogo inmutable, propietario y concurrencia. |
 | `Backend/src/middleware/errores.js` | Conserva la traducción de `ER_CHECK_CONSTRAINT_VIOLATED` a `422` sin filtrar mensajes de MySQL. |
 | Predicción | Conserva las 10 observaciones / 14 semanas completas efectivas de Mia. |
-| Capa de datos de Ismael anterior | Retirada de la API. Se conservan las funciones puras `src/datos/dinero.js`, `src/datos/fechas.js` y `src/ml/`; la API actual usa `src/servicios/prediccion.js`. Se retiraron los módulos de conexión y configuración duplicados. |
+| Capa de datos de Ismael anterior | El conjunto legado `src/ml/` y sus utilidades `src/datos/` sin consumidores fue retirado tras verificar que la API y las pruebas usan `src/servicios/prediccion.js`. También se retiraron los módulos de conexión y configuración duplicados. |
 | DDL MySQL | Implementado en `db/migraciones/001_esquema_inicial.sql`. |
 
 Los cambios propios de Ismael se limitan a la configuración del entorno, el pool

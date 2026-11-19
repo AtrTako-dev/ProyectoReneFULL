@@ -1,5 +1,7 @@
 # Interfaz para la API de Mia-Paola
 
+**Estado:** documento histórico de coordinación. Los nombres de tablas, campos, funciones y rutas que aparecen aquí no describen la implementación vigente. El contrato actual está en [`API_CONTRACT.md`](API_CONTRACT.md).
+
 Este documento fija el contrato entre la persistencia/carga/modelo de Ismael y
 la API Express de Mia-Paola. **No se implementan rutas ni autenticación aquí.**
 
