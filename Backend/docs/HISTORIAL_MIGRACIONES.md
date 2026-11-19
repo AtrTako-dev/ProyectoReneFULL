@@ -125,3 +125,16 @@ como comodines en los nombres de bases usados por `GRANT`. La cuenta necesita
 estos permisos para que `npm run test:integracion` cree y elimine sus bases
 temporales. Para conectarse desde otra máquina, cree la cuenta para el host
 correspondiente y configure `DB_HOST` y `DB_USUARIO` de forma acorde.
+
+## 7. Verificación local del 18 de noviembre de 2026
+
+El diagnóstico de solo lectura encontró MySQL Community Server 9.7.2 en
+`127.0.0.1:3306`, el collation `utf8mb4_0900_ai_ci` disponible y la migración
+`001_esquema_inicial.sql` con el hash actual. La base de desarrollo se
+reconstruyó con autorización explícita y quedó con las seis tablas esperadas y
+las cuentas iniciales configuradas fuera del repositorio.
+
+Después del reinicio, `npm run db:migrar` se ejecutó dos veces; ambas
+ejecuciones verificaron y omitieron la migración ya aplicada. La prueba
+`npm run test:integracion`, usando `renefull_test_fase2`, terminó con 17 pruebas
+aprobadas y eliminó únicamente la base temporal creada por esa ejecución.
