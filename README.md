@@ -1,91 +1,111 @@
-# Proyecto ReneFULL
+# PronoVenta
 
-Aplicación escolar para registrar ventas y consultar estadísticas y estimaciones de demanda. El repositorio incluye una API Node.js con MySQL y una app Android en Kotlin y Jetpack Compose.
+PronoVenta es una aplicación móvil escolar para registrar ventas y consultar estadísticas y estimaciones semanales de demanda. El repositorio contiene una API Node.js con MySQL y una app Android con Kotlin, Jetpack Compose y MVVM. El backend valida la identidad y los permisos en cada solicitud; la app solo presenta las funciones disponibles para la sesión activa.
+
+Los archivos de demostración contienen ventas simuladas para pruebas y configuración inicial. No representan ventas reales de una empresa.
 
 ## Requisitos
 
 - Node.js 20.12 o superior y npm.
-- MySQL 8.0.16 o superior.
-- JDK 17 y Android SDK Platform 37.
-- Android Studio actualizado para Android Gradle Plugin 9.4.
+- MySQL 8.0.16 o superior, con soporte para el collation `utf8mb4_0900_ai_ci`.
+- JDK 17.
+- Android Studio con Android Gradle Plugin 9.4, Android SDK Platform 37 y Build-Tools 36.0.0.
+- Un emulador Android o un dispositivo para ejecutar la app.
 
 ## Estructura
 
-```text
-Backend/   API REST, migraciones MySQL, scripts y pruebas
-FrontEnd/  Aplicación Android con Kotlin, Compose y MVVM
-```
+~~~text
+Backend/   API REST, configuración MySQL, migraciones, scripts y pruebas
+FrontEnd/  App Android en Kotlin y Jetpack Compose, organizada con MVVM
+~~~
 
-La API está documentada en [`Backend/docs/API_CONTRACT.md`](Backend/docs/API_CONTRACT.md). La organización y los flujos de la app se describen en [`FrontEnd/docs/ARQUITECTURA_Y_FLUJO.md`](FrontEnd/docs/ARQUITECTURA_Y_FLUJO.md).
+El contrato de API está en [Backend/docs/API_CONTRACT.md](Backend/docs/API_CONTRACT.md). La arquitectura y el flujo de la app se describen en [FrontEnd/docs/ARQUITECTURA_Y_FLUJO.md](FrontEnd/docs/ARQUITECTURA_Y_FLUJO.md).
 
-## Preparar MySQL y el backend
+## Configurar MySQL y el backend
 
-Desde la raíz del repositorio, copia el archivo de configuración de muestra y edita `Backend/.env` con los datos locales. No agregues ese archivo a Git.
+Desde la raíz, crea el archivo local de entorno:
 
-```sh
+~~~sh
 cp .env.example Backend/.env
-```
+~~~
 
-En `.env`, configura `DB_HOST`, `DB_PUERTO`, `DB_USUARIO`, `DB_CONTRASENA`, `DB_NOMBRE` y un `JWT_SECRETO` aleatorio de al menos 32 caracteres. Define también `ADMIN_EMAIL` y `ADMIN_CONTRASENA` antes de crear la cuenta administradora.
+Edita `Backend/.env` con los datos de MySQL. Configura al menos `DB_HOST`, `DB_PUERTO`, `DB_USUARIO`, `DB_CONTRASENA`, `DB_NOMBRE` y `JWT_SECRETO`; el secreto JWT debe tener 32 caracteres o más. Para crear las cuentas iniciales, define también `ADMIN_EMAIL`, `ADMIN_CONTRASENA`, `DEMO_EMAIL` y `DEMO_CONTRASENA`. El archivo `.env` está excluido de Git y no debe contener datos reales en un commit.
 
-MySQL debe tener el collation `utf8mb4_0900_ai_ci`. Para crear una cuenta MySQL con permisos de desarrollo y pruebas, sigue el SQL de [`Backend/docs/HISTORIAL_MIGRACIONES.md`](Backend/docs/HISTORIAL_MIGRACIONES.md#6-permisos-mysql-para-desarrollo).
+El usuario MySQL necesita permisos para la base de desarrollo y para las bases temporales de integración. El SQL recomendado y sus alcances están en [Backend/docs/HISTORIAL_MIGRACIONES.md](Backend/docs/HISTORIAL_MIGRACIONES.md#6-permisos-mysql-para-desarrollo).
 
-Instala dependencias y prepara la base desde `Backend/`:
+Instala las dependencias y comprueba el servidor MySQL desde `Backend/`:
 
-```sh
+~~~sh
 cd Backend
-npm install
+npm ci
 npm run db:diagnostico
 npm run db:migrar
-```
+~~~
 
-El diagnóstico es de solo lectura. La migración crea o actualiza el esquema previsto. Para preparar cuentas y datos de demostración, configura `ADMIN_CONTRASENA` y `DEMO_CONTRASENA` en `Backend/.env` y ejecuta:
+La migración crea o actualiza el esquema de la base configurada. Para preparar las cuentas iniciales y cargar los datos simulados:
 
-```sh
+~~~sh
 npm run admin:crear
 npm run demo:cuenta
 npm run demo:cargar
-```
+~~~
 
-Inicia la API con:
+La carga oficial importa desde `Backend/data/demo/` cinco conjuntos simulados con 500 ventas, 41 productos y 6 categorías. La API consulta MySQL durante la ejecución; no lee esos JSON para responder solicitudes.
 
-```sh
+Inicia la API desde `Backend/`:
+
+~~~sh
 npm start
-```
+~~~
 
-La API escucha por defecto en `http://localhost:3000`. Las instrucciones de migración y pruebas están en [`Backend/README.md`](Backend/README.md).
+Por defecto, la API escucha en `http://localhost:3000`. Las rutas, formatos de respuesta, validaciones y códigos de error están en el [contrato de API](Backend/docs/API_CONTRACT.md).
 
 ## Ejecutar la app Android
 
-Abre `FrontEnd/` en Android Studio o usa la terminal:
+Abre `FrontEnd/` en Android Studio o compila desde una terminal:
 
-```sh
+~~~sh
 cd FrontEnd
 ./gradlew test
 ./gradlew assembleDebug
-```
+~~~
 
-Para compilar Debug con el backend local desde un emulador Android:
+La versión Debug usa `http://10.0.2.2:3000` por defecto para conectar el emulador con el servidor local. Puedes cambiar la URL mediante una propiedad Gradle o una variable de entorno:
 
-```sh
+~~~sh
 ./gradlew -PAPI_BASE_URL=http://10.0.2.2:3000 assembleDebug
-```
+~~~
 
-Debug usa `http://10.0.2.2:3000` por defecto. Release desactiva el tráfico HTTP sin cifrar y requiere configurar una URL HTTPS mediante `API_BASE_URL`. La app no incluye un catálogo local; el formulario envía el ID y el precio del producto, y la API determina la categoría.
+En un dispositivo físico, configura una URL que el dispositivo pueda alcanzar. Las compilaciones Release bloquean el tráfico HTTP sin cifrar y requieren una URL HTTPS. Android Studio y Gradle reciben `API_BASE_URL` desde su propio proceso; la app no carga variables desde `Backend/.env`.
 
-## Pruebas del backend
+## Modelo de estimación
 
-Desde `Backend/`:
+El backend estima las unidades vendidas por categoría para una semana. Usa regresión Ridge con `alpha = 1.0` e intercepto. Sus cinco variables son el índice de semana, el mes, las unidades de la semana anterior, el promedio de las cuatro semanas previas y las unidades de cuatro semanas antes (una aproximación a la misma semana del mes anterior).
 
-```sh
+La evaluación reserva las cinco observaciones semanales más recientes y compara el error absoluto medio del modelo con una línea base que proyecta las unidades de la semana anterior. Solo devuelve una cifra estimada si el modelo supera esa línea base. De lo contrario, la respuesta indica que no hay historial suficiente o que el modelo no supera la línea base; no se fabrica una predicción. El proceso requiere al menos 12 semanas completas, 8 semanas con unidades y observaciones suficientes para entrenar y evaluar; con la configuración actual se necesitan 14 semanas completas para obtener cinco observaciones de entrenamiento y cinco de evaluación. Toda cifra devuelta es una estimación, no una garantía.
+
+## Pruebas
+
+Desde `Backend/`, las pruebas unitarias y HTTP se ejecutan con:
+
+~~~sh
 npm test
+~~~
+
+Las pruebas de integración usan una base temporal cuyo nombre empieza con `renefull_test_`. El proceso crea y elimina únicamente la base temporal que genera; el usuario MySQL debe tener los permisos indicados arriba:
+
+~~~sh
 npm run test:integracion
-```
+~~~
 
-Las pruebas de integración crean y eliminan una base temporal con prefijo `renefull_test_`. La prueba de humo requiere la API en ejecución y crea dos cuentas cliente y una venta para cada una; esos registros permanecen en la base:
+La prueba de humo requiere la API en ejecución. Crea dos cuentas cliente y ventas de prueba que permanecen en la base de desarrollo:
 
-```sh
+~~~sh
 npm run test:humo
-```
+~~~
 
-No ejecutes `npm run db:reiniciar` en una base compartida: elimina la base configurada después de solicitar confirmación explícita.
+Para esta prueba, `API_BASE_URL` en `Backend/.env` puede cambiar la dirección de la API. `TEST_DB_NOMBRE` es opcional; si se deja vacío, la prueba de integración genera un nombre temporal único.
+
+## Archivos locales
+
+`.env.example` contiene valores de configuración de muestra, sin credenciales reales. La configuración local se guarda en `Backend/.env`, que junto con archivos Gradle locales y productos de compilación está excluido por el `.gitignore` de la raíz. No ejecutes el script de reinicio de base de datos contra una base compartida.

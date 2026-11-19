@@ -105,9 +105,6 @@ Cuerpo:
 - `password`: obligatorio, 8..128 caracteres; se guarda solo como hash **Argon2id**.
 - **El registro público siempre crea `cliente`.** Si el cuerpo contiene la propiedad `rol`
   (aunque sea `null`), responde **422** con `campos.rol`.
-- `nombre` es obligatorio en el contrato. El formulario móvil actual solo envía correo y
-  contraseña; mientras no envíe `nombre`, el registro responderá 422 con `campos.nombre`.
-  Este repositorio no modifica `FrontEnd/`.
 - 201 → `{ "token": "...", "usuario": { ... } }` con el DTO de usuario (ver §4.6).
 - Errores: 400 (JSON inválido), 422 (campos), 409 (`"El correo ya está registrado."`), 500.
 - Una carrera de correo duplicado en MySQL también responde 409, sin filtrar detalles.
