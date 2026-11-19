@@ -3,13 +3,14 @@ process.env.JWT_SECRETO = 'secreto-de-pruebas-para-tokens-1234567890';
 
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const app = require('../src/app');
+const { crearApp } = require('../src/app');
+const app = crearApp();
 
 let servidor;
 let base;
 
 before(async () => {
-  servidor = app.listen(0);
+  servidor = app.listen(0, '127.0.0.1');
   await new Promise((resolve) => servidor.once('listening', resolve));
   base = `http://127.0.0.1:${servidor.address().port}`;
 });

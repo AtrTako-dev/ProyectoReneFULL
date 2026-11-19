@@ -1,37 +1,29 @@
-const conexion = require('../db/conexion');
+const SELECCION = `SELECT p.id AS producto_id,
+       p.nombre AS producto,
+       c.nombre AS categoria,
+       p.categoria_id,
+       p.precio_actual_mxn,
+       p.activo
+  FROM productos p
+  INNER JOIN categorias c ON c.id = p.categoria_id`;
 
-async function buscarPorId(productoId, ejecutor = conexion.obtenerPool()) {
-  const [filas] = await ejecutor.execute(
-    `SELECT p.id AS producto_id,
-            p.nombre AS producto,
-            c.nombre AS categoria,
-            p.categoria_id,
-            p.precio_actual_mxn,
-            p.activo
-       FROM productos p
-       INNER JOIN categorias c ON c.id = p.categoria_id
-      WHERE p.id = ?
-      LIMIT 1`,
-    [productoId]
-  );
-  return filas[0] || null;
+class ProductoModelo {
+  constructor(baseDatos) { this.baseDatos = baseDatos; }
+
+  async buscarPorId(productoId, ejecutor) {
+    const [filas] = await this.baseDatos.consultar(
+      `${SELECCION} WHERE p.id = ? LIMIT 1`, [productoId], ejecutor
+    );
+    return filas[0] || null;
+  }
+
+  async listar({ soloActivos = true } = {}, ejecutor) {
+    const filtro = soloActivos ? 'WHERE p.activo = 1' : '';
+    const [filas] = await this.baseDatos.consultar(
+      `${SELECCION} ${filtro} ORDER BY p.id ASC`, [], ejecutor
+    );
+    return filas;
+  }
 }
 
-async function listar({ soloActivos = true } = {}, ejecutor = conexion.obtenerPool()) {
-  const filtro = soloActivos ? 'WHERE p.activo = 1' : '';
-  const [filas] = await ejecutor.execute(
-    `SELECT p.id AS producto_id,
-            p.nombre AS producto,
-            c.nombre AS categoria,
-            p.categoria_id,
-            p.precio_actual_mxn,
-            p.activo
-       FROM productos p
-       INNER JOIN categorias c ON c.id = p.categoria_id
-       ${filtro}
-      ORDER BY p.id ASC`
-  );
-  return filas;
-}
-
-module.exports = { buscarPorId, listar };
+module.exports = ProductoModelo;

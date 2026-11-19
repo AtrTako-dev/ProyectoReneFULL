@@ -27,8 +27,14 @@ function usuario(extra = {}) {
   };
 }
 
+function usuarioModelo(buscarPorId) {
+  return { buscarPorId };
+}
+
+const verificarTokenInvalido = () => { throw new Error('Token inválido'); };
+
 test('sin encabezado de autorización responde 401', async () => {
-  const middleware = crearRequiereAutenticacion();
+  const middleware = crearRequiereAutenticacion({ verificar: verificarTokenInvalido });
   const error = await ejecutarMiddleware(middleware, { headers: {} });
 
   assert.equal(error.estado, 401);
@@ -36,7 +42,7 @@ test('sin encabezado de autorización responde 401', async () => {
 });
 
 test('un esquema que no es Bearer responde 401', async () => {
-  const middleware = crearRequiereAutenticacion();
+  const middleware = crearRequiereAutenticacion({ verificar: verificarTokenInvalido });
   const error = await ejecutarMiddleware(middleware, {
     headers: { authorization: 'Basic abc' },
   });
@@ -45,7 +51,7 @@ test('un esquema que no es Bearer responde 401', async () => {
 });
 
 test('un token inválido responde 401', async () => {
-  const middleware = crearRequiereAutenticacion();
+  const middleware = crearRequiereAutenticacion({ verificar: verificarTokenInvalido });
   const error = await ejecutarMiddleware(middleware, {
     headers: { authorization: 'Bearer token-invalido' },
   });
@@ -73,7 +79,7 @@ test('un token con sub que no es UUID responde 401', async () => {
 });
 
 test('cargarUsuarioActual consulta la base y deja el usuario vigente', async () => {
-  const middleware = crearCargarUsuarioActual({ buscarUsuario: async () => usuario() });
+  const middleware = crearCargarUsuarioActual({ usuarioModelo: usuarioModelo(async () => usuario()) });
   const req = { usuarioId: USUARIO_ID };
 
   const error = await ejecutarMiddleware(middleware, req);
@@ -84,7 +90,7 @@ test('cargarUsuarioActual consulta la base y deja el usuario vigente', async () 
 
 test('una cuenta inactiva equivale a no tener sesión', async () => {
   const middleware = crearCargarUsuarioActual({
-    buscarUsuario: async () => usuario({ activo: 0 }),
+    usuarioModelo: usuarioModelo(async () => usuario({ activo: 0 })),
   });
   const error = await ejecutarMiddleware(middleware, { usuarioId: USUARIO_ID });
 
@@ -93,7 +99,7 @@ test('una cuenta inactiva equivale a no tener sesión', async () => {
 });
 
 test('una cuenta eliminada equivale a no tener sesión', async () => {
-  const middleware = crearCargarUsuarioActual({ buscarUsuario: async () => null });
+  const middleware = crearCargarUsuarioActual({ usuarioModelo: usuarioModelo(async () => null) });
   const error = await ejecutarMiddleware(middleware, { usuarioId: USUARIO_ID });
 
   assert.equal(error.estado, 401);
@@ -101,7 +107,7 @@ test('una cuenta eliminada equivale a no tener sesión', async () => {
 
 test('un cliente no puede acceder a una ruta administrativa', async () => {
   const middleware = crearRequiereRol(['administrador'], {
-    buscarUsuario: async () => usuario({ rol: 'cliente' }),
+    usuarioModelo: usuarioModelo(async () => usuario({ rol: 'cliente' })),
   });
   const req = { headers: {}, usuarioId: USUARIO_ID };
 
@@ -113,7 +119,7 @@ test('un cliente no puede acceder a una ruta administrativa', async () => {
 
 test('un administrador vigente sí accede', async () => {
   const middleware = crearRequiereRol(['administrador'], {
-    buscarUsuario: async () => usuario({ rol: 'administrador' }),
+    usuarioModelo: usuarioModelo(async () => usuario({ rol: 'administrador' })),
   });
   const req = { headers: {}, usuarioId: USUARIO_ID };
 
@@ -125,7 +131,7 @@ test('un administrador vigente sí accede', async () => {
 
 test('una sesión de un usuario inexistente responde 401', async () => {
   const middleware = crearRequiereRol(['administrador'], {
-    buscarUsuario: async () => null,
+    usuarioModelo: usuarioModelo(async () => null),
   });
   const req = { headers: {}, usuarioId: '99999999-9999-4999-8999-999999999999' };
 

@@ -1,5 +1,3 @@
-const conexion = require('../db/conexion');
-
 const SELECCION = `SELECT v.id,
        v.importacion_id,
        v.id_origen,
@@ -21,129 +19,79 @@ const SELECCION = `SELECT v.id,
 function construirFiltroFechas(rango = {}) {
   const condiciones = [];
   const parametros = [];
-  if (rango.desde) {
-    condiciones.push('v.fecha >= ?');
-    parametros.push(rango.desde);
-  }
-  if (rango.hasta) {
-    condiciones.push('v.fecha <= ?');
-    parametros.push(rango.hasta);
-  }
+  if (rango.desde) { condiciones.push('v.fecha >= ?'); parametros.push(rango.desde); }
+  if (rango.hasta) { condiciones.push('v.fecha <= ?'); parametros.push(rango.hasta); }
   return { condiciones, parametros };
 }
 
-async function insertar(
-  {
-    propietarioId,
-    fecha,
-    productoId,
-    precioUnitarioMxn,
-    cantidad,
-    totalMxn,
-    importacionId = null,
-    idOrigen = null,
-    claveIdempotencia = null,
-  },
-  ejecutor = conexion.obtenerPool()
-) {
-  const [resultado] = await ejecutor.execute(
-    `INSERT INTO ventas
-       (importacion_id, id_origen, propietario_id, fecha, producto_id,
-        precio_unitario_mxn, cantidad, total_mxn, clave_idempotencia)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      importacionId,
-      idOrigen,
-      propietarioId,
-      fecha,
-      productoId,
-      precioUnitarioMxn,
-      cantidad,
-      totalMxn,
-      claveIdempotencia,
-    ]
-  );
-  return buscarPorId(resultado.insertId, ejecutor);
+class VentaModelo {
+  constructor(baseDatos) { this.baseDatos = baseDatos; }
+
+  async insertar({ propietarioId, fecha, productoId, precioUnitarioMxn, cantidad, totalMxn,
+    importacionId = null, idOrigen = null, claveIdempotencia = null }, ejecutor) {
+    const [resultado] = await this.baseDatos.consultar(
+      `INSERT INTO ventas
+         (importacion_id, id_origen, propietario_id, fecha, producto_id,
+          precio_unitario_mxn, cantidad, total_mxn, clave_idempotencia)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [importacionId, idOrigen, propietarioId, fecha, productoId, precioUnitarioMxn,
+        cantidad, totalMxn, claveIdempotencia], ejecutor
+    );
+    return this.buscarPorId(resultado.insertId, ejecutor);
+  }
+
+  async buscarPorId(idVenta, ejecutor) {
+    const [filas] = await this.baseDatos.consultar(`${SELECCION} WHERE v.id = ? LIMIT 1`, [idVenta], ejecutor);
+    return filas[0] || null;
+  }
+
+  async buscarPorClaveIdempotencia(propietarioId, claveIdempotencia, ejecutor) {
+    const [filas] = await this.baseDatos.consultar(
+      `${SELECCION} WHERE v.propietario_id = ? AND v.clave_idempotencia = ? LIMIT 1`,
+      [propietarioId, claveIdempotencia], ejecutor
+    );
+    return filas[0] || null;
+  }
+
+  async listarPorPropietario(propietarioId, rango = {}, ejecutor) {
+    const { condiciones, parametros } = construirFiltroFechas(rango);
+    const filtro = condiciones.length ? ` AND ${condiciones.join(' AND ')}` : '';
+    const [filas] = await this.baseDatos.consultar(
+      `${SELECCION} WHERE v.propietario_id = ?${filtro} ORDER BY v.fecha ASC, v.id ASC`,
+      [propietarioId, ...parametros], ejecutor
+    );
+    return filas;
+  }
+
+  async listarPaginaPorPropietario(propietarioId, rango = {}, { limite, desplazamiento }, ejecutor) {
+    const { condiciones, parametros } = construirFiltroFechas(rango);
+    const filtro = condiciones.length ? ` AND ${condiciones.join(' AND ')}` : '';
+    const [filas] = await this.baseDatos.consultar(
+      `${SELECCION} WHERE v.propietario_id = ?${filtro}
+       ORDER BY v.fecha ASC, v.id ASC LIMIT ${Number(limite)} OFFSET ${Number(desplazamiento)}`,
+      [propietarioId, ...parametros], ejecutor
+    );
+    return filas;
+  }
+
+  async contarPorPropietario(propietarioId, rango = {}, ejecutor) {
+    const { condiciones, parametros } = construirFiltroFechas(rango);
+    const filtro = condiciones.length ? ` AND ${condiciones.join(' AND ')}` : '';
+    const [filas] = await this.baseDatos.consultar(
+      `SELECT COUNT(*) AS total FROM ventas v WHERE v.propietario_id = ?${filtro}`,
+      [propietarioId, ...parametros], ejecutor
+    );
+    return Number(filas[0].total);
+  }
+
+  async listarGlobal(rango = {}, ejecutor) {
+    const { condiciones, parametros } = construirFiltroFechas(rango);
+    const filtro = condiciones.length ? ` WHERE ${condiciones.join(' AND ')}` : '';
+    const [filas] = await this.baseDatos.consultar(
+      `${SELECCION}${filtro} ORDER BY v.fecha ASC, v.id ASC`, parametros, ejecutor
+    );
+    return filas;
+  }
 }
 
-async function buscarPorId(idVenta, ejecutor = conexion.obtenerPool()) {
-  const [filas] = await ejecutor.execute(`${SELECCION} WHERE v.id = ? LIMIT 1`, [idVenta]);
-  return filas[0] || null;
-}
-
-async function buscarPorClaveIdempotencia(
-  propietarioId,
-  claveIdempotencia,
-  ejecutor = conexion.obtenerPool()
-) {
-  const [filas] = await ejecutor.execute(
-    `${SELECCION} WHERE v.propietario_id = ? AND v.clave_idempotencia = ? LIMIT 1`,
-    [propietarioId, claveIdempotencia]
-  );
-  return filas[0] || null;
-}
-
-async function listarPorPropietario(
-  propietarioId,
-  rango = {},
-  ejecutor = conexion.obtenerPool()
-) {
-  const { condiciones, parametros } = construirFiltroFechas(rango);
-  const filtro = condiciones.length ? ` AND ${condiciones.join(' AND ')}` : '';
-  const [filas] = await ejecutor.execute(
-    `${SELECCION} WHERE v.propietario_id = ?${filtro} ORDER BY v.fecha ASC, v.id ASC`,
-    [propietarioId, ...parametros]
-  );
-  return filas;
-}
-
-async function listarPaginaPorPropietario(
-  propietarioId,
-  rango = {},
-  { limite, desplazamiento },
-  ejecutor = conexion.obtenerPool()
-) {
-  const { condiciones, parametros } = construirFiltroFechas(rango);
-  const filtro = condiciones.length ? ` AND ${condiciones.join(' AND ')}` : '';
-  const [filas] = await ejecutor.execute(
-    `${SELECCION} WHERE v.propietario_id = ?${filtro}
-      ORDER BY v.fecha ASC, v.id ASC
-      LIMIT ${Number(limite)} OFFSET ${Number(desplazamiento)}`,
-    [propietarioId, ...parametros]
-  );
-  return filas;
-}
-
-async function contarPorPropietario(
-  propietarioId,
-  rango = {},
-  ejecutor = conexion.obtenerPool()
-) {
-  const { condiciones, parametros } = construirFiltroFechas(rango);
-  const filtro = condiciones.length ? ` AND ${condiciones.join(' AND ')}` : '';
-  const [filas] = await ejecutor.execute(
-    `SELECT COUNT(*) AS total FROM ventas v WHERE v.propietario_id = ?${filtro}`,
-    [propietarioId, ...parametros]
-  );
-  return Number(filas[0].total);
-}
-
-async function listarGlobal(rango = {}, ejecutor = conexion.obtenerPool()) {
-  const { condiciones, parametros } = construirFiltroFechas(rango);
-  const filtro = condiciones.length ? ` WHERE ${condiciones.join(' AND ')}` : '';
-  const [filas] = await ejecutor.execute(
-    `${SELECCION}${filtro} ORDER BY v.fecha ASC, v.id ASC`,
-    parametros
-  );
-  return filas;
-}
-
-module.exports = {
-  insertar,
-  buscarPorId,
-  buscarPorClaveIdempotencia,
-  listarPorPropietario,
-  listarPaginaPorPropietario,
-  contarPorPropietario,
-  listarGlobal,
-};
+module.exports = VentaModelo;

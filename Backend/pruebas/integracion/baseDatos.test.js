@@ -45,23 +45,41 @@ const mysql = require('mysql2/promise');
 
 const { configuracion } = require('../../src/config/entorno');
 const {
-  aplicarMigraciones,
+  Migrador,
   generarNombreBasePruebas,
   hashContenido,
   validarNombreBasePruebas,
 } = require('../../src/db/migraciones');
-const { cerrarPool, obtenerPool } = require('../../src/db/conexion');
-const usuarioModelo = require('../../src/modelos/usuarioModelo');
-const productoModelo = require('../../src/modelos/productoModelo');
-const ventaModelo = require('../../src/modelos/ventaModelo');
+const { BaseDatos } = require('../../src/db/conexion');
+const UsuarioModelo = require('../../src/modelos/usuarioModelo');
+const ProductoModelo = require('../../src/modelos/productoModelo');
+const VentaModelo = require('../../src/modelos/ventaModelo');
+const CategoriaModelo = require('../../src/modelos/categoriaModelo');
+const ImportacionModelo = require('../../src/modelos/importacionModelo');
+const ServicioAuth = require('../../src/servicios/servicioAuth');
 const { hashear, verificar } = require('../../src/servicios/password');
-const { cargarDemo } = require('../../src/servicios/cargaDemo');
+const { ServicioCargaDemo } = require('../../src/servicios/cargaDemo');
 const { ErrorImportacion } = require('../../src/servicios/importacionDemo');
 const { filtrarVentasValidas } = require('../../src/servicios/registros');
 const { estadisticasCliente } = require('../../src/servicios/estadisticas');
 const { predecirTodasLasCategorias } = require('../../src/servicios/prediccion');
 const { traducirErrorBd } = require('../../src/middleware/errores');
-const app = require('../../src/app');
+const { crearApp } = require('../../src/app');
+
+const baseDatos = new BaseDatos();
+const migrador = new Migrador(baseDatos);
+const usuarioModelo = new UsuarioModelo(baseDatos);
+const productoModelo = new ProductoModelo(baseDatos);
+const ventaModelo = new VentaModelo(baseDatos);
+const categoriaModelo = new CategoriaModelo(baseDatos);
+const importacionModelo = new ImportacionModelo(baseDatos);
+const servicioCargaDemo = new ServicioCargaDemo({
+  baseDatos, usuarioModelo, categoriaModelo, importacionModelo,
+});
+const app = crearApp({
+  baseDatos, servicioAuth: new ServicioAuth(),
+  modelos: { usuario: usuarioModelo, venta: ventaModelo, producto: productoModelo },
+});
 
 const DIRECTORIO_DEMO = path.join(__dirname, '..', '..', 'data', 'demo');
 const CONTRASENA = 'DemoCliente123!';
@@ -129,19 +147,19 @@ async function eliminarBaseTemporal(nombre) {
 }
 
 async function instantaneaCatalogo() {
-  const [productos] = await obtenerPool().query(
+  const [productos] = await baseDatos.obtenerPool().query(
     `SELECT id, nombre, categoria_id, precio_actual_mxn, activo, creado_en, actualizado_en
        FROM productos
       ORDER BY id`
   );
-  const [categorias] = await obtenerPool().query(
+  const [categorias] = await baseDatos.obtenerPool().query(
     'SELECT id, nombre FROM categorias ORDER BY id'
   );
   return { productos, categorias };
 }
 
 async function instantaneaImportaciones() {
-  const [filas] = await obtenerPool().query(
+  const [filas] = await baseDatos.obtenerPool().query(
     `SELECT id, conjunto, archivo, hash_sha256, propietario_id,
             cantidad_registros, importado_en
        FROM importaciones
@@ -151,7 +169,7 @@ async function instantaneaImportaciones() {
 }
 
 async function contar(tabla) {
-  const [filas] = await obtenerPool().query(`SELECT COUNT(*) AS total FROM ${tabla}`);
+  const [filas] = await baseDatos.obtenerPool().query(`SELECT COUNT(*) AS total FROM ${tabla}`);
   return Number(filas[0].total);
 }
 
@@ -182,7 +200,7 @@ async function peticion(ruta, token, opciones = {}) {
 before(async () => {
   validarNombreBasePruebas(NOMBRE_BASE);
   await crearBaseTemporal(NOMBRE_BASE);
-  await aplicarMigraciones({ crearBase: false });
+  await migrador.aplicar({ crearBase: false });
 
   const hash = await hashear(CONTRASENA);
   demo = await usuarioModelo.crear({
@@ -204,7 +222,7 @@ before(async () => {
     rol: 'cliente',
   });
 
-  servidor = app.listen(0);
+  servidor = app.listen(0, '127.0.0.1');
   await new Promise((resolver) => servidor.once('listening', resolver));
   baseUrl = `http://127.0.0.1:${servidor.address().port}`;
 });
@@ -219,7 +237,7 @@ after(async () => {
     errores.push(error);
   }
   try {
-    await cerrarPool();
+    await baseDatos.cerrar();
   } catch (error) {
     errores.push(error);
   }
@@ -240,7 +258,7 @@ after(async () => {
 });
 
 test('la migración crea el esquema MySQL del contrato sin convertir IDs a números', async () => {
-  const [tablas] = await obtenerPool().query(
+  const [tablas] = await baseDatos.obtenerPool().query(
     `SELECT TABLE_NAME
        FROM information_schema.tables
       WHERE table_schema = ?
@@ -252,7 +270,7 @@ test('la migración crea el esquema MySQL del contrato sin convertir IDs a núme
     ['categorias', 'importaciones', 'migraciones', 'productos', 'usuarios', 'ventas']
   );
 
-  const [columnas] = await obtenerPool().query(
+  const [columnas] = await baseDatos.obtenerPool().query(
     `SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE
        FROM information_schema.columns
       WHERE table_schema = ?
@@ -275,7 +293,7 @@ test('la migración crea el esquema MySQL del contrato sin convertir IDs a núme
   assert.equal(tipos.get('ventas.precio_unitario_mxn'), 'decimal(12,2)');
   assert.equal(tipos.get('ventas.total_mxn'), 'decimal(14,2)');
 
-  const [fk] = await obtenerPool().query(
+  const [fk] = await baseDatos.obtenerPool().query(
     `SELECT COLUMN_NAME
        FROM information_schema.KEY_COLUMN_USAGE
       WHERE table_schema = ?
@@ -286,7 +304,7 @@ test('la migración crea el esquema MySQL del contrato sin convertir IDs a núme
   );
   assert.deepEqual(fk.map((fila) => fila.COLUMN_NAME), ['importacion_id', 'propietario_id']);
 
-  const [registro] = await obtenerPool().execute(
+  const [registro] = await baseDatos.obtenerPool().execute(
     'SELECT hash_sha256 FROM migraciones WHERE nombre = ?',
     ['001_esquema_inicial.sql']
   );
@@ -296,7 +314,7 @@ test('la migración crea el esquema MySQL del contrato sin convertir IDs a núme
   assert.equal(registro[0].hash_sha256, hashContenido(contenido));
   assert.equal(await contar('migraciones'), 1);
 
-  const segunda = await aplicarMigraciones({ crearBase: false });
+  const segunda = await migrador.aplicar({ crearBase: false });
   assert.deepEqual(segunda.aplicadas, []);
   assert.deepEqual(segunda.omitidas, ['001_esquema_inicial.sql']);
 });
@@ -329,7 +347,7 @@ test('el migrador rechaza un esquema preexistente incompatible y no registra la 
     );
 
     await assert.rejects(
-      () => aplicarMigraciones({ crearBase: false, nombreBase: nombre }),
+      () => migrador.aplicar({ crearBase: false, nombreBase: nombre }),
       /esquema existente no coincide/i
     );
 
@@ -349,7 +367,7 @@ test('el migrador no altera un registro histórico incompatible de 001', async (
   await crearBaseTemporal(nombre);
   let conexion;
   try {
-    await aplicarMigraciones({ crearBase: false, nombreBase: nombre });
+    await migrador.aplicar({ crearBase: false, nombreBase: nombre });
     conexion = await conexionBase(nombre);
     await conexion.execute(
       'UPDATE migraciones SET hash_sha256 = ? WHERE nombre = ?',
@@ -357,7 +375,7 @@ test('el migrador no altera un registro histórico incompatible de 001', async (
     );
 
     await assert.rejects(
-      () => aplicarMigraciones({ crearBase: false, nombreBase: nombre }),
+      () => migrador.aplicar({ crearBase: false, nombreBase: nombre }),
       /DDL anterior incompatible/
     );
 
@@ -375,7 +393,7 @@ test('el migrador no altera un registro histórico incompatible de 001', async (
 });
 
 test('un fallo durante la carga hace rollback completo de catálogo e importaciones', async () => {
-  await obtenerPool().query(
+  await baseDatos.obtenerPool().query(
     `CREATE TRIGGER trg_fallo_demo
        BEFORE INSERT ON ventas
        FOR EACH ROW
@@ -384,7 +402,7 @@ test('un fallo durante la carga hace rollback completo de catálogo e importacio
   try {
     await assert.rejects(
       () =>
-        cargarDemo({
+        servicioCargaDemo.cargar({
           directorio: DIRECTORIO_DEMO,
           correoPropietario: configuracion.demo.email,
           correoImportador: configuracion.admin.email,
@@ -392,7 +410,7 @@ test('un fallo durante la carga hace rollback completo de catálogo e importacio
       /fallo de prueba de rollback/
     );
   } finally {
-    await obtenerPool().query('DROP TRIGGER IF EXISTS trg_fallo_demo');
+    await baseDatos.obtenerPool().query('DROP TRIGGER IF EXISTS trg_fallo_demo');
   }
 
   assert.equal(await contar('categorias'), 0);
@@ -402,7 +420,7 @@ test('un fallo durante la carga hace rollback completo de catálogo e importacio
 });
 
 test('carga los cinco conjuntos de forma transaccional con el catálogo y totales esperados', async () => {
-  const resumen = await cargarDemo({
+  const resumen = await servicioCargaDemo.cargar({
     directorio: DIRECTORIO_DEMO,
     correoPropietario: configuracion.demo.email,
     correoImportador: configuracion.admin.email,
@@ -416,7 +434,7 @@ test('carga los cinco conjuntos de forma transaccional con el catálogo y totale
   assert.deepEqual(resumen.propietario, { id: demo.id, correo: configuracion.demo.email });
   assert.deepEqual(resumen.importador, { id: admin.id, correo: configuracion.admin.email });
 
-  const [totales] = await obtenerPool().query(
+  const [totales] = await baseDatos.obtenerPool().query(
     `SELECT COUNT(*) AS ventas,
             SUM(cantidad) AS unidades,
             SUM(total_mxn) AS importe,
@@ -432,14 +450,14 @@ test('carga los cinco conjuntos de forma transaccional con el catálogo y totale
   assert.equal(Number(totales[0].productos), 41);
   assert.equal(Number(totales[0].importaciones), 5);
 
-  const [producto] = await obtenerPool().query(
+  const [producto] = await baseDatos.obtenerPool().query(
     'SELECT producto_id FROM ventas WHERE propietario_id = ? LIMIT 1',
     [demo.id]
   );
   assert.equal(typeof producto[0].producto_id, 'string');
   assert.match(producto[0].producto_id, /^[A-Z]{1,3}[0-9]{3}$/);
 
-  const [marcadas] = await obtenerPool().query(
+  const [marcadas] = await baseDatos.obtenerPool().query(
     `SELECT COUNT(*) AS total
        FROM ventas v
        INNER JOIN importaciones i ON i.id = v.importacion_id
@@ -450,7 +468,7 @@ test('carga los cinco conjuntos de forma transaccional con el catálogo y totale
   );
   assert.equal(Number(marcadas[0].total), 500);
 
-  const [precios] = await obtenerPool().query(
+  const [precios] = await baseDatos.obtenerPool().query(
     `SELECT COUNT(*) AS total
        FROM ventas v
        INNER JOIN productos p ON p.id = v.producto_id
@@ -460,7 +478,7 @@ test('carga los cinco conjuntos de forma transaccional con el catálogo y totale
   );
   assert.equal(Number(precios[0].total), 0);
 
-  const [importador] = await obtenerPool().query(
+  const [importador] = await baseDatos.obtenerPool().query(
     'SELECT DISTINCT importado_por FROM importaciones WHERE propietario_id = ?',
     [demo.id]
   );
@@ -472,7 +490,7 @@ test('una segunda carga del mismo contenido se omite sin mutar catálogo ni dato
   const importacionesAntes = await instantaneaImportaciones();
   const ventasAntes = await contar('ventas');
 
-  const resumen = await cargarDemo({
+  const resumen = await servicioCargaDemo.cargar({
     directorio: DIRECTORIO_DEMO,
     correoPropietario: configuracion.demo.email,
     correoImportador: configuracion.admin.email,
@@ -489,20 +507,20 @@ test('una segunda carga del mismo contenido se omite sin mutar catálogo ni dato
 });
 
 test('la carga demo detecta un catálogo alterado, no lo sobrescribe y revierte', async () => {
-  const [producto] = await obtenerPool().query(
+  const [producto] = await baseDatos.obtenerPool().query(
     'SELECT id, precio_actual_mxn FROM productos ORDER BY id LIMIT 1'
   );
   const precioOriginal = producto[0].precio_actual_mxn;
   const precioAlterado = Number(precioOriginal) + 1;
 
-  await obtenerPool().execute(
+  await baseDatos.obtenerPool().execute(
     'UPDATE productos SET precio_actual_mxn = ? WHERE id = ?',
     [precioAlterado, producto[0].id]
   );
   try {
     await assert.rejects(
       () =>
-        cargarDemo({
+        servicioCargaDemo.cargar({
           directorio: DIRECTORIO_DEMO,
           correoPropietario: configuracion.demo.email,
           correoImportador: configuracion.admin.email,
@@ -513,7 +531,7 @@ test('la carga demo detecta un catálogo alterado, no lo sobrescribe y revierte'
         /precio vigente/.test(error.message)
     );
   } finally {
-    await obtenerPool().execute(
+    await baseDatos.obtenerPool().execute(
       'UPDATE productos SET precio_actual_mxn = ? WHERE id = ?',
       [precioOriginal, producto[0].id]
     );
@@ -524,15 +542,15 @@ test('la carga demo detecta un catálogo alterado, no lo sobrescribe y revierte'
 });
 
 test('la carga demo no reactiva un producto inactivo', async () => {
-  const [producto] = await obtenerPool().query(
+  const [producto] = await baseDatos.obtenerPool().query(
     'SELECT id FROM productos ORDER BY id LIMIT 1'
   );
 
-  await obtenerPool().execute('UPDATE productos SET activo = 0 WHERE id = ?', [producto[0].id]);
+  await baseDatos.obtenerPool().execute('UPDATE productos SET activo = 0 WHERE id = ?', [producto[0].id]);
   try {
     await assert.rejects(
       () =>
-        cargarDemo({
+        servicioCargaDemo.cargar({
           directorio: DIRECTORIO_DEMO,
           correoPropietario: configuracion.demo.email,
           correoImportador: configuracion.admin.email,
@@ -542,7 +560,7 @@ test('la carga demo no reactiva un producto inactivo', async () => {
         /está inactivo y no se reactiva/.test(error.message)
     );
   } finally {
-    await obtenerPool().execute('UPDATE productos SET activo = 1 WHERE id = ?', [producto[0].id]);
+    await baseDatos.obtenerPool().execute('UPDATE productos SET activo = 1 WHERE id = ?', [producto[0].id]);
   }
 
   assert.equal(await contar('importaciones'), 5);
@@ -550,7 +568,7 @@ test('la carga demo no reactiva un producto inactivo', async () => {
 });
 
 test('la carga demo no reasigna conjuntos a otro propietario', async () => {
-  const [antes] = await obtenerPool().query(
+  const [antes] = await baseDatos.obtenerPool().query(
     `SELECT propietario_id, COUNT(*) AS total
        FROM ventas
       GROUP BY propietario_id
@@ -559,7 +577,7 @@ test('la carga demo no reasigna conjuntos a otro propietario', async () => {
 
   await assert.rejects(
     () =>
-      cargarDemo({
+      servicioCargaDemo.cargar({
         directorio: DIRECTORIO_DEMO,
         correoPropietario: 'otro.cliente@example.com',
         correoImportador: configuracion.admin.email,
@@ -567,7 +585,7 @@ test('la carga demo no reasigna conjuntos a otro propietario', async () => {
     (error) => error instanceof ErrorImportacion && /otro propietario/.test(error.message)
   );
 
-  const [despues] = await obtenerPool().query(
+  const [despues] = await baseDatos.obtenerPool().query(
     `SELECT propietario_id, COUNT(*) AS total
        FROM ventas
       GROUP BY propietario_id
@@ -575,7 +593,7 @@ test('la carga demo no reasigna conjuntos a otro propietario', async () => {
   );
   assert.deepEqual(despues, antes);
 
-  const [ventasOtro] = await obtenerPool().query(
+  const [ventasOtro] = await baseDatos.obtenerPool().query(
     'SELECT COUNT(*) AS total FROM ventas WHERE propietario_id = ?',
     [otro.id]
   );
@@ -683,7 +701,7 @@ test('la captura manual es idempotente y queda aislada por propietario', async (
   assert.equal(segunda.respuesta.status, 200);
   assert.equal(segunda.cuerpo.venta.id, primera.cuerpo.venta.id);
 
-  const [filasClave] = await obtenerPool().query(
+  const [filasClave] = await baseDatos.obtenerPool().query(
     `SELECT COUNT(*) AS total
        FROM ventas
       WHERE propietario_id = ?
@@ -699,7 +717,7 @@ test('la captura manual es idempotente y queda aislada por propietario', async (
   assert.equal(listadoOtro.cuerpo.total, 0);
   assert.deepEqual(listadoOtro.cuerpo.items, []);
 
-  const [importacion] = await obtenerPool().query(
+  const [importacion] = await baseDatos.obtenerPool().query(
     'SELECT id FROM importaciones WHERE propietario_id = ? LIMIT 1',
     [demo.id]
   );
@@ -746,7 +764,7 @@ test('el DDL aplica CHECK, UNIQUE y la FK compuesta y traduce los errores', asyn
   // CHECK: el rol solo admite cliente o administrador.
   await assert.rejects(
     () =>
-      obtenerPool().execute(
+      baseDatos.obtenerPool().execute(
         `INSERT INTO usuarios (id, nombre, correo, password_hash, rol)
          VALUES (?, ?, ?, ?, ?)`,
         [crypto.randomUUID(), 'Rol inválido', 'rol.invalido@example.com', hashFalso, 'superadmin']
@@ -763,7 +781,7 @@ test('el DDL aplica CHECK, UNIQUE y la FK compuesta y traduce los errores', asyn
   // UNIQUE: el correo no se puede repetir.
   await assert.rejects(
     () =>
-      obtenerPool().execute(
+      baseDatos.obtenerPool().execute(
         `INSERT INTO usuarios (id, nombre, correo, password_hash, rol)
          VALUES (?, ?, ?, ?, ?)`,
         [crypto.randomUUID(), 'Correo duplicado', configuracion.demo.email, hashFalso, 'cliente']
@@ -772,7 +790,7 @@ test('el DDL aplica CHECK, UNIQUE y la FK compuesta y traduce los errores', asyn
   );
 
   // CHECK: importacion_id e id_origen deben ir juntos.
-  const [producto] = await obtenerPool().query(
+  const [producto] = await baseDatos.obtenerPool().query(
     'SELECT id, precio_actual_mxn FROM productos LIMIT 1'
   );
   await assert.rejects(
@@ -791,7 +809,7 @@ test('el DDL aplica CHECK, UNIQUE y la FK compuesta y traduce los errores', asyn
   );
 
   // FK compuesta: una venta no puede apuntar a la importación de otro propietario.
-  const [importacion] = await obtenerPool().query(
+  const [importacion] = await baseDatos.obtenerPool().query(
     'SELECT id FROM importaciones WHERE propietario_id = ? LIMIT 1',
     [demo.id]
   );
@@ -812,7 +830,7 @@ test('el DDL aplica CHECK, UNIQUE y la FK compuesta y traduce los errores', asyn
 });
 
 test('captura un conflicto de unicidad concurrente sin duplicar importaciones ni ventas', async () => {
-  const [productos] = await obtenerPool().query(
+  const [productos] = await baseDatos.obtenerPool().query(
     `SELECT p.id, p.nombre AS producto, c.nombre AS categoria, p.precio_actual_mxn
        FROM productos p
        INNER JOIN categorias c ON c.id = p.categoria_id
@@ -851,7 +869,7 @@ test('captura un conflicto de unicidad concurrente sin duplicar importaciones ni
     'utf8'
   );
 
-  const bloqueo = await obtenerPool().getConnection();
+  const bloqueo = await baseDatos.obtenerPool().getConnection();
   let importacionId = null;
   try {
     await bloqueo.beginTransaction();
@@ -873,7 +891,7 @@ test('captura un conflicto de unicidad concurrente sin duplicar importaciones ni
     );
     importacionId = insertado.insertId;
 
-    const promesa = cargarDemo({
+    const promesa = servicioCargaDemo.cargar({
       directorio,
       correoPropietario: configuracion.demo.email,
       correoImportador: configuracion.admin.email,
@@ -894,12 +912,12 @@ test('captura un conflicto de unicidad concurrente sin duplicar importaciones ni
     );
     assert.match(resultado.error.message, /concurrente|contenido distinto|ya existe/);
 
-    const [filas] = await obtenerPool().execute(
+    const [filas] = await baseDatos.obtenerPool().execute(
       'SELECT id FROM importaciones WHERE conjunto = ?',
       [conjunto]
     );
     assert.equal(filas.length, 1);
-    const [ventas] = await obtenerPool().execute(
+    const [ventas] = await baseDatos.obtenerPool().execute(
       'SELECT COUNT(*) AS total FROM ventas WHERE importacion_id = ?',
       [filas[0].id]
     );
@@ -914,9 +932,9 @@ test('captura un conflicto de unicidad concurrente sin duplicar importaciones ni
 
     try {
       if (importacionId !== null) {
-        await obtenerPool().execute('DELETE FROM ventas WHERE importacion_id = ?', [importacionId]);
+        await baseDatos.obtenerPool().execute('DELETE FROM ventas WHERE importacion_id = ?', [importacionId]);
       }
-      await obtenerPool().execute('DELETE FROM importaciones WHERE conjunto = ?', [conjunto]);
+      await baseDatos.obtenerPool().execute('DELETE FROM importaciones WHERE conjunto = ?', [conjunto]);
     } catch {
       // La base temporal se elimina completa en el teardown.
     }

@@ -1,7 +1,10 @@
 const { configuracion } = require('../src/config/entorno');
 const { hashear } = require('../src/servicios/password');
-const usuarioModelo = require('../src/modelos/usuarioModelo');
-const { cerrarPool } = require('../src/db/conexion');
+const { BaseDatos } = require('../src/db/conexion');
+const UsuarioModelo = require('../src/modelos/usuarioModelo');
+
+const baseDatos = new BaseDatos();
+const usuarioModelo = new UsuarioModelo(baseDatos);
 
 async function principal() {
   const correo = (configuracion.admin.email || '').trim().toLowerCase();
@@ -42,7 +45,7 @@ if (require.main === module) {
       console.error(`No se pudo crear la cuenta administradora: ${error.message}`);
       process.exitCode = 1;
     })
-    .finally(cerrarPool);
+    .finally(() => baseDatos.cerrar());
 }
 
 module.exports = { principal };

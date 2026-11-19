@@ -1,8 +1,11 @@
 const { configuracion } = require('../src/config/entorno');
-const usuarioModelo = require('../src/modelos/usuarioModelo');
+const { BaseDatos } = require('../src/db/conexion');
+const UsuarioModelo = require('../src/modelos/usuarioModelo');
 const { hashear } = require('../src/servicios/password');
 const { emailValido } = require('../src/validaciones/comunes');
-const { cerrarPool } = require('../src/db/conexion');
+
+const baseDatos = new BaseDatos();
+const usuarioModelo = new UsuarioModelo(baseDatos);
 
 function estaActivo(usuario) {
   return Boolean(usuario) && (usuario.activo === true || Number(usuario.activo) === 1);
@@ -50,12 +53,16 @@ async function principal() {
   };
 }
 
-principal()
-  .then((resultado) => {
-    console.log(JSON.stringify(resultado, null, 2));
-  })
-  .catch((error) => {
-    console.error(`No fue posible preparar la cuenta demo: ${error.message}`);
-    process.exitCode = 1;
-  })
-  .finally(cerrarPool);
+if (require.main === module) {
+  principal()
+    .then((resultado) => {
+      console.log(JSON.stringify(resultado, null, 2));
+    })
+    .catch((error) => {
+      console.error(`No fue posible preparar la cuenta demo: ${error.message}`);
+      process.exitCode = 1;
+    })
+    .finally(() => baseDatos.cerrar());
+}
+
+module.exports = { principal };

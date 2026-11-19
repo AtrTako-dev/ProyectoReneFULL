@@ -1,6 +1,17 @@
-const { cargarDemo } = require('../src/servicios/cargaDemo');
+const { BaseDatos } = require('../src/db/conexion');
+const UsuarioModelo = require('../src/modelos/usuarioModelo');
+const CategoriaModelo = require('../src/modelos/categoriaModelo');
+const ImportacionModelo = require('../src/modelos/importacionModelo');
+const { ServicioCargaDemo } = require('../src/servicios/cargaDemo');
 const { ErrorImportacion } = require('../src/servicios/importacionDemo');
-const { cerrarPool } = require('../src/db/conexion');
+
+const baseDatos = new BaseDatos();
+const cargaDemo = new ServicioCargaDemo({
+  baseDatos,
+  usuarioModelo: new UsuarioModelo(baseDatos),
+  categoriaModelo: new CategoriaModelo(baseDatos),
+  importacionModelo: new ImportacionModelo(baseDatos),
+});
 
 function imprimirDetalles(detalles) {
   for (const detalle of detalles) {
@@ -30,7 +41,7 @@ function imprimirResumen(resumen) {
 }
 
 async function principal(opciones = {}) {
-  const resumen = await cargarDemo(opciones);
+  const resumen = await cargaDemo.cargar(opciones);
   imprimirResumen(resumen);
   return resumen;
 }
@@ -44,7 +55,7 @@ if (require.main === module) {
       }
       process.exitCode = 1;
     })
-    .finally(cerrarPool);
+    .finally(() => baseDatos.cerrar());
 }
 
 module.exports = { principal, imprimirDetalles, imprimirResumen };

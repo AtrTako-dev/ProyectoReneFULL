@@ -170,7 +170,7 @@ de rutas y respuestas está en [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md).
 
 ## Pruebas
 
-Pruebas unitarias y HTTP con modelos simulados, sin base de datos:
+Pruebas unitarias y HTTP con modelos inyectados, sin base de datos:
 
 ```bash
 npm test
@@ -207,14 +207,17 @@ Backend/
 ├─ scripts/                   Migración, cuentas y carga demo
 └─ src/
    ├─ config/                 Variables de entorno
-   ├─ controladores/          Endpoints HTTP
-   ├─ db/                     Pool, transacciones y migraciones
-   ├─ middleware/            Autenticación y errores
-   ├─ modelos/                Acceso a MySQL
-   ├─ rutas/                  Rutas Express
-   ├─ servicios/              Estadísticas, predicción e importación
+   ├─ controladores/          Clases que coordinan las solicitudes HTTP
+   ├─ db/                     BaseDatos, transacciones y Migrador
+   ├─ middleware/             Autenticación y errores
+   ├─ modelos/                Clases de acceso a MySQL
+   ├─ rutas/                  Fábricas de routers Express
+   ├─ servicios/              Autenticación, estadísticas y predicción
    └─ validaciones/           Reglas de entrada y DTOs
 ```
+
+La composición e inyección de dependencias se describe en
+[`docs/ARQUITECTURA_MVC.md`](docs/ARQUITECTURA_MVC.md).
 
 Más detalle: [`docs/ESQUEMA_MYSQL.md`](docs/ESQUEMA_MYSQL.md),
 [`docs/PROCESOS_MYSQL.md`](docs/PROCESOS_MYSQL.md),

@@ -1,14 +1,14 @@
 const jwt = require('jsonwebtoken');
 const { configuracion } = require('../config/entorno');
 
-function firmarToken(usuarioId) {
-  return jwt.sign({ sub: String(usuarioId) }, configuracion.jwt.secreto, {
-    expiresIn: `${configuracion.jwt.horas}h`,
+function firmarToken(usuarioId, config = configuracion) {
+  return jwt.sign({ sub: String(usuarioId) }, config.jwt.secreto, {
+    expiresIn: `${config.jwt.horas}h`,
   });
 }
 
-function verificarToken(token) {
-  return jwt.verify(token, configuracion.jwt.secreto);
+function verificarToken(token, config = configuracion) {
+  return jwt.verify(token, config.jwt.secreto);
 }
 
 module.exports = { firmarToken, verificarToken };

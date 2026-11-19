@@ -3,10 +3,11 @@ process.env.JWT_SECRETO = 'secreto-de-pruebas-para-tokens-1234567890';
 
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const app = require('../src/app');
-const usuarioModelo = require('../src/modelos/usuarioModelo');
-const ventaModelo = require('../src/modelos/ventaModelo');
-const productoModelo = require('../src/modelos/productoModelo');
+const { crearApp } = require('../src/app');
+const UsuarioModelo = require('../src/modelos/usuarioModelo');
+const VentaModelo = require('../src/modelos/ventaModelo');
+const ProductoModelo = require('../src/modelos/productoModelo');
+const ServicioAuth = require('../src/servicios/servicioAuth');
 const { firmarToken } = require('../src/servicios/token');
 const { hashear } = require('../src/servicios/password');
 
@@ -16,11 +17,23 @@ const ADMIN_ID = '33333333-3333-4333-8333-333333333333';
 const CLIENTE_INACTIVO_ID = '44444444-4444-4444-8444-444444444444';
 const CLAVE_IDEMPOTENCIA = '55555555-5555-4555-8555-555555555555';
 
+const baseDatosPruebas = {
+  consultar: async () => { throw new Error('La prueba debe inyectar la respuesta del modelo.'); },
+};
+const usuarioModelo = new UsuarioModelo(baseDatosPruebas);
+const ventaModelo = new VentaModelo(baseDatosPruebas);
+const productoModelo = new ProductoModelo(baseDatosPruebas);
+const app = crearApp({
+  baseDatos: baseDatosPruebas,
+  servicioAuth: new ServicioAuth(),
+  modelos: { usuario: usuarioModelo, venta: ventaModelo, producto: productoModelo },
+});
+
 let servidor;
 let base;
 
 before(async () => {
-  servidor = app.listen(0);
+  servidor = app.listen(0, '127.0.0.1');
   await new Promise((resolve) => servidor.once('listening', resolve));
   base = `http://127.0.0.1:${servidor.address().port}`;
 });

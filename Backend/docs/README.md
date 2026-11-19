@@ -8,6 +8,7 @@ esta rama.
 | Documento | Contenido |
 |---|---|
 | [`API_CONTRACT.md`](API_CONTRACT.md) | Contrato estable de rutas, DTOs, validaciones, esquema y decisiones. |
+| [`ARQUITECTURA_MVC.md`](ARQUITECTURA_MVC.md) | Capas, dependencias, composición de la aplicación y autorización por petición. |
 | [`ESQUEMA_MYSQL.md`](ESQUEMA_MYSQL.md) | Diccionario físico, llaves, índices y restricciones del DDL MySQL. |
 | [`PROCESOS_MYSQL.md`](PROCESOS_MYSQL.md) | Instalación, migración, cuentas, carga demo, ejecución y pruebas. |
 | [`VALIDACIONES_MYSQL.md`](VALIDACIONES_MYSQL.md) | Validaciones de entrada, de filas leídas y restricciones de MySQL. |

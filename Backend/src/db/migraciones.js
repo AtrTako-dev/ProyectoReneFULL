@@ -2,7 +2,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { configuracion } = require('../config/entorno');
-const { crearConexion } = require('./conexion');
 
 const FORMATO_BASE = /^[A-Za-z0-9_]{1,64}$/;
 const PREFIJO_BASE_PRUEBAS = 'renefull_test_';
@@ -229,19 +228,6 @@ function hashesAceptables(contenido) {
   ]);
 }
 
-async function crearBaseSiNoExiste(nombreBase) {
-  const nombre = validarNombreBase(nombreBase);
-  const conexion = await crearConexion();
-  try {
-    await conexion.query(
-      `CREATE DATABASE IF NOT EXISTS \`${nombre}\`
-       CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci`
-    );
-  } finally {
-    await conexion.end();
-  }
-}
-
 async function asegurarTablaMigraciones(conexion) {
   await conexion.query(
     `CREATE TABLE IF NOT EXISTS migraciones (
@@ -445,84 +431,97 @@ async function verificarEsquemaPreexistente(conexion, base, archivos) {
   return true;
 }
 
-async function aplicarMigraciones({
-  crearBase = true,
-  directorio = DIRECTORIO_MIGRACIONES,
-  nombreBase = configuracion.db.nombre,
-} = {}) {
-  const base = validarNombreBase(nombreBase);
-  if (crearBase) {
-    await crearBaseSiNoExiste(base);
+class Migrador {
+  constructor(baseDatos, { config = configuracion } = {}) {
+    this.baseDatos = baseDatos;
+    this.config = config;
   }
 
-  const archivos = listarArchivos(directorio);
-  const conexion = await crearConexion({ database: base, multipleStatements: true });
-  const aplicadas = [];
-  const omitidas = [];
-  try {
-    await asegurarTablaMigraciones(conexion);
-    const [registros] = await conexion.execute('SELECT COUNT(*) AS total FROM migraciones');
-    const sinRegistros = Number(registros[0].total) === 0;
-    const esquemaPreexistenteVerificado = sinRegistros
-      ? await verificarEsquemaPreexistente(conexion, base, archivos)
-      : false;
-
-    for (const archivo of archivos) {
-      const verificador = VERIFICADORES_POR_MIGRACION.get(archivo);
-      if (!verificador) {
-        throw new Error(
-          `No hay una verificación de esquema registrada para la migración ${archivo}. ` +
-            'Agregue un verificador en src/db/migraciones.js antes de aplicarla.'
-        );
-      }
-
-      const ruta = path.join(directorio, archivo);
-      const contenido = fs.readFileSync(ruta);
-      const hash = hashContenido(contenido);
-      const aceptables = hashesAceptables(contenido);
-      const [filas] = await conexion.execute(
-        'SELECT hash_sha256 FROM migraciones WHERE nombre = ? LIMIT 1',
-        [archivo]
+  async crearBaseSiNoExiste(nombreBase) {
+    const nombre = validarNombreBase(nombreBase);
+    const conexion = await this.baseDatos.abrirConexion();
+    try {
+      await conexion.query(
+        `CREATE DATABASE IF NOT EXISTS \`${nombre}\`
+         CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci`
       );
-      if (filas.length > 0) {
-        if (!aceptables.has(filas[0].hash_sha256)) {
-          if (HASHES_001_OBSOLETOS.has(filas[0].hash_sha256)) {
-            throw new Error(
-              `La migración ${archivo} fue aplicada con el DDL anterior incompatible ` +
-                `(hash ${filas[0].hash_sha256}). La base no se modificó. Consulte ` +
-                'docs/HISTORIAL_MIGRACIONES.md y defina una ruta de conversión segura; ' +
-                'no edite la tabla migraciones ni convierta el esquema automáticamente.'
-            );
-          }
+    } finally {
+      await conexion.end();
+    }
+  }
+
+  async aplicar({
+    crearBase = true,
+    directorio = DIRECTORIO_MIGRACIONES,
+    nombreBase = this.config.db.nombre,
+  } = {}) {
+    const base = validarNombreBase(nombreBase);
+    if (crearBase) await this.crearBaseSiNoExiste(base);
+
+    const archivos = listarArchivos(directorio);
+    const conexion = await this.baseDatos.abrirConexion({ database: base, multipleStatements: true });
+    const aplicadas = [];
+    const omitidas = [];
+    try {
+      await asegurarTablaMigraciones(conexion);
+      const [registros] = await conexion.execute('SELECT COUNT(*) AS total FROM migraciones');
+      const sinRegistros = Number(registros[0].total) === 0;
+      const esquemaPreexistenteVerificado = sinRegistros
+        ? await verificarEsquemaPreexistente(conexion, base, archivos)
+        : false;
+
+      for (const archivo of archivos) {
+        const verificador = VERIFICADORES_POR_MIGRACION.get(archivo);
+        if (!verificador) {
           throw new Error(
-            `La migración ${archivo} ya fue aplicada con otro contenido. ` +
-              'Cree una migración nueva en lugar de editar una aplicada.'
+            `No hay una verificación de esquema registrada para la migración ${archivo}. ` +
+              'Agregue un verificador en src/db/migraciones.js antes de aplicarla.'
           );
         }
-        await verificador(conexion, base);
-        omitidas.push(archivo);
-        continue;
-      }
 
-      // Si la base ya existía con el esquema completo, ya se verificó y no se
-      // vuelve a ejecutar el DDL: se registra únicamente tras la verificación.
-      const yaVerificada =
-        esquemaPreexistenteVerificado && archivo === archivos[0];
-      if (!yaVerificada) {
-        await conexion.query(contenido.toString('utf8'));
-        await verificador(conexion, base);
+        const ruta = path.join(directorio, archivo);
+        const contenido = fs.readFileSync(ruta);
+        const hash = hashContenido(contenido);
+        const aceptables = hashesAceptables(contenido);
+        const [filas] = await conexion.execute(
+          'SELECT hash_sha256 FROM migraciones WHERE nombre = ? LIMIT 1', [archivo]
+        );
+        if (filas.length > 0) {
+          if (!aceptables.has(filas[0].hash_sha256)) {
+            if (HASHES_001_OBSOLETOS.has(filas[0].hash_sha256)) {
+              throw new Error(
+                `La migración ${archivo} fue aplicada con el DDL anterior incompatible ` +
+                  `(hash ${filas[0].hash_sha256}). La base no se modificó. Consulte ` +
+                  'docs/HISTORIAL_MIGRACIONES.md y defina una ruta de conversión segura; ' +
+                  'no edite la tabla migraciones ni convierta el esquema automáticamente.'
+              );
+            }
+            throw new Error(
+              `La migración ${archivo} ya fue aplicada con otro contenido. ` +
+                'Cree una migración nueva en lugar de editar una aplicada.'
+            );
+          }
+          await verificador(conexion, base);
+          omitidas.push(archivo);
+          continue;
+        }
+
+        const yaVerificada = esquemaPreexistenteVerificado && archivo === archivos[0];
+        if (!yaVerificada) {
+          await conexion.query(contenido.toString('utf8'));
+          await verificador(conexion, base);
+        }
+        await conexion.execute(
+          'INSERT INTO migraciones (nombre, hash_sha256) VALUES (?, ?)', [archivo, hash]
+        );
+        aplicadas.push(archivo);
       }
-      await conexion.execute(
-        'INSERT INTO migraciones (nombre, hash_sha256) VALUES (?, ?)',
-        [archivo, hash]
-      );
-      aplicadas.push(archivo);
+    } finally {
+      await conexion.end();
     }
-  } finally {
-    await conexion.end();
-  }
 
-  return { base, aplicadas, omitidas };
+    return { base, aplicadas, omitidas };
+  }
 }
 
 module.exports = {
@@ -530,8 +529,7 @@ module.exports = {
   HASHES_001_OBSOLETOS,
   PREFIJO_BASE_PRUEBAS,
   ESQUEMA_ESPERADO,
-  aplicarMigraciones,
-  crearBaseSiNoExiste,
+  Migrador,
   generarNombreBasePruebas,
   hashesAceptables,
   hashContenido,

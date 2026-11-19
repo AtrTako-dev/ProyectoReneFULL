@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { crearConexion } = require('../src/db/conexion');
+const { BaseDatos } = require('../src/db/conexion');
 const { configuracion } = require('../src/config/entorno');
 const {
   DIRECTORIO_MIGRACIONES,
@@ -41,7 +41,7 @@ async function diagnosticar() {
   const base = validarNombreBase(configuracion.db.nombre);
   const hashesActuales = hashesAceptables(fs.readFileSync(RUTA_INICIAL));
   const hashActual = hashContenido(fs.readFileSync(RUTA_INICIAL));
-  const conexion = await crearConexion();
+  const conexion = await new BaseDatos().abrirConexion();
 
   try {
     const [[servidor]] = await conexion.query(

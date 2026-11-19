@@ -3,8 +3,8 @@ const { spawnSync } = require('node:child_process');
 const readline = require('node:readline/promises');
 const { stdin, stdout } = require('node:process');
 const { configuracion } = require('../src/config/entorno');
-const { crearConexion } = require('../src/db/conexion');
-const { aplicarMigraciones, validarNombreBase } = require('../src/db/migraciones');
+const { BaseDatos } = require('../src/db/conexion');
+const { Migrador, validarNombreBase } = require('../src/db/migraciones');
 const { emailValido } = require('../src/validaciones/comunes');
 
 const DIRECTORIO_BACKEND = path.join(__dirname, '..');
@@ -87,14 +87,15 @@ async function reiniciar(argumentos = process.argv.slice(2)) {
     throw new Error('Confirmación incorrecta; la base no se modificó.');
   }
 
-  const conexion = await crearConexion();
+  const baseDatos = new BaseDatos();
+  const conexion = await baseDatos.abrirConexion();
   try {
     await conexion.query(`DROP DATABASE IF EXISTS \`${base}\``);
   } finally {
     await conexion.end();
   }
 
-  const migracion = await aplicarMigraciones({ crearBase: true, nombreBase: base });
+  const migracion = await new Migrador(baseDatos).aplicar({ crearBase: true, nombreBase: base });
   process.stdout.write(`Esquema creado: ${base}. Migraciones aplicadas: ${migracion.aplicadas.join(', ') || 'ninguna'}.\n`);
   ejecutarScript('crearAdmin.js');
   ejecutarScript('crearClienteDemo.js');
