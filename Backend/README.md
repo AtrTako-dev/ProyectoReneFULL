@@ -26,7 +26,7 @@ Desde `Backend/`:
 
 ```bash
 npm install
-cp .env.example .env
+cp ../.env.example .env
 ```
 
 Ajuste como mínimo `DB_*` y `JWT_SECRETO`. El archivo `.env` está excluido de

@@ -1,0 +1,26 @@
+# Dependencias y archivos generados
+node_modules/
+**/build/
+.gradle/
+**/.gradle/
+.idea/
+**/.idea/
+.kotlin/
+**/.kotlin/
+local.properties
+**/local.properties
+
+# Configuración local y secretos
+.env
+**/.env
+.env.*
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Archivos del sistema y registros
+.DS_Store
+*.log
+npm-debug.log*
+coverage/
+**/coverage/
