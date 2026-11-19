@@ -176,6 +176,18 @@ Pruebas unitarias y HTTP con modelos inyectados, sin base de datos:
 npm test
 ```
 
+La prueba de humo verifica el flujo contra una API ya levantada y la base de
+desarrollo. Inicia el servidor con `npm start` y ejecútala desde otra terminal:
+
+```bash
+npm run test:humo
+```
+
+Usa `API_BASE_URL` si el servidor escucha en otra dirección y las credenciales
+`ADMIN_EMAIL` y `ADMIN_CONTRASENA` del archivo `.env`. Genera una cuenta cliente
+única y una venta de prueba, que permanecen en la base; la promoción temporal
+de esa cuenta se revierte al finalizar.
+
 Pruebas de integración con MySQL real. Usan una base temporal única con prefijo
 `renefull_test_` que se crea y se elimina en cada ejecución:
 
