@@ -82,7 +82,7 @@ npm test
 npm run test:integracion
 ```
 
-Las pruebas de integración crean y eliminan una base temporal con prefijo `renefull_test_`. La prueba de humo requiere la API en ejecución y crea una cuenta y una venta de prueba que permanecen en la base:
+Las pruebas de integración crean y eliminan una base temporal con prefijo `renefull_test_`. La prueba de humo requiere la API en ejecución y crea dos cuentas cliente y una venta para cada una; esos registros permanecen en la base:
 
 ```sh
 npm run test:humo

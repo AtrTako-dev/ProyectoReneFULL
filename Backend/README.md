@@ -184,9 +184,12 @@ npm run test:humo
 ```
 
 Usa `API_BASE_URL` si el servidor escucha en otra dirección y las credenciales
-`ADMIN_EMAIL` y `ADMIN_CONTRASENA` del archivo `.env`. Genera una cuenta cliente
-única y una venta de prueba, que permanecen en la base; la promoción temporal
-de esa cuenta se revierte al finalizar.
+`ADMIN_EMAIL` y `ADMIN_CONTRASENA` del archivo `.env`. Genera dos cuentas cliente
+únicas y una venta para cada una; las cuentas y ventas permanecen en la base.
+Comprueba que cada cliente solo ve sus ventas, que las rutas administrativas
+rechazan a clientes, y que una cuenta sin historial suficiente recibe ese
+estado en sus predicciones. La promoción temporal de una cuenta se revierte al
+finalizar.
 
 Pruebas de integración con MySQL real. Usan una base temporal única con prefijo
 `renefull_test_` que se crea y se elimina en cada ejecución:

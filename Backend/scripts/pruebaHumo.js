@@ -45,8 +45,18 @@ async function principal() {
   const correo = `humo-${idUnico}@example.com`;
   const nombre = `Prueba de humo ${idUnico.slice(0, 8)}`;
   const contrasena = crypto.randomBytes(24).toString('base64url');
+  const idUnicoSecundario = crypto.randomUUID();
+  const correoSecundario = `humo-${idUnicoSecundario}@example.com`;
+  const nombreSecundario = `Prueba secundaria ${idUnicoSecundario.slice(0, 8)}`;
+  const contrasenaSecundaria = crypto.randomBytes(24).toString('base64url');
   const cuerpoRegistro = { nombre, email: correo, password: contrasena };
+  const cuerpoRegistroSecundario = {
+    nombre: nombreSecundario,
+    email: correoSecundario,
+    password: contrasenaSecundaria,
+  };
   const claveIdempotencia = crypto.randomUUID();
+  const claveIdempotenciaSecundaria = crypto.randomUUID();
   const fecha = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   let tokenAdministrador;
   let usuarioId;
@@ -60,6 +70,11 @@ async function principal() {
       metodo: 'POST', cuerpo: cuerpoRegistro,
     }), 201, (datos) => Boolean(datos?.usuario?.id && datos?.token));
     usuarioId = registro.usuario.id;
+
+    const registroSecundario = comprobar('registro de segundo cliente', await solicitar('/api/auth/registro', {
+      metodo: 'POST', cuerpo: cuerpoRegistroSecundario,
+    }), 201, (datos) => Boolean(datos?.usuario?.id && datos?.token && datos.usuario.rol === 'cliente'));
+    const usuarioIdSecundario = registroSecundario.usuario.id;
 
     comprobar('registro con rol rechazado', await solicitar('/api/auth/registro', {
       metodo: 'POST', cuerpo: { ...cuerpoRegistro, rol: 'administrador' },
@@ -101,19 +116,56 @@ async function principal() {
       throw new Error('La repetición idempotente devolvió una venta distinta.');
     }
 
-    comprobar('GET /api/ventas/mias', await solicitar(`/api/ventas/mias?desde=${fecha}&hasta=${fecha}`, {
-      token: tokenCliente,
-    }), 200, (datos) => Array.isArray(datos?.items) && datos.items.some((item) => String(item.id) === String(venta.venta.id)));
+    const ventaSecundaria = comprobar('POST /api/ventas de segundo cliente', await solicitar('/api/ventas', {
+      metodo: 'POST', token: registroSecundario.token, cuerpo: {
+        fecha,
+        producto_id: PRODUCTO_PRUEBA.producto_id,
+        cantidad: 1,
+        precio_unitario_mxn: PRODUCTO_PRUEBA.precio_unitario_mxn,
+        clave_idempotencia: claveIdempotenciaSecundaria,
+      },
+    }), 201, (datos) => Boolean(datos?.venta?.id));
+
+    const ventasPrimerCliente = comprobar('GET /api/ventas/mias del primer cliente', await solicitar(
+      `/api/ventas/mias?desde=${fecha}&hasta=${fecha}`,
+      { token: tokenCliente }
+    ), 200, (datos) => Array.isArray(datos?.items) &&
+      datos.items.some((item) => String(item.id) === String(venta.venta.id)) &&
+      !datos.items.some((item) => String(item.id) === String(ventaSecundaria.venta.id)));
+    if (ventasPrimerCliente.items.filter((item) => String(item.id) === String(venta.venta.id)).length !== 1) {
+      throw new Error('El primer cliente recibió ventas duplicadas al repetir la clave de idempotencia.');
+    }
+    comprobar('GET /api/ventas/mias del segundo cliente', await solicitar(
+      `/api/ventas/mias?desde=${fecha}&hasta=${fecha}`,
+      { token: registroSecundario.token }
+    ), 200, (datos) => Array.isArray(datos?.items) &&
+      datos.items.some((item) => String(item.id) === String(ventaSecundaria.venta.id)) &&
+      !datos.items.some((item) => String(item.id) === String(venta.venta.id)));
+
     comprobar('GET /api/ventas/mias/estadisticas', await solicitar(`/api/ventas/mias/estadisticas?desde=${fecha}&hasta=${fecha}`, {
       token: tokenCliente,
     }), 200);
     comprobar('GET /api/ventas/mias/predicciones', await solicitar('/api/ventas/mias/predicciones', {
       token: tokenCliente,
-    }), 200, (datos) => Array.isArray(datos?.predicciones));
+    }), 200, (datos) => Array.isArray(datos?.predicciones) &&
+      datos.predicciones.length > 0 &&
+      datos.predicciones.every((prediccion) => prediccion.tipo_resultado === 'sin_historial_suficiente'));
 
     comprobar('cliente bloqueado en /api/admin/usuarios', await solicitar('/api/admin/usuarios', {
       token: tokenCliente,
     }), 403);
+    comprobar('cliente bloqueado en PATCH /api/admin/usuarios/{id}/rol', await solicitar(
+      `/api/admin/usuarios/${usuarioIdSecundario}/rol`,
+      { metodo: 'PATCH', token: tokenCliente, cuerpo: { rol: 'administrador' } }
+    ), 403);
+    comprobar('cliente bloqueado en /api/admin/estadisticas/ventas', await solicitar(
+      `/api/admin/estadisticas/ventas?desde=${fecha}&hasta=${fecha}`,
+      { token: tokenCliente }
+    ), 403);
+    comprobar('cliente bloqueado en /api/admin/predicciones/demanda', await solicitar(
+      `/api/admin/predicciones/demanda?cliente_id=${usuarioId}`,
+      { token: tokenCliente }
+    ), 403);
 
     const sesionAdministrador = comprobar('login administrador', await solicitar('/api/auth/login', {
       metodo: 'POST',
@@ -125,6 +177,16 @@ async function principal() {
     comprobar('GET /api/admin/usuarios con administrador', await solicitar('/api/admin/usuarios', {
       token: tokenAdministrador,
     }), 200, (datos) => Array.isArray(datos?.usuarios));
+    comprobar('GET /api/admin/estadisticas/ventas con administrador', await solicitar(
+      `/api/admin/estadisticas/ventas?desde=${fecha}&hasta=${fecha}`,
+      { token: tokenAdministrador }
+    ), 200, (datos) => Array.isArray(datos?.clientes) && Boolean(datos?.resumen));
+    comprobar('GET /api/admin/predicciones/demanda con administrador', await solicitar(
+      `/api/admin/predicciones/demanda?cliente_id=${usuarioId}`,
+      { token: tokenAdministrador }
+    ), 200, (datos) => datos?.cliente?.id === usuarioId &&
+      Array.isArray(datos?.predicciones) &&
+      datos.predicciones.some((prediccion) => prediccion.tipo_resultado === 'sin_historial_suficiente'));
 
     const promocion = await solicitar(`/api/admin/usuarios/${usuarioId}/rol`, {
       metodo: 'PATCH', token: tokenAdministrador, cuerpo: { rol: 'administrador' },
@@ -137,8 +199,8 @@ async function principal() {
       metodo: 'PATCH', token: tokenAdministrador, cuerpo: { rol: 'cliente' },
     }), 403);
 
-    console.log(`Cuenta de prueba: ${correo}`);
-    console.log(`Venta de prueba: ${venta.venta.id}`);
+    console.log(`Cuentas de prueba: ${correo}, ${correoSecundario}`);
+    console.log(`Ventas de prueba: ${venta.venta.id}, ${ventaSecundaria.venta.id}`);
   } finally {
     if (usuarioPromovido && tokenAdministrador && usuarioId) {
       comprobar('restaurar rol de la cuenta de prueba', await solicitar(`/api/admin/usuarios/${usuarioId}/rol`, {
@@ -147,7 +209,7 @@ async function principal() {
     }
   }
 
-  console.log('Prueba de humo completada. La cuenta y la venta permanecen en la base de desarrollo.');
+  console.log('Prueba de humo completada. Las cuentas y ventas de prueba permanecen en la base de desarrollo.');
 }
 
 if (require.main === module) {
