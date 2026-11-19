@@ -1,4 +1,4 @@
-const { configuracion } = require('../config/entornoDatos');
+const { configuracion } = require('../config/entorno');
 const { redondear2 } = require('../datos/dinero');
 const {
   esFechaValida,

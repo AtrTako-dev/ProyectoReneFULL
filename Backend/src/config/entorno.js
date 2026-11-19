@@ -25,6 +25,14 @@ function entero(nombre, valorPorDefecto, { minimo = 1, maximo = Number.MAX_SAFE_
   return valor;
 }
 
+function decimal(nombre, valorPorDefecto) {
+  const valor = Number(variable(nombre, String(valorPorDefecto)));
+  if (!Number.isFinite(valor) || valor <= 0) {
+    throw new Error(`${nombre} debe ser un número mayor que cero.`);
+  }
+  return valor;
+}
+
 const directorioDemo = variable(
   'DEMO_DIRECTORIO',
   path.join(__dirname, '..', '..', 'data', 'demo')
@@ -55,6 +63,12 @@ const configuracion = {
     nombre: variable('DEMO_NOMBRE', 'Cliente de Demostracion'),
     contrasena: variable('DEMO_CONTRASENA', ''),
     directorio: path.resolve(directorioDemo),
+  },
+  ml: {
+    minimoSemanas: entero('MIN_SEMANAS_ENTRENAMIENTO', 12, { minimo: 6, maximo: 260 }),
+    minimoSemanasConUnidades: entero('MIN_SEMANAS_CON_UNIDADES', 8, { minimo: 4, maximo: 260 }),
+    semanasEvaluacion: entero('SEMANAS_EVALUACION', 5, { minimo: 1, maximo: 52 }),
+    alpha: decimal('ALPHA_RIDGE', 1.0),
   },
 };
 
