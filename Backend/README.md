@@ -58,6 +58,14 @@ migración y de cuentas no necesitan un token.
 
 ## Base de datos
 
+Compruebe primero el servidor y la migración registrada:
+
+```bash
+npm run db:diagnostico
+```
+
+El diagnóstico es de solo lectura. Si recomienda migrar, ejecute:
+
 ```bash
 npm run db:migrar
 ```
@@ -69,6 +77,39 @@ foráneas, y solo entonces registra el nombre y el SHA-256 en la tabla
 con finales de línea normalizados y acepta las variantes CRLF/LF/CR. Si una
 migración aplicada cambió de contenido, el proceso aborta para no alterar un
 esquema existente. La evidencia de las versiones de `001` está en
+[`docs/HISTORIAL_MIGRACIONES.md`](docs/HISTORIAL_MIGRACIONES.md).
+
+Para reiniciar la base local de desarrollo se requiere `NODE_ENV` distinto de
+`production`, `DB_HOST` local y las credenciales configuradas de administrador y
+cliente demo:
+
+```bash
+npm run db:reiniciar -- --confirmar
+```
+
+El comando muestra el host y la base de `DB_NOMBRE`, y exige escribir el nombre
+completo antes de eliminarla. Para una base remota también requiere
+`--permitir-remoto`. No ejecute este comando con una base compartida.
+
+### Si aparece un error de migración
+
+| Mensaje o código | Acción |
+|---|---|
+| `El nombre de la base solo puede contener letras, números y guion bajo.` | Corrija `DB_NOMBRE`; use solo letras, números y `_`. |
+| `La base de pruebas debe empezar con "renefull_test_"` | Use exclusivamente el prefijo `renefull_test_` para bases de prueba. |
+| `No existe el directorio de migraciones` | Ejecute desde `Backend/` y confirme que existe `db/migraciones/001_esquema_inicial.sql`. |
+| `La base ... tiene tablas de negocio pero no registros de migración` | Deténgase y revise el esquema existente; el runner no lo modifica. |
+| `La base ... contiene tablas que no pertenecen al esquema esperado` | Deténgase y confirme que `DB_NOMBRE` apunta a la base del proyecto. No borre tablas manualmente. |
+| `No hay una verificación de esquema registrada` | Revise el nombre y el verificador de la migración antes de ejecutarla. |
+| `La migración 001_esquema_inicial.sql fue aplicada con el DDL anterior incompatible` | No reinicie ni altere `migraciones`; consulte `docs/HISTORIAL_MIGRACIONES.md` y defina una conversión revisada. |
+| `La migración ... ya fue aplicada con otro contenido` | No edite una migración aplicada; cree una migración nueva. |
+| `El esquema existente no coincide con el esperado` | Revise las diferencias del mensaje. No se registró ni cambió la migración. |
+| `ER_ACCESS_DENIED_ERROR` o `ER_DBACCESS_DENIED_ERROR` | Revise `DB_USUARIO`, `DB_CONTRASENA` y los permisos con `SHOW GRANTS`. |
+| `ER_BAD_DB_ERROR` o error al crear la base | Revise `DB_NOMBRE` y que el usuario tenga permiso `CREATE` sobre esa base. |
+| `ER_UNKNOWN_COLLATION` o falta `utf8mb4_0900_ai_ci` | Use MySQL 8.0.16 o superior; MariaDB no cumple este requisito. |
+| `ECONNREFUSED` / `ETIMEDOUT` | Confirme que MySQL está iniciado y que `DB_HOST` y `DB_PUERTO` son correctos. |
+
+La lista y las decisiones de migración también están en
 [`docs/HISTORIAL_MIGRACIONES.md`](docs/HISTORIAL_MIGRACIONES.md).
 
 Tablas resultantes: `usuarios`, `categorias`, `productos`, `importaciones`,

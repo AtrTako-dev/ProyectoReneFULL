@@ -68,3 +68,60 @@ runner verifica el esquema completo **antes** de ejecutar cualquier DDL:
   aborta sin ejecutar DDL y sin registrar la migración.
 
 Así una base ajena o un esquema viejo no queda a medio crear.
+
+## 5. Diagnóstico de solo lectura y mensajes del runner
+
+Antes de migrar, ejecute:
+
+```bash
+npm run db:diagnostico
+```
+
+El comando informa tipo y versión del servidor, disponibilidad de
+`utf8mb4_0900_ai_ci`, usuario conectado, permisos de `SHOW GRANTS`, existencia
+de la base configurada, sus tablas y las filas de `migraciones`. Clasifica el
+hash de `001_esquema_inicial.sql` como actual, histórico `43c2886`, desconocido o
+sin registro. No crea bases ni tablas.
+
+| Mensaje o código | Acción segura |
+|---|---|
+| `El nombre de la base solo puede contener letras, números y guion bajo.` | Corregir `DB_NOMBRE` para que use únicamente esos caracteres. |
+| `La base de pruebas debe empezar con "renefull_test_"` | Usar un nombre de pruebas con el prefijo exacto `renefull_test_`. |
+| `No existe el directorio de migraciones` | Restaurar el archivo SQL esperado o ejecutar el comando desde la copia correcta del proyecto. |
+| `... tiene tablas de negocio pero no registros de migración` | Detenerse y revisar el esquema antes de migrar. El runner no aplica DDL en ese caso. |
+| `... contiene tablas que no pertenecen al esquema esperado` | Verificar `DB_NOMBRE`; no borrar ni renombrar tablas para forzar la migración. |
+| `No hay una verificación de esquema registrada` | Agregar y revisar el verificador de esa migración antes de ejecutarla. |
+| `... fue aplicada con el DDL anterior incompatible` | Conservar la base y preparar una migración de conversión revisada. No editar `migraciones`. |
+| `... ya fue aplicada con otro contenido` | Restaurar el archivo original o crear una nueva migración; nunca editar una migración aplicada. |
+| `El esquema existente no coincide con el esperado` | Revisar cada diferencia; el runner no alteró la base ni registró la migración. |
+| `ER_ACCESS_DENIED_ERROR` / `ER_DBACCESS_DENIED_ERROR` | Corregir usuario, contraseña o permisos según `SHOW GRANTS`. |
+| `ER_BAD_DB_ERROR` / permiso denegado al crear la base | Verificar el nombre y conceder `CREATE` sobre la base prevista. |
+| `ER_UNKNOWN_COLLATION` / collation no disponible | Instalar MySQL 8.0.16 o superior con `utf8mb4_0900_ai_ci`; MariaDB no es compatible. |
+| `ECONNREFUSED` / `ETIMEDOUT` | Iniciar el servidor y revisar host y puerto antes de repetir el diagnóstico. |
+
+Para una base nueva o con una migración ya registrada con el hash actual, la
+acción es `npm run db:migrar`. El comando verifica el esquema; si la migración
+está pendiente, la aplica.
+
+## 6. Permisos MySQL para desarrollo
+
+Desde una sesión administrativa de MySQL, cree la base y la cuenta de la
+aplicación. Sustituya la contraseña de muestra por una contraseña local que no
+se guarde en Git:
+
+```sql
+CREATE DATABASE proyecto_renefull
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+CREATE USER 'renefull_app'@'127.0.0.1' IDENTIFIED BY 'CAMBIA_ESTA_CONTRASENA';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX, REFERENCES
+  ON proyecto_renefull.* TO 'renefull_app'@'127.0.0.1';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX, REFERENCES
+  ON `renefull\_test\_%`.* TO 'renefull_app'@'127.0.0.1';
+```
+
+Los privilegios de la base de prueba cubren exclusivamente nombres que empiezan
+con `renefull_test_`; los guiones bajos se escapan porque MySQL los interpreta
+como comodines en los nombres de bases usados por `GRANT`. La cuenta necesita
+estos permisos para que `npm run test:integracion` cree y elimine sus bases
+temporales. Para conectarse desde otra máquina, cree la cuenta para el host
+correspondiente y configure `DB_HOST` y `DB_USUARIO` de forma acorde.

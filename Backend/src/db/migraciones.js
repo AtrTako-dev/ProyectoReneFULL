@@ -527,6 +527,7 @@ async function aplicarMigraciones({
 
 module.exports = {
   DIRECTORIO_MIGRACIONES,
+  HASHES_001_OBSOLETOS,
   PREFIJO_BASE_PRUEBAS,
   ESQUEMA_ESPERADO,
   aplicarMigraciones,
