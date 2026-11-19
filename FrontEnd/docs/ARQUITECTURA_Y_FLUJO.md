@@ -1,75 +1,61 @@
 # Arquitectura y flujo de la aplicación móvil
 
-Documento de planificación para el frontend de Proyecto ReneFULL.
+## Stack y organización
 
-## Estado actual
-
-La aplicación tiene una `MainActivity` en Kotlin y el proyecto Gradle declara Android Gradle Plugin 9.4.1, Kotlin Compose 2.2.10, JDK 17 y Jetpack Compose. Jetpack Compose queda confirmado para el desarrollo de la interfaz. La navegación, las pantallas iniciales, los ViewModels y los validadores locales están implementados. Existen interfaces de repositorio para cliente; su implementación actual informa que el servicio no está disponible. No hay cliente HTTP ni formatos de respuesta de API porque el backend se integrará después.
-
-La aplicación mantiene MVVM: los ViewModels gestionan navegación y estado/validación de formularios, y las vistas Compose representan ese estado. La pantalla de acceso contempla estados de envío y errores de autenticación, validación, red, conflicto y servidor. El enrutamiento recibe un rol interno de la sesión y dirige a cliente o administrador; su conversión desde la respuesta del servidor se hará al integrar el backend. Debug usa un repositorio local de demostración y Release no tiene autenticación conectada. La URL base y el contrato de la API no están documentados en `FrontEnd/`; se acordarán cuando el backend esté disponible.
-
-## Flujo de pantallas propuesto
-
-1. Al abrir la app, se muestra el acceso. Desde ahí se puede iniciar sesión o abrir el registro.
-2. El registro solicita únicamente los datos de cliente definidos por el contrato; no presenta selección de rol.
-3. Tras iniciar sesión, la respuesta vigente del servidor determina el destino: inicio de cliente o panel de administrador.
-4. La navegación de cliente da acceso a inicio, registro de venta, ventas propias y estadísticas/predicciones.
-5. La navegación de administrador da acceso al resumen estadístico y a la lista de clientes. La promoción de cliente muestra una confirmación antes de enviar la operación.
-6. Cerrar sesión elimina la sesión local y vuelve al acceso.
-
-La interfaz no solicita un identificador de cliente para consultar ventas o resultados propios. Ocultar opciones administrativas mejora la navegación, pero no sustituye el control de permisos del servidor.
-
-## Pantallas y datos
-
-| Área | Pantallas | Fuente de información |
-| --- | --- | --- |
-| Acceso | Inicio de sesión, registro | Respuestas de autenticación del servidor |
-| Cliente | Inicio, registrar venta, ventas propias, estadísticas y predicciones | API con la sesión autenticada |
-| Administrador | Resumen con tabla y gráfica, lista de clientes, confirmación de promoción | API administrativa |
-
-La tabla y la gráfica administrativas se construirán desde la misma respuesta validada de estadísticas. Las predicciones mostrarán unidad, periodo y carácter estimado según los datos recibidos; la app no calculará predicciones ni inventará resultados.
-
-## Organización MVVM propuesta
+La aplicación usa Kotlin, Jetpack Compose, Android Gradle Plugin 9.4.1, Kotlin Compose 2.2.10 y JDK 17. La estructura sigue MVVM:
 
 ```text
 com.proyectorenefull.app/
-  core/                 Estado común, manejo de errores y configuración
-  data/
-    remote/             Cliente HTTP y DTO definidos por el contrato
-    repository/         Implementaciones de acceso a datos
-  domain/
-    model/              Modelos usados por la aplicación
-    repository/         Interfaces de repositorio
-  navigation/           Rutas de pantalla y navegación Compose
-  ui/
-    auth/               Pantallas y ViewModels de acceso
-    client/             Pantallas y ViewModels de cliente
-    admin/              Pantallas y ViewModels de administrador
-    components/         Componentes visuales compartidos
+  model/       Modelos de presentación e interfaces de repositorio
+  data/        Cliente HTTP, repositorios y sesión local
+  navigation/  Destinos y estado de navegación
+  validation/  Validadores de formularios
+  view/        Pantallas Compose, componentes y tema
+  viewmodel/   Estado de pantallas y coordinación de casos de uso
 ```
 
-Los ViewModels mantienen el estado de cada pantalla y coordinan validación, repositorios y presentación de errores. Las vistas Compose representan ese estado y recogen acciones del usuario. Los DTO reflejarán exclusivamente los nombres y tipos acordados con la API; no se fijan aquí campos, rutas ni dependencias de red.
+Los ViewModels validan acciones y exponen estados observables. Los repositorios convierten las respuestas del servidor a modelos de la aplicación. Las vistas Compose muestran carga, éxito, vacío o error y envían acciones a los ViewModels.
 
-## Estados de interfaz
+## Flujo de autenticación y navegación
 
-Cada consulta o modificación tendrá estados de carga, éxito, vacío y error. Los errores se presentarán según el contrato: 400/422 con el campo que debe corregirse, 401 solicitando autenticación vigente, 403 explicando la falta de permiso, 404 indicando indisponibilidad, 409 mostrando el conflicto, fallos de red/timeout con reintento seguro y 5xx con un mensaje general sin trazas.
+1. Al iniciar, la aplicación consulta `/api/auth/me` si existe una sesión local vigente.
+2. El acceso y el registro usan `/api/auth/login` y `/api/auth/registro`. El registro envía únicamente nombre, correo y contraseña; el servidor asigna el rol de cliente.
+3. El rol recibido en `usuario.rol` dirige a la pantalla de cliente o administrador.
+4. La sesión guarda el token Bearer y su vencimiento de ocho horas. No hay renovación automática; al vencer, la app solicita volver a iniciar sesión.
+5. Cerrar sesión elimina el token local. El servidor vuelve a verificar identidad, estado activo y rol en cada ruta protegida.
 
-El envío de ventas necesitará una estrategia de reintento que respete las garantías de idempotencia que ofrezca la API para evitar duplicados. La forma concreta se decidirá al revisar el contrato.
+La navegación oculta funciones de otros roles para mantener una interfaz clara. El control de acceso efectivo pertenece al backend.
 
-## Decisiones pendientes para integrar la API
+## Flujos de cliente
 
-Antes de crear servicios y modelos deben confirmarse con el responsable:
+- El formulario de venta envía fecha, ID de producto, precio unitario, cantidad y una clave UUID de idempotencia a `POST /api/ventas`.
+- La API determina el producto y su categoría desde el catálogo, valida el precio y deriva al propietario desde el token.
+- Las ventas propias se consultan mediante `GET /api/ventas/mias`; la aplicación no envía un ID de propietario.
+- Estadísticas y predicciones provienen de `GET /api/ventas/mias/estadisticas` y `GET /api/ventas/mias/predicciones`. Las predicciones se muestran como estimaciones y no se calculan en el dispositivo.
 
-- Stack móvil aprobado y URL base de desarrollo.
-- Mecanismo de autenticación, forma de conservar/renovar la sesión y respuesta que identifica el rol.
-- Rutas, métodos, cuerpos y respuestas de registro e inicio de sesión.
-- Catálogo de productos/categorías y límites de los campos de venta.
-- Consulta de ventas propias, estadísticas y predicciones, incluidos filtros admitidos, unidades, periodos y formato de respuesta.
-- Rutas y respuestas administrativas para estadísticas, clientes y promoción.
-- Formato de errores de validación y comportamiento de reintentos para evitar ventas duplicadas.
+El contrato actual no expone una ruta para consultar el catálogo de productos. Por eso el formulario solicita el ID y el precio conocidos por la persona; el servidor rechaza productos inexistentes o precios que no correspondan.
 
-El modo de vista previa disponible en Debug solo permite recorrer pantallas. No autentica cuentas, no contiene registros ficticios y no representa permisos efectivos. La vista Release no incluye el acceso de vista previa. Cuando se acuerde el contrato, los sustitutos de datos se limitarán a pruebas o a un entorno de desarrollo y quedarán fuera de la configuración de producción.
+## Flujos de administrador
 
-## Verificación prevista
+- El panel consulta `GET /api/admin/estadisticas/ventas?agrupacion=semana`.
+- La tabla y la gráfica se representan a partir de las mismas estadísticas por categoría de esa respuesta.
+- La lista consulta `GET /api/admin/usuarios` y filtra las cuentas cuyo rol actual es cliente.
+- Promover una cuenta muestra una confirmación y envía `PATCH /api/admin/usuarios/{id}/rol`. La app presenta el resultado devuelto por el servidor y actualiza la lista después de la respuesta exitosa.
 
-Con el contrato confirmado, se añadirán pruebas de ViewModels y validadores para entradas válidas e inválidas, pruebas de estados de carga/vacío/éxito/error y pruebas controladas para 401, 403, 422 y conectividad. La compilación y las pruebas de frontend se ejecutarán con Gradle. La comprobación manual cubrirá una sesión de cliente y otra de administrador.
+Los rangos y la agrupación son compatibles con la API, pero esta versión conserva la vista semanal y no muestra filtros.
+
+## Comunicación HTTP y errores
+
+`ClienteApi` usa `HttpURLConnection`, ejecuta solicitudes fuera del hilo principal y entrega resultados mediante el `Handler` principal. Configura límites de conexión y lectura y adjunta `Authorization: Bearer` a rutas protegidas.
+
+La app distingue errores de validación (400/422), sesión vencida o no válida (401), falta de permiso (403), recurso inexistente (404), conflicto (409), red/timeout y errores del servidor (5xx). Los mensajes de servidor no exponen trazas. Los reintentos de ventas conservan la misma clave de idempotencia mientras el formulario permanezca abierto y no cambien sus datos.
+
+La URL se configura mediante la propiedad Gradle `API_BASE_URL` o la variable de entorno del mismo nombre. Debug usa `http://10.0.2.2:3000` si no se proporciona otra URL. El tráfico HTTP sin cifrar se permite solo en Debug; Release requiere una URL HTTPS accesible.
+
+## Vista previa de desarrollo
+
+Debug incluye una ruta de diseño para recorrer las pantallas de cliente y administrador. No crea sesiones ni datos, no llama a la API y no cambia permisos. Release no ofrece esa ruta.
+
+## Verificación
+
+Las pruebas unitarias cubren validadores, estados de ViewModels, respuestas de error controladas, cambios de rol y reintento idempotente de ventas. La comprobación manual con cuentas reales requiere una instancia accesible del backend y cuentas de cliente y administrador.

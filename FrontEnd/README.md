@@ -23,4 +23,15 @@ Para instalarlo en un emulador o dispositivo conectado:
 ./gradlew installDebug
 ```
 
-La aplicación base usa Kotlin, Jetpack Compose y MVVM como arquitectura prevista. Las pantallas y la conexión con el backend se agregarán sobre esta estructura.
+La aplicación usa Kotlin, Jetpack Compose y MVVM. La estructura, los flujos de autenticación, ventas, estadísticas y administración, así como la comunicación HTTP con la API, se describen en [`docs/ARQUITECTURA_Y_FLUJO.md`](docs/ARQUITECTURA_Y_FLUJO.md).
+
+## URL de la API
+
+Configura `API_BASE_URL` como propiedad Gradle (`-PAPI_BASE_URL=https://...`) o variable de entorno. Debug usa `http://10.0.2.2:3000` si no se configura otra URL, lo que permite conectar un emulador Android a un backend local. Release desactiva HTTP sin cifrar y requiere una URL HTTPS.
+
+Para ejecutar pruebas unitarias y compilar Debug:
+
+```sh
+./gradlew test
+./gradlew assembleDebug
+```

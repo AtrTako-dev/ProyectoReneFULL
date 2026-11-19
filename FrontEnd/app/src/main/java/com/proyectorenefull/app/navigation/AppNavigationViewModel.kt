@@ -2,7 +2,7 @@ package com.proyectorenefull.app.navigation
 
 import androidx.lifecycle.ViewModel
 import com.proyectorenefull.app.BuildConfig
-import com.proyectorenefull.app.domain.auth.AccountRole
+import com.proyectorenefull.app.model.auth.AccountRole
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -49,6 +49,10 @@ class AppNavigationViewModel : ViewModel() {
     }
 
     fun closePreview() {
+        closeSession()
+    }
+
+    fun closeSession() {
         history.clear()
         history += AppDestination.Login
         _destination.value = AppDestination.Login

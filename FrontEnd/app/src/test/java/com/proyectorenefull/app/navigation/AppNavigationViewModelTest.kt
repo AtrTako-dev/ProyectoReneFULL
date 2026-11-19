@@ -1,6 +1,6 @@
 package com.proyectorenefull.app.navigation
 
-import com.proyectorenefull.app.domain.auth.AccountRole
+import com.proyectorenefull.app.model.auth.AccountRole
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
