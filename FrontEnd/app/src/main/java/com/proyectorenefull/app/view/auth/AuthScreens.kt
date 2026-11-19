@@ -32,7 +32,7 @@ fun LoginScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     ScreenLayout(
-        title = "Proyecto ReneFULL",
+        title = "PronoVenta",
         subtitle = "Análisis de ventas y demanda"
     ) {
         Text("Inicia sesión para consultar tu espacio de trabajo.")

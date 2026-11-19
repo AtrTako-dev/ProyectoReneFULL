@@ -179,7 +179,7 @@ fun OwnSalesScreen(
 ) {
     ScreenLayout(
         title = "Mis ventas",
-        subtitle = "Solo se consultan los registros de la sesión activa.",
+        subtitle = "Se muestran hasta 500 ventas recientes de la sesión activa.",
         onBack = onBack,
         onExit = onExit,
         exitLabel = if (isPreview) "Salir de la vista previa" else "Cerrar sesión"

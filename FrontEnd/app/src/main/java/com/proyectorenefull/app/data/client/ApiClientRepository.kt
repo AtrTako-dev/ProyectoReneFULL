@@ -38,20 +38,29 @@ class ApiClientRepository(private val api: ClienteApi) : ClientRepository {
     }
 
     override fun ownSales(onResult: (ClientResult<List<SaleRecord>>) -> Unit) {
-        api.request("GET", "/api/ventas/mias?limite=500&desplazamiento=0") { result ->
-            val response = result as? ApiCallResult.Response
+        api.request("GET", "/api/ventas/mias?limite=$SALES_PAGE_SIZE&desplazamiento=0") { firstPage ->
+            val response = firstPage as? ApiCallResult.Response
             if (response?.status != 200) {
-                onResult(ApiErrorMapper.clientFailure(result))
+                onResult(ApiErrorMapper.clientFailure(firstPage))
                 return@request
             }
-            val items = response.body?.optJSONArray("items")
-            if (items == null) {
+            val total = response.body?.optInt("total", -1) ?: -1
+            if (total < 0) {
                 onResult(ClientResult.Failure("La respuesta de ventas no tiene el formato esperado."))
                 return@request
             }
-            runCatching { items.toSaleRecords() }
-                .onSuccess { onResult(ClientResult.Success(it)) }
-                .onFailure { onResult(ClientResult.Failure("No se pudieron leer las ventas recibidas.")) }
+
+            val latestPageOffset = (total - SALES_PAGE_SIZE).coerceAtLeast(0)
+            if (latestPageOffset == 0) {
+                onResult(firstPage.toSalesResult())
+            } else {
+                api.request(
+                    "GET",
+                    "/api/ventas/mias?limite=$SALES_PAGE_SIZE&desplazamiento=$latestPageOffset"
+                ) { latestPage ->
+                    onResult(latestPage.toSalesResult())
+                }
+            }
         }
     }
 
@@ -170,6 +179,18 @@ class ApiClientRepository(private val api: ClienteApi) : ClientRepository {
         }
     }
 
+    private fun ApiCallResult.toSalesResult(): ClientResult<List<SaleRecord>> {
+        val response = this as? ApiCallResult.Response
+        if (response?.status != 200) return ApiErrorMapper.clientFailure(this)
+        val items = response.body?.optJSONArray("items")
+            ?: return ClientResult.Failure("La respuesta de ventas no tiene el formato esperado.")
+        return runCatching { items.toSaleRecords().asReversed() }
+            .fold(
+                onSuccess = { ClientResult.Success(it) },
+                onFailure = { ClientResult.Failure("No se pudieron leer las ventas recibidas.") }
+            )
+    }
+
     private fun JSONObject.getDecimal(key: String): BigDecimal = BigDecimal(get(key).toString())
 
     private fun Long.toApiDate(): String = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply {
@@ -180,4 +201,8 @@ class ApiClientRepository(private val api: ClienteApi) : ClientRepository {
         timeZone = TimeZone.getTimeZone("UTC")
         isLenient = false
     }.parse(this)?.time ?: throw IllegalArgumentException("Fecha de venta inválida")
+
+    companion object {
+        private const val SALES_PAGE_SIZE = 500
+    }
 }

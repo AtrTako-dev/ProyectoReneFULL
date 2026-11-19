@@ -1,4 +1,4 @@
-# Proyecto ReneFULL - Android
+# PronoVenta - Android
 
 ## Requisitos
 
