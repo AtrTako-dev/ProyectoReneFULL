@@ -3,19 +3,19 @@
   "version": "0.2.0",
   "private": true,
   "description": "API de Proyecto ReneFULL y capa de datos MySQL 8: autenticación, ventas, importaciones, estadísticas y predicciones",
-  "main": "src/servidor.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node src/servidor.js",
-    "dev": "node --watch src/servidor.js",
-    "db:diagnostico": "node scripts/diagnosticoBD.js",
-    "db:migrar": "node scripts/migrar.js",
-    "db:reiniciar": "node scripts/reiniciarBD.js",
-    "admin:crear": "node scripts/crearAdmin.js",
-    "demo:cuenta": "node scripts/crearClienteDemo.js",
-    "demo:cargar": "node scripts/cargarDemo.js",
-    "test:humo": "node scripts/pruebaHumo.js",
-    "test": "node --test --test-concurrency=1 pruebas/api.test.js pruebas/authMiddleware.test.js pruebas/errores.test.js pruebas/estadisticas.test.js pruebas/flujosApi.test.js pruebas/importacionDemo.test.js pruebas/migraciones.test.js pruebas/password.test.js pruebas/prediccion.test.js pruebas/registros.test.js pruebas/serializadores.test.js pruebas/token.test.js pruebas/validaciones.test.js",
-    "test:integracion": "node --test --test-concurrency=1 pruebas/integracion/baseDatos.test.js"
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "db:diagnostico": "node diagnosticoBD.js",
+    "db:migrar": "node migrar.js",
+    "db:reiniciar": "node reiniciarBD.js",
+    "admin:crear": "node crearAdmin.js",
+    "demo:cuenta": "node crearClienteDemo.js",
+    "demo:cargar": "node cargarDemo.js",
+    "test:humo": "node pruebaHumo.js",
+    "test": "node --test --test-concurrency=1 test/api.test.js test/authMiddleware.test.js test/errores.test.js test/estadisticas.test.js test/flujosApi.test.js test/importacionDemo.test.js test/migraciones.test.js test/password.test.js test/prediccion.test.js test/registros.test.js test/serializadores.test.js test/token.test.js test/validaciones.test.js",
+    "test:integracion": "node --test --test-concurrency=1 test/integracion/baseDatos.test.js"
   },
   "engines": {
     "node": ">=20.12"
