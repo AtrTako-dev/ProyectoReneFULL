@@ -10,6 +10,14 @@ Instala las dependencias con `npm ci`, configura `Backend/.env` con los valores 
 
 Ejecuta `npm test` para las pruebas locales. Las pruebas de persistencia MySQL solo se habilitan de forma explícita con `RUN_MYSQL_PERSISTENCE_TESTS=true`, un servidor local (`localhost`, `127.0.0.1` o `::1`) y una base cuyo nombre termine en `_test`. Configura una base separada como `more_stock_test` antes de ejecutarlas; después puedes usar `RUN_MYSQL_PERSISTENCE_TESTS=true DB_NAME=more_stock_test npm test -- --test-concurrency=1`. Las ejecuciones simultáneas sobre la misma base de prueba se bloquean. No apuntes esas pruebas a una base de desarrollo o producción porque inicializan el esquema y los datos de demostración.
 
+## Límite de intentos de inicio de sesión
+
+El inicio de sesión permite cinco intentos fallidos por combinación de correo e IP dentro de una ventana de 15 minutos. Al alcanzar el límite, la respuesta es `429 LOGIN_RATE_LIMITED` e incluye `Retry-After`; el bloqueo dura 15 minutos. Un inicio de sesión correcto restablece el contador. Los valores pueden ajustarse con `LOGIN_RATE_LIMIT_MAX_ATTEMPTS`, `LOGIN_RATE_LIMIT_WINDOW_MS`, `LOGIN_RATE_LIMIT_BLOCK_MS` y `LOGIN_RATE_LIMIT_CLEANUP_INTERVAL_MS`; están listados en `.env.example`.
+
+En una conexión directa, la IP se obtiene de Express. Si la API se coloca detrás de Cloudflare, se puede configurar `LOGIN_RATE_LIMIT_CLIENT_IP_HEADER=CF-Connecting-IP` únicamente cuando la entrada confiable sobrescriba ese encabezado y la aplicación no sea accesible por una ruta que lo permita falsificar. El valor predeterminado queda vacío y no confía en `X-Forwarded-For`.
+
+El contador vive en memoria, se borra al reiniciar el proceso y no se comparte entre varias instancias del backend. Esta protección cubre una ejecución local o un proceso único; no reemplaza un limitador compartido para un despliegue con varias instancias.
+
 ## Despliegue preparado
 
 El archivo `../render.yaml` define un servicio Node para Render con raíz `Backend/`, instalación reproducible desde `package-lock.json`, inicio con `npm start` y chequeo HTTP en `/api/v1/health`. El despliegue automático está apagado.

@@ -45,6 +45,32 @@ export const databaseConfigured = Boolean(
   databaseConfig.host && databaseConfig.user && databaseConfig.database,
 );
 
+function positiveEnvironmentInteger(name, fallback) {
+  const value = process.env[name];
+  if (value === undefined) return fallback;
+  if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < 1) {
+    throw new Error(`${name} debe ser un entero positivo.`);
+  }
+  return Number(value);
+}
+
+export const loginAttemptLimiterConfig = Object.freeze({
+  maxAttempts: positiveEnvironmentInteger('LOGIN_RATE_LIMIT_MAX_ATTEMPTS', 5),
+  windowMs: positiveEnvironmentInteger('LOGIN_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
+  blockDurationMs: positiveEnvironmentInteger('LOGIN_RATE_LIMIT_BLOCK_MS', 15 * 60 * 1000),
+  cleanupIntervalMs: positiveEnvironmentInteger('LOGIN_RATE_LIMIT_CLEANUP_INTERVAL_MS', 60 * 1000),
+  clientIpHeader: readLoginRateLimitClientIpHeader(),
+});
+
+function readLoginRateLimitClientIpHeader() {
+  const header = process.env.LOGIN_RATE_LIMIT_CLIENT_IP_HEADER?.trim().toLowerCase();
+  if (!header) return null;
+  if (header !== 'cf-connecting-ip') {
+    throw new Error('LOGIN_RATE_LIMIT_CLIENT_IP_HEADER solo admite CF-Connecting-IP o vacío.');
+  }
+  return header;
+}
+
 function readDemoAccounts() {
   const source = process.env.DEMO_ACCOUNTS_JSON;
   if (!source) return [];

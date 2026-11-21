@@ -25,12 +25,30 @@ export function createAuthController(authService) {
     },
 
     login: async (request, response) => {
-      const result = await authService.login(readCredentials(request.body));
-      response.json({
-        token: result.token,
-        usuario: result.user,
-        negocios: result.negocios,
-      });
+      try {
+        const result = await authService.login(readCredentials(request.body));
+        request.loginAttemptLimiter?.reset();
+        response.json({
+          token: result.token,
+          usuario: result.user,
+          negocios: result.negocios,
+        });
+      } catch (error) {
+        if (error.status === 401 && error.code === 'INVALID_CREDENTIALS') {
+          const limit = request.loginAttemptLimiter?.recordFailure();
+          if (limit?.blocked) {
+            response.set('Retry-After', String(limit.retryAfterSeconds));
+            response.status(429).json({
+              error: {
+                code: 'LOGIN_RATE_LIMITED',
+                message: 'Demasiados intentos. Inténtalo más tarde.',
+              },
+            });
+            return;
+          }
+        }
+        throw error;
+      }
     },
 
     logout: async (request, response) => {
