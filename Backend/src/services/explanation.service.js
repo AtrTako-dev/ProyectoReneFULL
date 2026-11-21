@@ -66,12 +66,26 @@ function explanationDetails({ forecast, inventory, recommendation, events = [], 
   const eventLabels = Array.isArray(events)
     ? [...new Set(events.map(event => event?.label).filter(label => typeof label === 'string' && label.trim()))]
     : [];
+  const eventsWithoutDate = Array.isArray(calendarMetadata?.eventsWithoutDate)
+    ? calendarMetadata.eventsWithoutDate.filter(event => typeof event?.label === 'string' && event.label.trim())
+    : [];
   const calendarVersion = calendarMetadata?.version
     ?? events.find(event => event?.calendarVersion)?.calendarVersion
     ?? null;
-  const calendarText = eventLabels.length > 0
-    ? ` El calendario ${calendarVersion ?? ''} muestra ${eventLabels.join(', ')} como referencia; no se interpreta como causa de cambios en la demanda.`
-    : ` El calendario ${calendarVersion ?? 'de demostración'} no muestra eventos aplicables y no modifica el pronóstico.`;
+  const calendarStatements = [];
+  if (eventLabels.length > 0) {
+    calendarStatements.push(`El calendario ${calendarVersion ?? ''} muestra ${eventLabels.join(', ')} como referencia; no se interpreta como causa de cambios en la demanda.`);
+  } else if (eventsWithoutDate.length === 0) {
+    calendarStatements.push(`El calendario ${calendarVersion ?? 'de demostración'} no muestra eventos aplicables y no modifica el pronóstico.`);
+  }
+  if (eventsWithoutDate.length > 0) {
+    const labels = [...new Set(eventsWithoutDate.map(event => event.label))].join(', ');
+    const datesMessage = eventsWithoutDate.length === 1
+      ? `No hay una fecha configurada para ${labels} en ${calendarMetadata.year}`
+      : `No hay fechas configuradas para ${labels} en ${calendarMetadata.year}`;
+    calendarStatements.push(`${datesMessage}; no se estima ni se inventa una fecha.`);
+  }
+  const calendarText = ` ${calendarStatements.join(' ')}`;
   const summary = [
     `Recomendación: ${statusLabel}.`,
     `La demanda pronosticada es ${formatAmount(forecast.predictedDemand)} ${unit}; para planificar se redondea a ${formatAmount(predictedDemand)} ${unit}.`,
@@ -119,6 +133,12 @@ function explanationDetails({ forecast, inventory, recommendation, events = [], 
         fecha_fin: event.endDate,
         fuente: event.source,
         version: event.calendarVersion,
+      })),
+      eventos_sin_fecha: eventsWithoutDate.map(event => ({
+        id: event.id,
+        nombre: event.label,
+        año: event.calendarYear,
+        estado: event.status,
       })),
       afecta_pronostico: false,
     },

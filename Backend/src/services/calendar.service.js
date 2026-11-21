@@ -21,10 +21,14 @@ function eventMatchesCategory(event, category) {
 
 function eventsOnDate(date, configuration) {
   const year = Number(date.slice(0, 4));
-  const events = configuration.fixedEvents.map(event => ({
-    ...event,
-    calendarYear: Number(event.startDate.slice(0, 4)),
-    source: 'configured-date',
+  const events = configuration.announcedEvents.map(event => ({
+    id: `${event.id}-${event.year}`,
+    label: event.label,
+    startDate: event.startDate,
+    endDate: event.endDate,
+    calendarYear: event.year,
+    categories: [...event.categories],
+    source: event.sourceUrl,
   }));
 
   for (const rule of configuration.annualRules) {
@@ -49,7 +53,8 @@ function eventsOnDate(date, configuration) {
 
 export function createCalendarService(configuration = COMMERCIAL_CALENDAR_CONFIGURATION) {
   if (!configuration || typeof configuration.version !== 'string'
-    || !Array.isArray(configuration.fixedEvents)
+    || !Array.isArray(configuration.announcedEventDefinitions)
+    || !Array.isArray(configuration.announcedEvents)
     || !Array.isArray(configuration.annualRules)) {
     throw new TypeError('La configuración del calendario comercial no es válida.');
   }
@@ -65,6 +70,16 @@ export function createCalendarService(configuration = COMMERCIAL_CALENDAR_CONFIG
       year,
       version: `${configuration.version}-${year}`,
       source: 'configured-demo-calendar',
+      eventsWithoutDate: configuration.announcedEventDefinitions
+        .filter(definition => !configuration.announcedEvents.some(event => (
+          event.id === definition.id && event.year === year
+        )))
+        .map(definition => ({
+          id: `${definition.id}-${year}`,
+          label: definition.label,
+          calendarYear: year,
+          status: 'date-not-configured',
+        })),
       metadataOnly: true,
       affectsForecast: false,
     };

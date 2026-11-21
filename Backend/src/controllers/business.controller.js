@@ -341,12 +341,15 @@ export function createBusinessController({
     listCalendarEvents: async (request, response) => {
       const fecha = request.query.fecha ?? dateToday();
       const categoria = request.query.categoria;
+      const calendario = calendarService.metadataForDate(fecha);
       const eventos = calendarService.eventsForDate(fecha, categoria);
       response.json({
         fecha,
-        calendario: calendarService.metadataForDate(fecha),
+        calendario,
         eventos,
-        nota: 'Los eventos son metadatos de calendario; no se usan para atribuir cambios de demanda.',
+        nota: calendario.eventsWithoutDate.length > 0
+          ? `No hay fechas configuradas para ${calendario.eventsWithoutDate.map(event => event.label).join(', ')} en ${calendario.year}; no se estiman ni se inventan. Los eventos disponibles son metadatos y no se usan para atribuir cambios de demanda.`
+          : 'Los eventos son metadatos de calendario; no se usan para atribuir cambios de demanda.',
       });
     },
 

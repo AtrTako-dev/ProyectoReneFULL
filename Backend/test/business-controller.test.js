@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { createBusinessController } from '../src/controllers/business.controller.js';
 import { DomainError } from '../src/errors/domain-error.js';
 import { ForecastService } from '../src/services/forecast.service.js';
+import { createCalendarService } from '../src/services/calendar.service.js';
 
 function controllerWith(forecastError) {
   return createBusinessController({
@@ -141,4 +142,31 @@ test('el controlador publica las métricas finales de prueba y sus conteos separ
   assert.equal(responseBody.series[0].prueba_muestra_pequena, true);
   assert.deepEqual(responseBody.series[0].metricas_validacion, businessMetric.validationMetrics);
   assert.deepEqual(responseBody.series[0].metricas_prueba, businessMetric.testMetrics);
+});
+
+test('la ruta de calendario informa los eventos sin fecha configurada sin inventar fechas', async () => {
+  const controller = createBusinessController({
+    authService: {},
+    salesRepository: {},
+    forecastService: {},
+    inventoryService: {},
+    recommendationService: {},
+    explanationService: {},
+    calendarService: createCalendarService(),
+  });
+  let responseBody;
+
+  await controller.listCalendarEvents(
+    { query: { fecha: '2027-11-15' } },
+    { json: body => { responseBody = body; } },
+  );
+
+  assert.deepEqual(responseBody.calendario.eventsWithoutDate, [{
+    id: 'buen-fin-2027',
+    label: 'Buen Fin',
+    calendarYear: 2027,
+    status: 'date-not-configured',
+  }]);
+  assert.equal(responseBody.eventos.some(event => event.label === 'Buen Fin'), false);
+  assert.match(responseBody.nota, /no se estiman ni se inventan/i);
 });
