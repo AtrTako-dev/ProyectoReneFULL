@@ -1,0 +1,39 @@
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+**/.aws/
+**/.ssh/
+**/credentials
+**/credentials.*
+**/*_credentials.*
+**/*-credentials.*
+**/secrets
+**/secrets.*
+**/*_secrets.*
+**/*-secrets.*
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+
+# Generated files and local build state
+*.hprof
+*.apk
+*.aab
+node_modules/
+build/
+.gradle/
+.kotlin/
+.idea/
+local.properties
+*.iml
+captures/
+
+# Local Codex workspace metadata
+/.agents/
+/.codex/
+
+# Internal planning files are not part of the project submission
+/docs/superpowers/plans/

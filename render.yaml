@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: more-stock-api
+    runtime: node
+    rootDir: Backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/v1/health
+    autoDeployTrigger: "off"
+    envVars:
+      - key: NODE_VERSION
+        value: 24.22.1
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: DEMO_MODE
+        value: "false"
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "4000"
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_SSL
+        value: "true"

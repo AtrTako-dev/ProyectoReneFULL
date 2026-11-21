@@ -1,0 +1,9 @@
+﻿fuente,periodo,indicador,valor,unidad,publicacion,url,nota
+Soriana,2026-T3,Ingresos totales trimestre,40833,millones MXN,2026-10-30,https://www.organizacionsoriana.com/pdf/reportes/2026/3T_2026_Espanol_InfDirVfinal.pdf,"Dato consolidado real, no ventas por producto"
+Soriana,2025-T3,Ingresos totales trimestre,42683,millones MXN,2026-10-30,https://www.organizacionsoriana.com/pdf/reportes/2026/3T_2026_Espanol_InfDirVfinal.pdf,Comparativo publicado en informe 2026
+Soriana,2026-T3,Variacion ventas mismas tiendas,-3.6,porcentaje interanual,2026-10-30,https://www.organizacionsoriana.com/pdf/reportes/2026/3T_2026_Espanol_InfDirVfinal.pdf,No desglosa producto; no calibración de registros sintéticos
+Soriana,2026-01 a 2026-09,Ingresos acumulados,124836,millones MXN,2026-10-30,https://www.organizacionsoriana.com/pdf/reportes/2026/3T_2026_Espanol_InfDirVfinal.pdf,Cifra consolidada nacional
+INEGI EMEC,2026-08,Variacion mensual ingresos comercio minorista,1.2,porcentaje mensual desestacionalizado,2026-10,https://en.www.inegi.org.mx/contenidos/saladeprensa/boletines/2026/emec/emec2026_10.pdf,"Indicador sectorial, NO ventas de Soriana ni por categoría"
+ANTAD,2026-10,Crecimiento nominal tiendas iguales,1.6,porcentaje interanual,2026-11-13,https://antad.net/indicadores/crecimiento-nominal-en-ventas/,Total de cadenas afiliadas; no ventas por producto
+ANTAD,2026-10,Crecimiento nominal tiendas totales,4.1,porcentaje interanual,2026-11-13,https://antad.net/indicadores/crecimiento-nominal-en-ventas/,Total de cadenas afiliadas; no ventas por producto
+PROFECO,2026-09-14 a 2026-09-18,Canasta PACIC menor precio Mega Soriana La Diana Acapulco,739.9,MXN por canasta de 24 productos,2026-10,https://www.gob.mx/profeco/prensa/profeco-presenta-mapa-de-calor-para-identificar-los-precios-de-los-24-productos-de-la-canasta-pacic-por-cadena-comercial?idiom=es-MX,"Un caso documentado, NO precio individual ni promedio nacional"

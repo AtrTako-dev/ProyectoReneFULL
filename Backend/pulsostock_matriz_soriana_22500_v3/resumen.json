@@ -1,0 +1,63 @@
+{
+  "version": "v3",
+  "generado": "2026-11-19",
+  "estatus": "100% ventas sintéticas; indicadores públicos reales separados",
+  "matriz": {
+    "negocio": "Soriana (SIMULACIÓN NO OFICIAL)",
+    "filas": 20000,
+    "skus": 100,
+    "primer_periodo": "2023-01-16",
+    "ultimo_periodo": "2026-11-15",
+    "archivo_csv": "matriz_soriana_simulada_20000.csv"
+  },
+  "tiendas": [
+    {
+      "usuario_id": 1,
+      "negocio_id": 201,
+      "nombre": "Frutería La Huerta",
+      "registros": 500,
+      "primer_periodo": "2025-12-01",
+      "ultimo_periodo": "2026-11-15",
+      "archivo_csv": "tienda_1_fruteria_la_huerta_500.csv"
+    },
+    {
+      "usuario_id": 2,
+      "negocio_id": 202,
+      "nombre": "Panadería La Espiga",
+      "registros": 500,
+      "primer_periodo": "2025-12-01",
+      "ultimo_periodo": "2026-11-15",
+      "archivo_csv": "tienda_2_panaderia_la_espiga_500.csv"
+    },
+    {
+      "usuario_id": 3,
+      "negocio_id": 203,
+      "nombre": "Electrónica Punto Digital",
+      "registros": 500,
+      "primer_periodo": "2025-12-01",
+      "ultimo_periodo": "2026-11-15",
+      "archivo_csv": "tienda_3_electronica_punto_digital_500.csv"
+    },
+    {
+      "usuario_id": 4,
+      "negocio_id": 204,
+      "nombre": "Abarrotes El Puente",
+      "registros": 500,
+      "primer_periodo": "2025-12-01",
+      "ultimo_periodo": "2026-11-15",
+      "archivo_csv": "tienda_4_abarrotes_el_puente_500.csv"
+    },
+    {
+      "usuario_id": 5,
+      "negocio_id": 205,
+      "nombre": "Papel y Tinta",
+      "registros": 500,
+      "primer_periodo": "2025-12-01",
+      "ultimo_periodo": "2026-11-15",
+      "archivo_csv": "tienda_5_papel_y_tinta_500.csv"
+    }
+  ],
+  "surtido_por_negocio_csv": "surtido_por_negocio.csv",
+  "total_registros_ventas": 22500,
+  "indicadores_reales": 8
+}

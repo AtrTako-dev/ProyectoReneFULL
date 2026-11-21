@@ -1,0 +1,101 @@
+﻿producto_id,producto,marca,categoria,unidad
+PS001,Manzana roja,A granel,Frutas,kg
+PS002,Plátano Chiapas,A granel,Frutas,kg
+PS003,Naranja Valencia,A granel,Frutas,kg
+PS004,Mango ataulfo,A granel,Frutas,kg
+PS005,Papaya maradol,A granel,Frutas,kg
+PS006,Uva verde,A granel,Frutas,kg
+PS007,Fresa 454 g,A granel,Frutas,paquete
+PS008,Pera de anjou,A granel,Frutas,kg
+PS009,Limón sin semilla,A granel,Frutas,kg
+PS010,Sandía rayada,A granel,Frutas,kg
+PS011,Jitomate saladet,A granel,Verduras,kg
+PS012,Cebolla blanca,A granel,Verduras,kg
+PS013,Papa blanca,A granel,Verduras,kg
+PS014,Zanahoria,A granel,Verduras,kg
+PS015,Chile serrano,A granel,Verduras,kg
+PS016,Pepino,A granel,Verduras,kg
+PS017,Calabacita,A granel,Verduras,kg
+PS018,Lechuga romana,A granel,Verduras,pieza
+PS019,Brócoli,A granel,Verduras,kg
+PS020,Aguacate hass,A granel,Verduras,kg
+PS021,Pan blanco 680 g,Bimbo,Panadería,paquete
+PS022,Pan integral 680 g,Bimbo,Panadería,paquete
+PS023,Mantecadas 3 piezas,Bimbo,Panadería,paquete
+PS024,Donitas 105 g,Bimbo,Panadería,paquete
+PS025,Galletas surtidas 330 g,Gamesa,Panadería,paquete
+PS026,Roles canela 3 piezas,Marinela,Panadería,paquete
+PS027,Concha tradicional,Panadería local,Panadería,pieza
+PS028,Bolillo,Panadería local,Panadería,pieza
+PS029,Pastel chocolate chico,Panadería local,Panadería,pieza
+PS030,Rebanada pastel tres leches,Panadería local,Panadería,pieza
+PS031,Audífonos inalámbricos básicos,Xiaomi,Electrónica,pieza
+PS032,Mouse inalámbrico,Logitech,Electrónica,pieza
+PS033,Memoria USB 64 GB,Kingston,Electrónica,pieza
+PS034,Tarjeta microSD 64 GB,SanDisk,Electrónica,pieza
+PS035,Bocina Bluetooth portátil,JBL,Electrónica,pieza
+PS036,Teclado USB compacto,Logitech,Electrónica,pieza
+PS037,Cargador USB-C 20 W,Samsung,Electrónica,pieza
+PS038,Cable USB-C 1 m,Ugreen,Electrónica,pieza
+PS039,Webcam HD,Logitech,Electrónica,pieza
+PS040,Power bank 10000 mAh,Xiaomi,Electrónica,pieza
+PS041,Arroz 1 kg,Verde Valle,Abarrotes,bolsa
+PS042,Frijol bayo 900 g,Verde Valle,Abarrotes,bolsa
+PS043,Aceite vegetal 850 ml,1-2-3,Abarrotes,botella
+PS044,Atún en agua 140 g,Tuny,Abarrotes,lata
+PS045,Pasta espagueti 200 g,La Moderna,Abarrotes,bolsa
+PS046,Salsa de tomate 210 g,La Costeña,Abarrotes,lata
+PS047,Mayonesa 390 g,McCormick,Abarrotes,frasco
+PS048,Harina de maíz 1 kg,Maseca,Abarrotes,bolsa
+PS049,Sal refinada 1 kg,La Fina,Abarrotes,bolsa
+PS050,Cereal de maíz 500 g,Kellogg’s,Abarrotes,caja
+PS051,Refresco cola 600 ml,Coca-Cola,Bebidas,botella
+PS052,Refresco cola 600 ml,Pepsi,Bebidas,botella
+PS053,Agua natural 1 L,Bonafont,Bebidas,botella
+PS054,Agua natural 1.5 L,Ciel,Bebidas,botella
+PS055,Jugo naranja 1 L,Jumex,Bebidas,envase
+PS056,Bebida hidratante 625 ml,Electrolit,Bebidas,botella
+PS057,Té helado 600 ml,Fuze Tea,Bebidas,botella
+PS058,Agua mineral 600 ml,Topo Chico,Bebidas,botella
+PS059,Bebida sabor manzana 600 ml,Sidral Mundet,Bebidas,botella
+PS060,Bebida deportiva 600 ml,Gatorade,Bebidas,botella
+PS061,Leche entera 1 L,Lala,Lácteos,envase
+PS062,Leche deslactosada 1 L,Lala,Lácteos,envase
+PS063,Leche entera 1 L,Alpura,Lácteos,envase
+PS064,Yogur natural 900 g,Danone,Lácteos,envase
+PS065,Yogur bebible 220 g,Yakult,Lácteos,paquete
+PS066,Queso panela 400 g,Lala,Lácteos,paquete
+PS067,Queso manchego 400 g,Nochebuena,Lácteos,paquete
+PS068,Crema 450 ml,Lala,Lácteos,envase
+PS069,Mantequilla 90 g,Lala,Lácteos,barra
+PS070,Leche evaporada 360 g,Carnation,Lácteos,lata
+PS071,Detergente polvo 1 kg,Ariel,Limpieza,bolsa
+PS072,Detergente polvo 1 kg,Roma,Limpieza,bolsa
+PS073,Limpiador multiusos 1 L,Pinol,Limpieza,botella
+PS074,Cloro 950 ml,Cloralex,Limpieza,botella
+PS075,Suavizante 850 ml,Suavitel,Limpieza,botella
+PS076,Lavatrastes 750 ml,Axion,Limpieza,botella
+PS077,Jabón en barra 400 g,Zote,Limpieza,barra
+PS078,Detergente líquido 830 ml,Ariel,Limpieza,botella
+PS079,Papel sanitario 4 rollos,Regio,Limpieza,paquete
+PS080,Toallas cocina 2 rollos,Pétalo,Limpieza,paquete
+PS081,Pasta dental 100 ml,Colgate,Higiene,caja
+PS082,Cepillo dental mediano,Oral-B,Higiene,pieza
+PS083,Jabón corporal 90 g,Dove,Higiene,barra
+PS084,Shampoo 400 ml,Pantene,Higiene,envase
+PS085,Desodorante aerosol,Rexona,Higiene,envase
+PS086,Crema corporal 400 ml,Nivea,Higiene,envase
+PS087,Pañales talla mediana 40 pzas,Huggies,Higiene,paquete
+PS088,Toallas femeninas 12 pzas,Kotex,Higiene,paquete
+PS089,Pañuelos desechables 90 pzas,Kleenex,Higiene,caja
+PS090,Shampoo anticaspa 375 ml,Head & Shoulders,Higiene,envase
+PS091,Cuaderno profesional 100 hojas,Scribe,Papelería,pieza
+PS092,Pluma tinta azul,Bic,Papelería,pieza
+PS093,Lápiz escolar HB,Dixon,Papelería,pieza
+PS094,Colores 12 piezas,Crayola,Papelería,caja
+PS095,Pegamento barra 21 g,Pritt,Papelería,pieza
+PS096,Resaltador amarillo,Sharpie,Papelería,pieza
+PS097,Juego geometría,Maped,Papelería,juego
+PS098,Corrector cinta,Kores,Papelería,pieza
+PS099,Marcador permanente negro,Sharpie,Papelería,pieza
+PS100,Carpeta tamaño carta,Norma,Papelería,pieza
