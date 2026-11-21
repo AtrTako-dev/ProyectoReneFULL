@@ -33,6 +33,30 @@ class MoreStockApi(baseUrl: String) {
         )
     }
 
+    suspend fun register(email: String, password: String, businessName: String): UserSession {
+        val response = request(
+            path = "auth/register",
+            method = "POST",
+            body = JSONObject()
+                .put("email", email)
+                .put("password", password)
+                .put("businessName", businessName),
+        )
+        val user = response.optJSONObject("usuario") ?: JSONObject()
+        val business = response.optJSONObject("negocio")?.let { item ->
+            Business(
+                id = item.optString("id"),
+                name = item.optString("name", businessName),
+                role = item.optString("role", "business_admin"),
+            )
+        }
+        return UserSession(
+            token = response.optString("token"),
+            email = user.optString("email", email),
+            businesses = listOfNotNull(business),
+        )
+    }
+
     suspend fun logout(token: String) {
         request(path = "auth/logout", method = "POST", token = token)
     }
@@ -135,7 +159,10 @@ class MoreStockApi(baseUrl: String) {
                 val message = response.optJSONObject("error")?.optString("message")
                     ?.takeIf(String::isNotBlank)
                     ?: "La solicitud falló con código $status."
-                throw MoreStockApiException(message, status)
+                val retryAfterSeconds = connection.getHeaderField("Retry-After")
+                    ?.toLongOrNull()
+                    ?.takeIf { it > 0 }
+                throw MoreStockApiException(message, status, retryAfterSeconds)
             }
             response
         } finally {
@@ -148,7 +175,11 @@ class MoreStockApi(baseUrl: String) {
         .replace("+", "%20")
 }
 
-class MoreStockApiException(message: String, val statusCode: Int? = null) : Exception(message)
+class MoreStockApiException(
+    message: String,
+    val statusCode: Int? = null,
+    val retryAfterSeconds: Long? = null,
+) : Exception(message)
 
 private fun JSONArray?.toBusinesses(): List<Business> = buildList {
     if (this@toBusinesses == null) return@buildList

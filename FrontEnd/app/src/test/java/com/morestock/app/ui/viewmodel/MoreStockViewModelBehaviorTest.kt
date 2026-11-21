@@ -15,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -46,6 +47,50 @@ class MoreStockViewModelBehaviorTest {
     }
 
     @Test
+    fun successfulRegistrationStoresSessionAndItsBusiness() = runTest {
+        withMainDispatcher(testScheduler) {
+            val source = ControlledDataSource().apply {
+                session = UserSession(
+                    token = "new-session-token",
+                    email = "nueva@example.test",
+                    businesses = listOf(BUSINESS.copy(name = "Mi tienda")),
+                )
+            }
+            val viewModel = MoreStockViewModel(source)
+
+            viewModel.register(" nueva@example.test ", "secreto123", "Mi tienda")
+            runCurrent()
+
+            assertEquals("new-session-token", viewModel.state.value.token)
+            assertEquals("nueva@example.test", viewModel.state.value.email)
+            assertEquals("Mi tienda", viewModel.state.value.businesses.single().name)
+            assertEquals("nueva@example.test", source.receivedEmail)
+            assertEquals("Mi tienda", source.registeredBusinessName)
+            assertFalse(viewModel.state.value.isLoading)
+            assertNull(viewModel.state.value.error)
+        }
+    }
+
+    @Test
+    fun registrationDoesNotSendTwiceWhileTheFirstRequestIsLoading() = runTest {
+        withMainDispatcher(testScheduler) {
+            val source = ControlledDataSource().apply { registrationGate = CompletableDeferred() }
+            val viewModel = MoreStockViewModel(source)
+
+            viewModel.register("nueva@example.test", "secreto123", "Mi tienda")
+            runCurrent()
+            viewModel.register("nueva@example.test", "secreto123", "Mi tienda")
+            runCurrent()
+
+            assertEquals(1, source.registrationCalls)
+            assertTrue(viewModel.state.value.isLoginLoading)
+            source.registrationGate?.complete(Unit)
+            runCurrent()
+            assertFalse(viewModel.state.value.isLoading)
+        }
+    }
+
+    @Test
     fun invalidCredentialsAreShownAsLoginError() = runTest {
         withMainDispatcher(testScheduler) {
             val source = ControlledDataSource().apply {
@@ -59,6 +104,22 @@ class MoreStockViewModelBehaviorTest {
             assertNull(viewModel.state.value.token)
             assertEquals("Correo o contraseña incorrectos.", viewModel.state.value.error)
             assertFalse(viewModel.state.value.isLoading)
+        }
+    }
+
+    @Test
+    fun clearingAnAuthenticationErrorAlsoClearsRetryState() = runTest {
+        withMainDispatcher(testScheduler) {
+            val source = ControlledDataSource().apply { loginFailure = SocketTimeoutException("Read timed out") }
+            val viewModel = MoreStockViewModel(source)
+            viewModel.login("tienda@example.test", "secreto123")
+            runCurrent()
+            assertTrue(viewModel.state.value.canRetry)
+
+            viewModel.clearError()
+
+            assertNull(viewModel.state.value.error)
+            assertFalse(viewModel.state.value.canRetry)
         }
     }
 
@@ -80,15 +141,46 @@ class MoreStockViewModelBehaviorTest {
     fun rateLimitIsShownWithReadableMessage() = runTest {
         withMainDispatcher(testScheduler) {
             val source = ControlledDataSource().apply {
-                loginFailure = MoreStockApiException("LOGIN_RATE_LIMITED", 429)
+                loginFailure = MoreStockApiException("LOGIN_RATE_LIMITED", 429, retryAfterSeconds = 35)
             }
             val viewModel = MoreStockViewModel(source)
 
             viewModel.login("tienda@example.test", "secret")
             runCurrent()
 
-            assertEquals("El servidor limitó temporalmente las solicitudes. Espera un momento e inténtalo de nuevo.", viewModel.state.value.error)
+            assertEquals("El servidor limitó temporalmente las solicitudes.", viewModel.state.value.error)
+            assertEquals(35L, viewModel.state.value.authRetryAfterSeconds)
             assertFalse(viewModel.state.value.isLoading)
+
+            viewModel.login("tienda@example.test", "secret")
+            runCurrent()
+            assertEquals(1, source.loginCalls)
+
+            advanceTimeBy(35_000)
+            runCurrent()
+            assertNull(viewModel.state.value.authRetryAfterSeconds)
+            assertEquals("El servidor limitó temporalmente las solicitudes.", viewModel.state.value.error)
+        }
+    }
+
+    @Test
+    fun clearingRateLimitErrorKeepsTheCooldownVisibleUntilItExpires() = runTest {
+        withMainDispatcher(testScheduler) {
+            val source = ControlledDataSource().apply {
+                loginFailure = MoreStockApiException("LOGIN_RATE_LIMITED", 429, retryAfterSeconds = 3)
+            }
+            val viewModel = MoreStockViewModel(source)
+
+            viewModel.login("tienda@example.test", "secret")
+            runCurrent()
+            viewModel.clearError()
+
+            assertNull(viewModel.state.value.error)
+            assertEquals(3L, viewModel.state.value.authRetryAfterSeconds)
+
+            advanceTimeBy(3_000)
+            runCurrent()
+            assertNull(viewModel.state.value.authRetryAfterSeconds)
         }
     }
 
@@ -241,17 +333,30 @@ class MoreStockViewModelBehaviorTest {
         var session = UserSession("session-token", "tienda@example.test", listOf(BUSINESS))
         var loginFailure: Exception? = null
         var loginGate: CompletableDeferred<Unit>? = null
+        var registrationGate: CompletableDeferred<Unit>? = null
         var inventoryGate: CompletableDeferred<Unit>? = null
         var products = listOf(Product("PS001", "Manzana", "Fruta", "A granel", "pieza", 5.0))
         var inventory = listOf(InventoryItem("PS001", "Manzana", 5.0, "pieza", false, "actual"))
         var receivedEmail: String? = null
+        var registeredBusinessName: String? = null
+        var registrationCalls = 0
+        var loginCalls = 0
         var inventoryLoads = 0
         var updateCalls = 0
 
         override suspend fun login(email: String, password: String): UserSession {
+            loginCalls += 1
             receivedEmail = email
             loginGate?.await()
             loginFailure?.let { throw it }
+            return session.copy(email = email)
+        }
+
+        override suspend fun register(email: String, password: String, businessName: String): UserSession {
+            registrationCalls += 1
+            receivedEmail = email
+            registeredBusinessName = businessName
+            registrationGate?.await()
             return session.copy(email = email)
         }
 

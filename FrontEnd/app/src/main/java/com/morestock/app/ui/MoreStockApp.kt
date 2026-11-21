@@ -25,7 +25,10 @@ fun MoreStockApp(viewModel: MoreStockViewModel) {
             isLoading = state.isLoading,
             error = state.error,
             canRetry = state.canRetry,
+            authRetryAfterSeconds = state.authRetryAfterSeconds,
             onLogin = viewModel::login,
+            onRegister = viewModel::register,
+            onClearError = viewModel::clearError,
         )
 
         selectedBusiness == null -> BusinessesScreen(

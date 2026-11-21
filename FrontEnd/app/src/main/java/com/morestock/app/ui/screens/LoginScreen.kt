@@ -1,142 +1,163 @@
 package com.morestock.app.ui.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.input.VisualTransformation
+import com.morestock.app.ui.validation.AuthFormValidation
+import com.morestock.app.ui.view.components.ErrorState
+import com.morestock.app.ui.view.components.PrimaryActionButton
+import com.morestock.app.ui.view.components.SecondaryActionButton
+import com.morestock.app.ui.view.components.ValidatedTextField
 
 @Composable
 fun LoginScreen(
     isLoading: Boolean,
     error: String?,
     canRetry: Boolean,
+    authRetryAfterSeconds: Long?,
     onLogin: (String, String) -> Unit,
+    onRegister: (String, String, String) -> Unit,
+    onClearError: () -> Unit,
 ) {
+    var registrationMode by rememberSaveable { mutableStateOf(false) }
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .imePadding(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 26.dp, vertical = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Surface(
-                modifier = Modifier.height(82.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer,
-            ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 24.dp)) {
-                    Text("MS", color = MaterialTheme.colorScheme.primary, fontSize = 29.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-            Spacer(Modifier.height(22.dp))
-            Text("More Stock", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(6.dp))
-            Text("Controla tu inventario con claridad", color = MaterialTheme.colorScheme.secondary)
-            Spacer(Modifier.height(32.dp))
+    if (registrationMode) {
+        RegistrationScreen(
+            isLoading = isLoading,
+            error = error,
+            authRetryAfterSeconds = authRetryAfterSeconds,
+            onRegister = onRegister,
+            onBackToLogin = {
+                registrationMode = false
+                onClearError()
+            },
+            onClearError = onClearError,
+        )
+    } else {
+        LoginForm(
+            email = email,
+            onEmailChange = { email = it },
+            password = password,
+            onPasswordChange = { password = it },
+            isLoading = isLoading,
+            error = error,
+            canRetry = canRetry,
+            authRetryAfterSeconds = authRetryAfterSeconds,
+            onLogin = onLogin,
+            onRegister = {
+                registrationMode = true
+                onClearError()
+            },
+            onClearError = onClearError,
+        )
+    }
+}
 
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 2.dp,
-            ) {
-                Column(modifier = Modifier.padding(22.dp)) {
-                    Text("Iniciar sesión", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(18.dp))
-                    OutlinedTextField(
-                        value = email,
-                        onValueChange = { email = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Correo electrónico") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Contraseña") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                    )
-                    if (error != null) {
-                        Spacer(Modifier.height(12.dp))
-                        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                        if (canRetry) {
-                            TextButton(
-                                onClick = { onLogin(email, password) },
-                                enabled = !isLoading && email.isNotBlank() && password.isNotBlank(),
-                            ) {
-                                Text("Reintentar")
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(20.dp))
-                    Button(
-                        onClick = { onLogin(email, password) },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !isLoading && email.isNotBlank() && password.isNotBlank(),
-                        shape = RoundedCornerShape(14.dp),
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                            )
-                        } else {
-                            Text("Entrar", modifier = Modifier.padding(vertical = 5.dp))
-                        }
-                    }
+@Composable
+private fun LoginForm(
+    email: String,
+    onEmailChange: (String) -> Unit,
+    password: String,
+    onPasswordChange: (String) -> Unit,
+    isLoading: Boolean,
+    error: String?,
+    canRetry: Boolean,
+    authRetryAfterSeconds: Long?,
+    onLogin: (String, String) -> Unit,
+    onRegister: () -> Unit,
+    onClearError: () -> Unit,
+) {
+    var emailTouched by rememberSaveable { mutableStateOf(false) }
+    var passwordTouched by rememberSaveable { mutableStateOf(false) }
+    var submitted by rememberSaveable { mutableStateOf(false) }
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    val emailFocus = remember { FocusRequester() }
+    val passwordFocus = remember { FocusRequester() }
+    val emailError = AuthFormValidation.emailError(email).takeIf { emailTouched || submitted }
+    val passwordError = AuthFormValidation.loginPasswordError(password).takeIf { passwordTouched || submitted }
+    val isValid = AuthFormValidation.emailError(email) == null && AuthFormValidation.loginPasswordError(password) == null
+
+    fun submit() {
+        submitted = true
+        if (isValid && !isLoading) onLogin(email.trim(), password)
+    }
+
+    AuthScreenLayout(
+        heading = "Iniciar sesión",
+        description = "Consulta el inventario de tu negocio.",
+    ) {
+        ValidatedTextField(
+            value = email,
+            onValueChange = {
+                onEmailChange(it)
+                emailTouched = true
+                onClearError()
+            },
+            label = "Correo electrónico",
+            modifier = Modifier.focusRequester(emailFocus),
+            errorMessage = emailError,
+            enabled = !isLoading,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+            keyboardActions = KeyboardActions(onNext = { passwordFocus.requestFocus() }),
+        )
+        ValidatedTextField(
+            value = password,
+            onValueChange = {
+                onPasswordChange(it)
+                passwordTouched = true
+                onClearError()
+            },
+            label = "Contraseña",
+            modifier = Modifier.focusRequester(passwordFocus),
+            errorMessage = passwordError,
+            enabled = !isLoading,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { submit() }),
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                TextButton(onClick = { passwordVisible = !passwordVisible }, enabled = !isLoading) {
+                    Text(if (passwordVisible) "Ocultar" else "Mostrar")
                 }
-            }
-            Spacer(Modifier.height(18.dp))
-            Text("Usa la cuenta de tu negocio para continuar.", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
+            },
+        )
+        when {
+            authRetryAfterSeconds != null -> AuthCooldownNotice(authRetryAfterSeconds)
+            error != null -> ErrorState(error)
         }
+        PrimaryActionButton(
+            label = when {
+                authRetryAfterSeconds != null -> "Espera ${authRetryAfterSeconds}s"
+                canRetry && error != null -> "Reintentar"
+                else -> "Entrar"
+            },
+            loadingLabel = "Iniciando sesión",
+            onClick = { submit() },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = authRetryAfterSeconds == null,
+            isLoading = isLoading,
+        )
+        SecondaryActionButton(
+            label = "Crear cuenta",
+            onClick = onRegister,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading,
+        )
     }
 }

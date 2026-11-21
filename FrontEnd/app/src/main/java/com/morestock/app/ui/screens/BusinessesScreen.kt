@@ -2,19 +2,17 @@ package com.morestock.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -23,8 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.morestock.app.data.Business
+import com.morestock.app.ui.theme.MoreStockSpacing
 import com.morestock.app.ui.view.components.EmptyState
 import com.morestock.app.ui.view.components.ErrorState
 import com.morestock.app.ui.view.components.LoadingState
@@ -42,33 +40,35 @@ fun BusinessesScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("More Stock") },
+                title = { Text("More Stock", style = MaterialTheme.typography.titleLarge) },
                 actions = { TextButton(onClick = onLogout) { Text("Salir") } },
             )
         },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 20.dp),
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(horizontal = MoreStockSpacing.xLarge, vertical = MoreStockSpacing.large),
+            verticalArrangement = Arrangement.spacedBy(MoreStockSpacing.medium),
         ) {
-            Spacer(Modifier.height(22.dp))
-            Text("Hola, $email", color = MaterialTheme.colorScheme.secondary)
-            Spacer(Modifier.height(5.dp))
-            Text("Elige un negocio", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(18.dp))
-
-            if (error != null) ErrorState(error)
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(MoreStockSpacing.small)) {
+                    Text("Hola, $email", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                    Text("Elige tu negocio", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Selecciona el negocio cuyo inventario quieres consultar.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+            if (error != null) item { ErrorState(error) }
             if (isLoading) {
-                LoadingState("Cargando negocios…")
+                item { LoadingState("Cargando negocios…") }
             } else if (businesses.isEmpty()) {
-                EmptyState("Esta cuenta todavía no tiene negocios asociados.")
+                item { EmptyState("Esta cuenta todavía no tiene negocios asociados.") }
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(businesses, key = Business::id) { business ->
-                        BusinessCard(business = business, onClick = { onSelect(business) })
-                    }
+                items(businesses, key = Business::id) { business ->
+                    BusinessCard(business = business, onClick = { onSelect(business) })
                 }
             }
         }
@@ -80,21 +80,21 @@ private fun BusinessCard(business: Business, onClick: () -> Unit) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = MaterialTheme.shapes.large,
     ) {
-        Row(
-            modifier = Modifier.padding(18.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            modifier = Modifier.padding(MoreStockSpacing.large),
+            verticalArrangement = Arrangement.spacedBy(MoreStockSpacing.medium),
         ) {
-            Text("▦", color = MaterialTheme.colorScheme.primary, fontSize = 28.sp)
-            Column(modifier = Modifier.weight(1f).padding(start = 14.dp)) {
-                Text(business.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(4.dp))
-                Text("${business.id} · ${business.roleLabel()}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+            Text(business.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
+                Text(
+                    text = business.roleLabel(),
+                    modifier = Modifier.padding(horizontal = MoreStockSpacing.medium, vertical = MoreStockSpacing.xSmall),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    style = MaterialTheme.typography.labelLarge,
+                )
             }
-            Text("›", color = MaterialTheme.colorScheme.primary, fontSize = 28.sp)
         }
     }
 }

@@ -47,7 +47,7 @@ cd /home/tako/Escritorio/MoreStock/FrontEnd
 /home/tako/Android/Sdk/platform-tools/adb shell am start -n com.morestock.app/.MainActivity
 ```
 
-El APK queda en `FrontEnd/app/build/outputs/apk/debug/app-debug.apk`. Para iniciar sesión, consulta la cuenta demo configurada en `DEMO_ACCOUNTS_JSON` dentro de `Backend/.env`. La contraseña no se copia a esta guía ni a las capturas.
+El APK queda en `FrontEnd/app/build/outputs/apk/debug/app-debug.apk`. En la pantalla de inicio puedes elegir **Crear cuenta** para registrar un negocio de demostración. Para usar una cuenta ya configurada, consulta `DEMO_ACCOUNTS_JSON` en `Backend/.env`; la contraseña no se copia a esta guía ni a las capturas.
 
 ## 4. Capturar una pantalla
 
@@ -64,6 +64,6 @@ Se comprobó el arranque del backend contra `more_stock_codex_test`, la respuest
 
 El AVD Android 36 está instalado, pero en este entorno no hay aceleración de hardware. Durante el intento de interacción, Android mostró bloqueos de **System UI** y de **More Stock**; por eso no se consideran válidas capturas de flujos posteriores al login ni se afirma que se haya completado un recorrido visual. La evidencia del bloqueo está en `antes/emulador_anr_system_ui.png` y `antes/morestock-anr-al-enviar.png`.
 
-## Pantallas que aún no existen en la app
+## Estado actual de la interfaz
 
-El código actual incluye login, selección de negocio, inicio/resumen, catálogo, inventario de solo lectura, sugerencias y detalle de producto. No hay pantalla de registro ni perfil; tampoco hay una pantalla de edición de inventario ni una gráfica dibujada. El detalle muestra historial y puntos pronosticados como listas. Por eso no es posible obtener capturas reales de esas pantallas sin implementarlas.
+La versión actual incluye inicio de sesión, registro, selección de negocio, resumen, catálogo, consulta de inventario, sugerencias y detalle de producto. El acceso permite mostrar y ocultar la contraseña, valida los campos y aplica la espera que informa el servidor cuando limita intentos. Las pantallas posteriores al acceso siguen en proceso de rediseño; la guía se actualizará al completar cada parte.

@@ -2,6 +2,7 @@ package com.morestock.app.data
 
 interface MoreStockDataSource {
     suspend fun login(email: String, password: String): UserSession
+    suspend fun register(email: String, password: String, businessName: String): UserSession
     suspend fun logout(token: String)
     suspend fun getBusinesses(token: String): List<Business>
     suspend fun getProducts(token: String, businessId: String): List<Product>
@@ -20,6 +21,8 @@ interface MoreStockDataSource {
 
 class MoreStockRepository(private val api: MoreStockApi) : MoreStockDataSource {
     override suspend fun login(email: String, password: String) = api.login(email, password)
+    override suspend fun register(email: String, password: String, businessName: String) =
+        api.register(email, password, businessName)
     override suspend fun logout(token: String) = api.logout(token)
     override suspend fun getBusinesses(token: String) = api.getBusinesses(token)
     override suspend fun getProducts(token: String, businessId: String) = api.getProducts(token, businessId)

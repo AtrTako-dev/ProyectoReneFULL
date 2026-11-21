@@ -181,6 +181,12 @@ class MoreStockViewModelTest {
             businesses = listOf(Business(id = "201", name = "Tienda", role = "business_admin")),
         )
 
+        override suspend fun register(email: String, password: String, businessName: String) = UserSession(
+            token = "session-token",
+            email = email,
+            businesses = listOf(Business(id = "201", name = businessName, role = "business_admin")),
+        )
+
         override suspend fun logout(token: String) = Unit
         override suspend fun getBusinesses(token: String) = emptyList<Business>()
 
@@ -216,6 +222,12 @@ class MoreStockViewModelTest {
             token = "session-token",
             email = email,
             businesses = listOf(Business(id = "201", name = "Tienda", role = "business_admin")),
+        )
+
+        override suspend fun register(email: String, password: String, businessName: String) = UserSession(
+            token = "session-token",
+            email = email,
+            businesses = listOf(Business(id = "201", name = businessName, role = "business_admin")),
         )
 
         override suspend fun logout(token: String) = Unit

@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.net.SocketTimeoutException
@@ -45,6 +46,7 @@ data class MoreStockUiState(
     val isInventoryUpdating: Boolean = false,
     val error: String? = null,
     val canRetry: Boolean = false,
+    val authRetryAfterSeconds: Long? = null,
 ) {
     val isLoading: Boolean
         get() = isLoginLoading || isBusinessLoading || isForecastLoading || isInventoryUpdating
@@ -55,39 +57,90 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
     val state: StateFlow<MoreStockUiState> = mutableState.asStateFlow()
     private var businessLoadJob: Job? = null
     private var forecastLoadJob: Job? = null
+    private var authRetryJob: Job? = null
 
     fun login(email: String, password: String) {
+        if (mutableState.value.isLoginLoading || mutableState.value.authRetryAfterSeconds != null) return
         viewModelScope.launch {
             mutableState.update { it.copy(isLoginLoading = true, error = null, canRetry = false) }
             try {
                 val session = repository.login(email.trim(), password)
-                mutableState.update {
-                    it.copy(
-                        token = session.token,
-                        email = session.email,
-                        businesses = session.businesses,
-                        selectedBusiness = null,
-                        products = emptyList(),
-                        inventory = emptyList(),
-                        recommendations = emptyList(),
-                        selectedForecast = null,
-                        selectedProductId = null,
-                        isLoginLoading = false,
-                        canRetry = false,
-                    )
-                }
+                storeSession(session)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                mutableState.update {
-                    it.copy(
-                        isLoginLoading = false,
-                        error = readableError(error, "No se pudo iniciar sesión."),
-                        canRetry = error is SocketTimeoutException,
-                    )
-                }
+                showAuthError(error, "No se pudo iniciar sesión.")
             }
         }
+    }
+
+    fun register(email: String, password: String, businessName: String) {
+        if (mutableState.value.isLoginLoading || mutableState.value.authRetryAfterSeconds != null) return
+        viewModelScope.launch {
+            mutableState.update { it.copy(isLoginLoading = true, error = null, canRetry = false) }
+            try {
+                val session = repository.register(email.trim(), password, businessName.trim())
+                storeSession(session)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                showAuthError(error, "No se pudo crear la cuenta.")
+            }
+        }
+    }
+
+    private fun showAuthError(error: Exception, fallback: String) {
+        val waitSeconds = (error as? MoreStockApiException)
+            ?.takeIf { it.statusCode == 429 }
+            ?.retryAfterSeconds
+            ?.takeIf { it > 0 }
+        authRetryJob?.cancel()
+        mutableState.update {
+            it.copy(
+                isLoginLoading = false,
+                error = readableError(error, fallback),
+                canRetry = error is SocketTimeoutException,
+                authRetryAfterSeconds = waitSeconds,
+            )
+        }
+        if (waitSeconds != null) {
+            authRetryJob = viewModelScope.launch {
+                for (remaining in waitSeconds downTo 1) {
+                    mutableState.update { it.copy(authRetryAfterSeconds = remaining) }
+                    delay(1_000)
+                }
+                mutableState.update { it.copy(authRetryAfterSeconds = null) }
+            }
+        }
+    }
+
+    fun clearError() {
+        mutableState.update { it.copy(error = null, canRetry = false) }
+    }
+
+    private fun storeSession(session: com.morestock.app.data.UserSession) {
+        mutableState.update {
+            it.copy(
+                token = session.token,
+                email = session.email,
+                businesses = session.businesses,
+                selectedBusiness = null,
+                products = emptyList(),
+                inventory = emptyList(),
+                recommendations = emptyList(),
+                selectedForecast = null,
+                selectedProductId = null,
+                selectedTab = BusinessTab.SUMMARY,
+                isLoginLoading = false,
+                isBusinessLoading = false,
+                isForecastLoading = false,
+                isInventoryUpdating = false,
+                error = null,
+                canRetry = false,
+                authRetryAfterSeconds = null,
+            )
+        }
+        authRetryJob?.cancel()
     }
 
     fun selectBusiness(business: Business) {
@@ -263,6 +316,7 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
     fun logout() {
         businessLoadJob?.cancel()
         forecastLoadJob?.cancel()
+        authRetryJob?.cancel()
         val token = mutableState.value.token
         mutableState.update { MoreStockUiState() }
         if (token != null) viewModelScope.launch { runCatching { repository.logout(token) } }
@@ -277,7 +331,7 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
     private fun readableError(error: Exception, fallback: String): String = when (error) {
         is SocketTimeoutException -> "El servidor está tardando en responder. Revisa tu conexión e inténtalo de nuevo."
         is MoreStockApiException -> when (error.statusCode) {
-            429 -> "El servidor limitó temporalmente las solicitudes. Espera un momento e inténtalo de nuevo."
+            429 -> "El servidor limitó temporalmente las solicitudes."
             else -> error.message?.takeIf(String::isNotBlank) ?: fallback
         }
         is IOException -> "No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo."
