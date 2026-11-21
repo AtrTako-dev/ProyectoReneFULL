@@ -43,6 +43,7 @@ fun BusinessScreen(
     selectedTab: BusinessTab,
     isLoading: Boolean,
     error: String?,
+    canRetry: Boolean,
     onSelectTab: (BusinessTab) -> Unit,
     onSelectProduct: (String) -> Unit,
     onBack: () -> Unit,
@@ -78,7 +79,7 @@ fun BusinessScreen(
             modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 18.dp),
         ) {
             Spacer(Modifier.height(14.dp))
-            if (error != null) ErrorCard(error)
+            if (error != null) ErrorCard(error, onRetry = if (canRetry) onRefresh else null)
             if (isLoading) LoadingState("Cargando información del negocio…")
             else when (selectedTab) {
                 BusinessTab.SUMMARY -> SummaryContent(products, inventory, recommendations, onSelectProduct)

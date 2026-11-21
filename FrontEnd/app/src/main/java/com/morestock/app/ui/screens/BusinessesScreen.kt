@@ -99,13 +99,18 @@ private fun BusinessCard(business: Business, onClick: () -> Unit) {
 }
 
 @Composable
-fun ErrorCard(message: String) {
+fun ErrorCard(message: String, onRetry: (() -> Unit)? = null) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
         shape = RoundedCornerShape(14.dp),
     ) {
-        Text(message, modifier = Modifier.padding(14.dp), color = MaterialTheme.colorScheme.onErrorContainer)
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(message, color = MaterialTheme.colorScheme.onErrorContainer)
+            if (onRetry != null) {
+                TextButton(onClick = onRetry) { Text("Reintentar") }
+            }
+        }
     }
 }
 

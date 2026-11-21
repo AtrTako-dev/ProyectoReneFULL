@@ -37,7 +37,9 @@ fun ProductDetailScreen(
     forecast: Forecast?,
     isLoading: Boolean,
     error: String?,
+    canRetry: Boolean,
     onBack: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -54,7 +56,7 @@ fun ProductDetailScreen(
             Spacer(Modifier.height(5.dp))
             Text(listOf(product.category, product.brand, product.unit).filter(String::isNotBlank).joinToString(" · "), color = MaterialTheme.colorScheme.secondary)
             Spacer(Modifier.height(18.dp))
-            if (error != null) ErrorCard(error)
+            if (error != null) ErrorCard(error, onRetry = if (canRetry) onRetry else null)
             DetailCard("Inventario", inventory?.let { "${formatAmount(it.quantity)} ${it.unit}" } ?: product.inventoryQuantity?.let { "${formatAmount(it)} ${product.unit}" } ?: "Sin saldo disponible") {
                 if (inventory?.synthetic == true) Text("Dato de referencia sintético", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
             }

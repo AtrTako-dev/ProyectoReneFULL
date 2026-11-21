@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.IOException
+import java.net.SocketTimeoutException
 
 enum class BusinessTab {
     SUMMARY,
@@ -43,6 +44,7 @@ data class MoreStockUiState(
     val isForecastLoading: Boolean = false,
     val isInventoryUpdating: Boolean = false,
     val error: String? = null,
+    val canRetry: Boolean = false,
 ) {
     val isLoading: Boolean
         get() = isLoginLoading || isBusinessLoading || isForecastLoading || isInventoryUpdating
@@ -56,7 +58,7 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
 
     fun login(email: String, password: String) {
         viewModelScope.launch {
-            mutableState.update { it.copy(isLoginLoading = true, error = null) }
+            mutableState.update { it.copy(isLoginLoading = true, error = null, canRetry = false) }
             try {
                 val session = repository.login(email.trim(), password)
                 mutableState.update {
@@ -71,12 +73,19 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
                         selectedForecast = null,
                         selectedProductId = null,
                         isLoginLoading = false,
+                        canRetry = false,
                     )
                 }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                mutableState.update { it.copy(isLoginLoading = false, error = readableError(error, "No se pudo iniciar sesión.")) }
+                mutableState.update {
+                    it.copy(
+                        isLoginLoading = false,
+                        error = readableError(error, "No se pudo iniciar sesión."),
+                        canRetry = error is SocketTimeoutException,
+                    )
+                }
             }
         }
     }
@@ -97,6 +106,7 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
                 isBusinessLoading = true,
                 isForecastLoading = false,
                 error = null,
+                canRetry = false,
             )
         }
         businessLoadJob = viewModelScope.launch {
@@ -121,7 +131,13 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
                 throw error
             } catch (error: Exception) {
                 if (mutableState.value.selectedBusiness?.id != business.id) return@launch
-                mutableState.update { it.copy(isBusinessLoading = false, error = error.message ?: "No se pudo cargar el negocio.") }
+                mutableState.update {
+                    it.copy(
+                        isBusinessLoading = false,
+                        error = readableError(error, "No se pudo cargar el negocio."),
+                        canRetry = error is SocketTimeoutException,
+                    )
+                }
             }
         }
     }
@@ -135,6 +151,7 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
                 selectedForecast = null,
                 isForecastLoading = false,
                 error = null,
+                canRetry = false,
             )
         }
     }
@@ -143,7 +160,9 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
         val token = mutableState.value.token ?: return
         val business = mutableState.value.selectedBusiness ?: return
         forecastLoadJob?.cancel()
-        mutableState.update { it.copy(selectedProductId = productId, selectedForecast = null, isForecastLoading = true, error = null) }
+        mutableState.update {
+            it.copy(selectedProductId = productId, selectedForecast = null, isForecastLoading = true, error = null, canRetry = false)
+        }
         forecastLoadJob = viewModelScope.launch {
             try {
                 val forecast = repository.getForecast(token, business.id, productId)
@@ -153,7 +172,13 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
                 throw error
             } catch (error: Exception) {
                 if (mutableState.value.selectedBusiness?.id != business.id || mutableState.value.selectedProductId != productId) return@launch
-                mutableState.update { it.copy(isForecastLoading = false, error = error.message ?: "No se pudo cargar el pronóstico.") }
+                mutableState.update {
+                    it.copy(
+                        isForecastLoading = false,
+                        error = readableError(error, "No se pudo cargar el pronóstico."),
+                        canRetry = error is SocketTimeoutException,
+                    )
+                }
             }
         }
     }
@@ -172,6 +197,7 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
                 isBusinessLoading = false,
                 isForecastLoading = false,
                 error = null,
+                canRetry = false,
             )
         }
     }
@@ -179,7 +205,7 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
     fun goBackToBusiness() {
         forecastLoadJob?.cancel()
         mutableState.update {
-            it.copy(selectedProductId = null, selectedForecast = null, error = null, isForecastLoading = false)
+            it.copy(selectedProductId = null, selectedForecast = null, error = null, canRetry = false, isForecastLoading = false)
         }
     }
 
@@ -193,18 +219,23 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
         val business = current.selectedBusiness
         val product = current.products.firstOrNull { it.sku == productId }
         if (token == null || business == null || product == null) {
-            mutableState.update { it.copy(error = "Selecciona un producto de un negocio antes de actualizar el inventario.") }
+            mutableState.update {
+                it.copy(error = "Selecciona un producto de un negocio antes de actualizar el inventario.", canRetry = false)
+            }
             return
         }
         if (!quantity.isValidInventoryQuantity()) {
             mutableState.update {
-                it.copy(error = "La cantidad debe ser un número válido, mayor o igual a cero y con hasta tres decimales.")
+                it.copy(
+                    error = "La cantidad debe ser un número válido, mayor o igual a cero y con hasta tres decimales.",
+                    canRetry = false,
+                )
             }
             return
         }
         if (current.isInventoryUpdating) return
 
-        mutableState.update { it.copy(isInventoryUpdating = true, error = null) }
+        mutableState.update { it.copy(isInventoryUpdating = true, error = null, canRetry = false) }
         viewModelScope.launch {
             try {
                 val updated = repository.updateInventory(token, business.id, product.sku, quantity, product.unit)
@@ -217,7 +248,12 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
                 throw error
             } catch (error: Exception) {
                 if (mutableState.value.selectedBusiness?.id != business.id) return@launch
-                mutableState.update { it.copy(error = readableError(error, "No se pudo actualizar el inventario.")) }
+                mutableState.update {
+                    it.copy(
+                        error = readableError(error, "No se pudo actualizar el inventario."),
+                        canRetry = error is SocketTimeoutException,
+                    )
+                }
             } finally {
                 mutableState.update { it.copy(isInventoryUpdating = false) }
             }
@@ -239,6 +275,7 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
     )
 
     private fun readableError(error: Exception, fallback: String): String = when (error) {
+        is SocketTimeoutException -> "El servidor está tardando en responder. Revisa tu conexión e inténtalo de nuevo."
         is MoreStockApiException -> when (error.statusCode) {
             429 -> "El servidor limitó temporalmente las solicitudes. Espera un momento e inténtalo de nuevo."
             else -> error.message?.takeIf(String::isNotBlank) ?: fallback

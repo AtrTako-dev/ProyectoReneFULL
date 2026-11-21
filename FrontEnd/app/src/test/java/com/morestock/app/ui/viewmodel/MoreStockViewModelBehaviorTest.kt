@@ -9,6 +9,7 @@ import com.morestock.app.data.Product
 import com.morestock.app.data.Recommendation
 import com.morestock.app.data.UserSession
 import java.io.IOException
+import java.net.SocketTimeoutException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -88,6 +89,29 @@ class MoreStockViewModelBehaviorTest {
 
             assertEquals("El servidor limitó temporalmente las solicitudes. Espera un momento e inténtalo de nuevo.", viewModel.state.value.error)
             assertFalse(viewModel.state.value.isLoading)
+        }
+    }
+
+    @Test
+    fun serverTimeoutShowsSlowServerMessageAndAllowsRetry() = runTest {
+        withMainDispatcher(testScheduler) {
+            val source = ControlledDataSource().apply {
+                loginFailure = SocketTimeoutException("Read timed out")
+            }
+            val viewModel = MoreStockViewModel(source)
+
+            viewModel.login("tienda@example.test", "secret")
+            runCurrent()
+
+            assertEquals("El servidor está tardando en responder. Revisa tu conexión e inténtalo de nuevo.", viewModel.state.value.error)
+            assertTrue(viewModel.state.value.canRetry)
+
+            source.loginFailure = null
+            viewModel.login("tienda@example.test", "secret")
+            runCurrent()
+
+            assertFalse(viewModel.state.value.canRetry)
+            assertNull(viewModel.state.value.error)
         }
     }
 

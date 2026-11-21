@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 fun LoginScreen(
     isLoading: Boolean,
     error: String?,
+    canRetry: Boolean,
     onLogin: (String, String) -> Unit,
 ) {
     var email by rememberSaveable { mutableStateOf("") }
@@ -106,6 +107,14 @@ fun LoginScreen(
                     if (error != null) {
                         Spacer(Modifier.height(12.dp))
                         Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                        if (canRetry) {
+                            TextButton(
+                                onClick = { onLogin(email, password) },
+                                enabled = !isLoading && email.isNotBlank() && password.isNotBlank(),
+                            ) {
+                                Text("Reintentar")
+                            }
+                        }
                     }
                     Spacer(Modifier.height(20.dp))
                     Button(

@@ -12,6 +12,11 @@ import org.json.JSONObject
 class MoreStockApi(baseUrl: String) {
     private val baseUrl = baseUrl.trimEnd('/')
 
+    private companion object {
+        const val CONNECT_TIMEOUT_MS = 15_000
+        const val READ_TIMEOUT_MS = 75_000
+    }
+
     suspend fun login(email: String, password: String): UserSession {
         val response = request(
             path = "auth/login",
@@ -105,8 +110,8 @@ class MoreStockApi(baseUrl: String) {
     ): JSONObject = withContext(Dispatchers.IO) {
         val connection = (URL("$baseUrl/$path").openConnection() as HttpURLConnection).apply {
             requestMethod = method
-            connectTimeout = 10_000
-            readTimeout = 15_000
+            connectTimeout = CONNECT_TIMEOUT_MS
+            readTimeout = READ_TIMEOUT_MS
             setRequestProperty("Accept", "application/json")
             if (token != null) setRequestProperty("Authorization", "Bearer $token")
             if (body != null) {

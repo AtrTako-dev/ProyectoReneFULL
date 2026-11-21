@@ -24,6 +24,7 @@ fun MoreStockApp(viewModel: MoreStockViewModel) {
         state.token == null -> LoginScreen(
             isLoading = state.isLoading,
             error = state.error,
+            canRetry = state.canRetry,
             onLogin = viewModel::login,
         )
 
@@ -44,6 +45,7 @@ fun MoreStockApp(viewModel: MoreStockViewModel) {
             selectedTab = state.selectedTab,
             isLoading = state.isLoading,
             error = state.error,
+            canRetry = state.canRetry,
             onSelectTab = viewModel::selectTab,
             onSelectProduct = viewModel::selectProduct,
             onBack = viewModel::goBackToBusinesses,
@@ -57,7 +59,9 @@ fun MoreStockApp(viewModel: MoreStockViewModel) {
             forecast = state.selectedForecast,
             isLoading = state.isLoading,
             error = state.error,
+            canRetry = state.canRetry,
             onBack = viewModel::goBackToBusiness,
+            onRetry = { viewModel.selectProduct(selectedProduct.sku) },
         )
     }
 }
