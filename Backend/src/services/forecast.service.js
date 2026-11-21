@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { RandomForestRegression } from 'ml-random-forest';
 import { DomainError } from '../errors/domain-error.js';
+import { calculateForecastMetrics, chooseForecastMethod } from './forecast-evaluation.js';
 import { ForecastDatasetService } from './forecast-dataset.service.js';
 
 const MODEL_KEY = 'weekly-demand-forecast-v1';
@@ -22,21 +23,6 @@ function seriesKey(businessId, productId) {
 
 function roundMetric(value) {
   return value === null || value === undefined ? null : Number(value.toFixed(4));
-}
-
-function calculateMetrics(actualValues, predictedValues) {
-  if (actualValues.length === 0) return null;
-  let errorSum = 0;
-  let actualMagnitude = 0;
-  for (let index = 0; index < actualValues.length; index += 1) {
-    errorSum += Math.abs(actualValues[index] - predictedValues[index]);
-    actualMagnitude += Math.abs(actualValues[index]);
-  }
-  return {
-    mae: errorSum / actualValues.length,
-    wapePercent: actualMagnitude === 0 ? null : (errorSum / actualMagnitude) * 100,
-    observations: actualValues.length,
-  };
 }
 
 function publicMetrics(metrics) {
@@ -61,14 +47,6 @@ function predictBatchNonNegative(model, examples) {
 function baselinePrediction(example, method) {
   if (method === 'last-week') return example.features[1];
   return example.features[5];
-}
-
-function bestBaseline(metrics) {
-  if (!metrics.lastWeek) return 'last-week';
-  if (!metrics.movingAverage4) return 'last-week';
-  return metrics.movingAverage4.mae < metrics.lastWeek.mae
-    ? 'moving-average-4'
-    : 'last-week';
 }
 
 function seedForUnit(unit) {
@@ -198,29 +176,25 @@ export class ForecastService {
       }
 
       const actual = holdoutExamples.map(example => example.target);
-      const lastWeekMetrics = calculateMetrics(
+      const lastWeekMetrics = calculateForecastMetrics(
         actual,
         holdoutExamples.map(example => baselinePrediction(example, 'last-week')),
       );
-      const movingAverageMetrics = calculateMetrics(
+      const movingAverageMetrics = calculateForecastMetrics(
         actual,
         holdoutExamples.map(example => baselinePrediction(example, 'moving-average-4')),
       );
       const randomForestMetrics = evaluationModel
-        ? calculateMetrics(actual, evaluationPredictions)
+        ? calculateForecastMetrics(actual, evaluationPredictions)
         : null;
-      const bestBaselineMethod = bestBaseline({
-        lastWeek: lastWeekMetrics,
-        movingAverage4: movingAverageMetrics,
+      const { baselineMethod: bestBaselineMethod, selectedMethod } = chooseForecastMethod({
+        randomForestMetrics,
+        lastWeekMetrics,
+        movingAverage4Metrics: movingAverageMetrics,
       });
       const bestBaselineMetrics = bestBaselineMethod === 'last-week'
         ? lastWeekMetrics
         : movingAverageMetrics;
-      const selectedMethod = randomForestMetrics
-        && bestBaselineMetrics
-        && randomForestMetrics.mae < bestBaselineMetrics.mae
-        ? 'random-forest'
-        : bestBaselineMethod;
 
       const deploymentModel = selectedMethod === 'random-forest' && trainingExamples.length > 0
         ? new RandomForestRegression({
@@ -291,9 +265,9 @@ export class ForecastService {
       const actual = examples.map(example => example.actual);
       const randomForestMetrics = examples.some(example => example.randomForest === null)
         ? null
-        : calculateMetrics(actual, examples.map(example => example.randomForest));
-      const lastWeekMetrics = calculateMetrics(actual, examples.map(example => example.lastWeek));
-      const movingAverageMetrics = calculateMetrics(actual, examples.map(example => example.movingAverage4));
+        : calculateForecastMetrics(actual, examples.map(example => example.randomForest));
+      const lastWeekMetrics = calculateForecastMetrics(actual, examples.map(example => example.lastWeek));
+      const movingAverageMetrics = calculateForecastMetrics(actual, examples.map(example => example.movingAverage4));
       const selectedMetrics = unitModel.selectedMethod === 'random-forest'
         ? randomForestMetrics
         : unitModel.selectedMethod === 'moving-average-4'
