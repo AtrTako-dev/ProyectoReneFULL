@@ -3,7 +3,10 @@ package com.morestock.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.SideEffect
 import androidx.lifecycle.ViewModelProvider
+import androidx.core.view.WindowCompat
 import com.morestock.app.data.MoreStockApi
 import com.morestock.app.data.MoreStockRepository
 import com.morestock.app.ui.MoreStockApp
@@ -20,7 +23,14 @@ class MainActivity : ComponentActivity() {
         viewModel = ViewModelProvider(this, MoreStockViewModelFactory(repository))[MoreStockViewModel::class.java]
 
         setContent {
-            MoreStockTheme {
+            val darkTheme = isSystemInDarkTheme()
+            MoreStockTheme(darkTheme = darkTheme) {
+                SideEffect {
+                    WindowCompat.getInsetsController(window, window.decorView).apply {
+                        isAppearanceLightStatusBars = !darkTheme
+                        isAppearanceLightNavigationBars = !darkTheme
+                    }
+                }
                 MoreStockApp(viewModel)
             }
         }

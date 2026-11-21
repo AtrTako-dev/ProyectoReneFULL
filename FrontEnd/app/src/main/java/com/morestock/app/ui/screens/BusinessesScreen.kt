@@ -11,10 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -27,6 +25,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.morestock.app.data.Business
+import com.morestock.app.ui.view.components.EmptyState
+import com.morestock.app.ui.view.components.ErrorState
+import com.morestock.app.ui.view.components.LoadingState
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -58,7 +59,7 @@ fun BusinessesScreen(
             Text("Elige un negocio", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(18.dp))
 
-            if (error != null) ErrorCard(error)
+            if (error != null) ErrorState(error)
             if (isLoading) {
                 LoadingState("Cargando negocios…")
             } else if (businesses.isEmpty()) {
@@ -96,39 +97,6 @@ private fun BusinessCard(business: Business, onClick: () -> Unit) {
             Text("›", color = MaterialTheme.colorScheme.primary, fontSize = 28.sp)
         }
     }
-}
-
-@Composable
-fun ErrorCard(message: String, onRetry: (() -> Unit)? = null) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-        shape = RoundedCornerShape(14.dp),
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Text(message, color = MaterialTheme.colorScheme.onErrorContainer)
-            if (onRetry != null) {
-                TextButton(onClick = onRetry) { Text("Reintentar") }
-            }
-        }
-    }
-}
-
-@Composable
-fun LoadingState(message: String) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 36.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        CircularProgressIndicator()
-        Text(message, color = MaterialTheme.colorScheme.secondary)
-    }
-}
-
-@Composable
-fun EmptyState(message: String) {
-    Text(message, modifier = Modifier.fillMaxWidth().padding(vertical = 28.dp), color = MaterialTheme.colorScheme.secondary)
 }
 
 fun Business.roleLabel(): String = when (role) {

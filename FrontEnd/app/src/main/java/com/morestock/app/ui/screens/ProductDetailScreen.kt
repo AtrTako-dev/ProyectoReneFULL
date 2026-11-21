@@ -27,6 +27,9 @@ import com.morestock.app.data.Forecast
 import com.morestock.app.data.InventoryItem
 import com.morestock.app.data.Product
 import com.morestock.app.data.Recommendation
+import com.morestock.app.ui.view.components.EmptyState
+import com.morestock.app.ui.view.components.ErrorState
+import com.morestock.app.ui.view.components.LoadingState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,7 +59,7 @@ fun ProductDetailScreen(
             Spacer(Modifier.height(5.dp))
             Text(listOf(product.category, product.brand, product.unit).filter(String::isNotBlank).joinToString(" · "), color = MaterialTheme.colorScheme.secondary)
             Spacer(Modifier.height(18.dp))
-            if (error != null) ErrorCard(error, onRetry = if (canRetry) onRetry else null)
+            if (error != null) ErrorState(error, onRetry = if (canRetry) onRetry else null)
             DetailCard("Inventario", inventory?.let { "${formatAmount(it.quantity)} ${it.unit}" } ?: product.inventoryQuantity?.let { "${formatAmount(it)} ${product.unit}" } ?: "Sin saldo disponible") {
                 if (inventory?.synthetic == true) Text("Dato de referencia sintético", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
             }

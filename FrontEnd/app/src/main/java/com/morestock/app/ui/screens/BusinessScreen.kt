@@ -31,6 +31,9 @@ import com.morestock.app.data.Business
 import com.morestock.app.data.InventoryItem
 import com.morestock.app.data.Product
 import com.morestock.app.data.Recommendation
+import com.morestock.app.ui.view.components.EmptyState
+import com.morestock.app.ui.view.components.ErrorState
+import com.morestock.app.ui.view.components.LoadingState
 import com.morestock.app.ui.viewmodel.BusinessTab
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,7 +82,7 @@ fun BusinessScreen(
             modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 18.dp),
         ) {
             Spacer(Modifier.height(14.dp))
-            if (error != null) ErrorCard(error, onRetry = if (canRetry) onRefresh else null)
+            if (error != null) ErrorState(error, onRetry = if (canRetry) onRefresh else null)
             if (isLoading) LoadingState("Cargando información del negocio…")
             else when (selectedTab) {
                 BusinessTab.SUMMARY -> SummaryContent(products, inventory, recommendations, onSelectProduct)
