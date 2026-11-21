@@ -56,13 +56,16 @@ function sourceOrigin(series) {
 }
 
 export class ForecastDatasetService {
-  build(salesRepository, { trainRatio = 0.8 } = {}) {
-    if (!Number.isFinite(trainRatio) || trainRatio <= 0 || trainRatio >= 1) {
-      throw new RangeError('trainRatio debe ser mayor que cero y menor que uno.');
+  build(salesRepository, { trainRatio = 0.6, validationRatio = 0.2 } = {}) {
+    if (!Number.isFinite(trainRatio) || trainRatio <= 0
+      || !Number.isFinite(validationRatio) || validationRatio <= 0
+      || trainRatio + validationRatio >= 1) {
+      throw new RangeError('trainRatio y validationRatio deben ser positivos y sumar menos que uno.');
     }
 
     const businesses = salesRepository.getBusinesses();
     const productsByKey = new Map();
+    const seriesDefinitions = [];
     for (const business of businesses) {
       for (const product of salesRepository.getProducts(business.businessId)) {
         const existingProduct = productsByKey.get(String(product.productId));
@@ -70,8 +73,25 @@ export class ForecastDatasetService {
           throw new Error(`El producto ${product.productId} tiene unidades diferentes entre negocios.`);
         }
         productsByKey.set(String(product.productId), product);
+        const history = [...salesRepository.getSeries(business.businessId, product.productId)]
+          .sort((left, right) => left.startDate.localeCompare(right.startDate));
+        seriesDefinitions.push({ business, product, history });
       }
     }
+
+    const datesByUnit = new Map();
+    for (const { product, history } of seriesDefinitions) {
+      if (!datesByUnit.has(product.unit)) datesByUnit.set(product.unit, new Set());
+      const dates = datesByUnit.get(product.unit);
+      for (const sale of history) dates.add(sale.startDate);
+    }
+    const cutoffsByUnit = new Map([...datesByUnit].map(([unit, dates]) => {
+      const orderedDates = [...dates].sort();
+      return [unit, {
+        training: orderedDates[Math.floor(orderedDates.length * trainRatio)],
+        validation: orderedDates[Math.floor(orderedDates.length * (trainRatio + validationRatio))],
+      }];
+    }));
 
     const businessIds = sortedUnique(businesses.map(business => business.businessId));
     const productIds = sortedUnique([...productsByKey.keys()]);
@@ -80,61 +100,61 @@ export class ForecastDatasetService {
     const series = [];
     const examples = [];
 
-    for (const business of businesses) {
-      for (const product of salesRepository.getProducts(business.businessId)) {
-        const history = salesRepository.getSeries(business.businessId, product.productId)
-          .sort((left, right) => left.startDate.localeCompare(right.startDate));
-        const key = seriesKey(business.businessId, product.productId);
-        const seriesEntry = {
+    for (const { business, product, history } of seriesDefinitions) {
+      const key = seriesKey(business.businessId, product.productId);
+      const seriesEntry = {
+        key,
+        businessId: String(business.businessId),
+        businessName: business.businessName,
+        productId: String(product.productId),
+        productName: product.productName,
+        category: product.category,
+        unit: product.unit,
+        history,
+        examples: [],
+      };
+
+      const cutoffs = cutoffsByUnit.get(product.unit);
+      for (let targetIndex = LAG_WEEKS; targetIndex < history.length; targetIndex += 1) {
+        const firstLagIndex = targetIndex - LAG_WEEKS;
+        const lagWindow = history.slice(firstLagIndex, targetIndex + 1);
+        const hasFourConsecutiveWeeks = lagWindow.every((sale, offset) => (
+          offset === 0 || weekDifference(lagWindow[offset - 1].startDate, sale.startDate) === 1
+        ));
+        if (!hasFourConsecutiveWeeks) continue;
+
+        const weeksSinceStart = Math.round(weekDifference(history[0]?.startDate, history[targetIndex].startDate)) + 1;
+        const priorDemands = history.slice(firstLagIndex, targetIndex).map(sale => Number(sale.unitsSold));
+        const target = Number(history[targetIndex].unitsSold);
+        if (![...priorDemands, target, weeksSinceStart].every(Number.isFinite)
+          || priorDemands.some(value => value < 0) || target < 0) {
+          throw new Error(`La serie ${business.businessId}/${product.productId} tiene cantidades inválidas.`);
+        }
+
+        const example = {
           key,
-          businessId: String(business.businessId),
-          businessName: business.businessName,
-          productId: String(product.productId),
-          productName: product.productName,
-          category: product.category,
-          unit: product.unit,
-          history,
-          examples: [],
-        };
-
-        const trainCutoffIndex = Math.floor(history.length * trainRatio);
-        for (let targetIndex = LAG_WEEKS; targetIndex < history.length; targetIndex += 1) {
-          const firstLagIndex = targetIndex - LAG_WEEKS;
-          const lagWindow = history.slice(firstLagIndex, targetIndex + 1);
-          const hasFourConsecutiveWeeks = lagWindow.every((sale, offset) => (
-            offset === 0 || weekDifference(lagWindow[offset - 1].startDate, sale.startDate) === 1
-          ));
-          if (!hasFourConsecutiveWeeks) continue;
-
-          const weeksSinceStart = Math.round(weekDifference(history[0]?.startDate, history[targetIndex].startDate)) + 1;
-          const priorDemands = history.slice(firstLagIndex, targetIndex).map(sale => Number(sale.unitsSold));
-          const target = Number(history[targetIndex].unitsSold);
-          if (![...priorDemands, target, weeksSinceStart].every(Number.isFinite)
-            || priorDemands.some(value => value < 0) || target < 0) {
-            throw new Error(`La serie ${business.businessId}/${product.productId} tiene cantidades inválidas.`);
-          }
-
-          const example = {
-            key,
+          businessId: seriesEntry.businessId,
+          productId: seriesEntry.productId,
+          unit: seriesEntry.unit,
+          targetIndex,
+          weeksSinceStart,
+          target,
+          split: history[targetIndex].startDate < cutoffs.training
+            ? 'train'
+            : history[targetIndex].startDate < cutoffs.validation
+              ? 'validation'
+              : 'test',
+          features: makeFeatureVector({
             businessId: seriesEntry.businessId,
             productId: seriesEntry.productId,
-            unit: seriesEntry.unit,
-            targetIndex,
+            priorDemands,
             weeksSinceStart,
-            target,
-            split: targetIndex < trainCutoffIndex ? 'train' : 'holdout',
-            features: makeFeatureVector({
-              businessId: seriesEntry.businessId,
-              productId: seriesEntry.productId,
-              priorDemands,
-              weeksSinceStart,
-            }, encodings),
-          };
-          seriesEntry.examples.push(example);
-          examples.push(example);
-        }
-        series.push(seriesEntry);
+          }, encodings),
+        };
+        seriesEntry.examples.push(example);
+        examples.push(example);
       }
+      series.push(seriesEntry);
     }
 
     return {

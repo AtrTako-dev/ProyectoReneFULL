@@ -5,9 +5,11 @@ import { calculateForecastMetrics, chooseForecastMethod } from './forecast-evalu
 import { ForecastDatasetService } from './forecast-dataset.service.js';
 
 const MODEL_KEY = 'weekly-demand-forecast-v1';
-const MODEL_VERSION = '1.0.0';
-const TRAIN_RATIO = 0.8;
+const MODEL_VERSION = '2.0.0';
+const TRAIN_RATIO = 0.6;
+const VALIDATION_RATIO = 0.2;
 const LAG_WEEKS = 4;
+const SMALL_TEST_SAMPLE_THRESHOLD = 30;
 const WEEK_MILLISECONDS = 7 * 24 * 60 * 60 * 1000;
 const RANDOM_FOREST_OPTIONS = Object.freeze({
   nEstimators: 80,
@@ -47,6 +49,41 @@ function predictBatchNonNegative(model, examples) {
 function baselinePrediction(example, method) {
   if (method === 'last-week') return example.features[1];
   return example.features[5];
+}
+
+function metricsForPredictions(rows) {
+  const calculate = key => {
+    if (rows.length === 0 || rows.some(row => !Number.isFinite(row[key]))) return null;
+    return calculateForecastMetrics(
+      rows.map(row => row.actual),
+      rows.map(row => row[key]),
+    );
+  };
+  return {
+    randomForest: calculate('randomForest'),
+    lastWeek: calculate('lastWeek'),
+    movingAverage4: calculate('movingAverage4'),
+  };
+}
+
+function selectedMetricKey(method) {
+  if (method === 'random-forest') return 'randomForest';
+  if (method === 'moving-average-4') return 'movingAverage4';
+  return 'lastWeek';
+}
+
+function publicMetricSet(metrics, selectedMethod) {
+  return {
+    selectedMethod,
+    selected: publicMetrics(metrics[selectedMetricKey(selectedMethod)]),
+    randomForest: publicMetrics(metrics.randomForest),
+    lastWeek: publicMetrics(metrics.lastWeek),
+    movingAverage4: publicMetrics(metrics.movingAverage4),
+  };
+}
+
+function testSampleIsSmall(observations) {
+  return observations < SMALL_TEST_SAMPLE_THRESHOLD;
 }
 
 function seedForUnit(unit) {
@@ -91,7 +128,9 @@ function serializeUnitModel(unitModel) {
     randomForest: unitModel.randomForest?.toJSON() ?? null,
     metrics: unitModel.metrics,
     trainingObservations: unitModel.trainingObservations,
-    holdoutObservations: unitModel.holdoutObservations,
+    validationObservations: unitModel.validationObservations,
+    testObservations: unitModel.testObservations,
+    deploymentTrainingObservations: unitModel.deploymentTrainingObservations,
   };
 }
 
@@ -112,7 +151,10 @@ export class ForecastService {
   }
 
   async initialize() {
-    const dataset = this.datasetService.build(this.salesRepository, { trainRatio: TRAIN_RATIO });
+    const dataset = this.datasetService.build(this.salesRepository, {
+      trainRatio: TRAIN_RATIO,
+      validationRatio: VALIDATION_RATIO,
+    });
     const fingerprint = dataFingerprint(dataset);
     let artifact = await this.artifactRepository?.find(MODEL_KEY, fingerprint);
 
@@ -153,50 +195,78 @@ export class ForecastService {
     const unitEvaluations = [];
     const unitModels = [];
     const seriesEvaluations = new Map();
-    const testPredictions = new Map();
-    let totalHoldoutObservations = 0;
+    const predictionsBySeries = new Map(dataset.series.map(item => [item.key, {
+      validation: [],
+      test: [],
+    }]));
+    let totalTestObservations = 0;
 
     for (const [unit, unitExamples] of examplesByUnit) {
       const trainingExamples = unitExamples.filter(example => example.split === 'train');
-      const holdoutExamples = unitExamples.filter(example => example.split === 'holdout');
-      const trainingValues = trainingExamples.map(example => example.target);
-      let evaluationModel = null;
-      let evaluationPredictions = [];
+      const validationExamples = unitExamples.filter(example => example.split === 'validation');
+      const testExamples = unitExamples.filter(example => example.split === 'test');
+      let selectionModel = null;
+      let validationRandomForestPredictions = [];
 
       if (trainingExamples.length >= 10) {
-        evaluationModel = new RandomForestRegression({
+        selectionModel = new RandomForestRegression({
           ...RANDOM_FOREST_OPTIONS,
           seed: seedForUnit(unit),
         });
-        evaluationModel.train(
+        selectionModel.train(
           trainingExamples.map(example => example.features),
-          trainingValues,
+          trainingExamples.map(example => example.target),
         );
-        evaluationPredictions = predictBatchNonNegative(evaluationModel, holdoutExamples);
+        if (validationExamples.length > 0) {
+          validationRandomForestPredictions = predictBatchNonNegative(selectionModel, validationExamples);
+        }
       }
 
-      const actual = holdoutExamples.map(example => example.target);
-      const lastWeekMetrics = calculateForecastMetrics(
-        actual,
-        holdoutExamples.map(example => baselinePrediction(example, 'last-week')),
-      );
-      const movingAverageMetrics = calculateForecastMetrics(
-        actual,
-        holdoutExamples.map(example => baselinePrediction(example, 'moving-average-4')),
-      );
-      const randomForestMetrics = evaluationModel
-        ? calculateForecastMetrics(actual, evaluationPredictions)
-        : null;
-      const { baselineMethod: bestBaselineMethod, selectedMethod } = chooseForecastMethod({
-        randomForestMetrics,
-        lastWeekMetrics,
-        movingAverage4Metrics: movingAverageMetrics,
+      const validationRows = validationExamples.map((example, index) => ({
+        actual: example.target,
+        randomForest: validationRandomForestPredictions[index] ?? null,
+        lastWeek: baselinePrediction(example, 'last-week'),
+        movingAverage4: baselinePrediction(example, 'moving-average-4'),
+      }));
+      const validationMetricsRaw = metricsForPredictions(validationRows);
+      const { baselineMethod, selectedMethod } = chooseForecastMethod({
+        randomForestMetrics: validationMetricsRaw.randomForest,
+        lastWeekMetrics: validationMetricsRaw.lastWeek,
+        movingAverage4Metrics: validationMetricsRaw.movingAverage4,
       });
-      const bestBaselineMetrics = bestBaselineMethod === 'last-week'
-        ? lastWeekMetrics
-        : movingAverageMetrics;
+      const validationMetrics = publicMetricSet(validationMetricsRaw, selectedMethod);
 
-      const deploymentModel = selectedMethod === 'random-forest' && trainingExamples.length > 0
+      const testModelTrainingExamples = [...trainingExamples, ...validationExamples];
+      let testModel = null;
+      let testModelTrainingObservations = 0;
+      let testRandomForestPredictions = [];
+      if (testModelTrainingExamples.length >= 10 && testExamples.length > 0) {
+        testModel = new RandomForestRegression({
+          ...RANDOM_FOREST_OPTIONS,
+          seed: seedForUnit(unit),
+        });
+        testModel.train(
+          testModelTrainingExamples.map(example => example.features),
+          testModelTrainingExamples.map(example => example.target),
+        );
+        testModelTrainingObservations = testModelTrainingExamples.length;
+        testRandomForestPredictions = predictBatchNonNegative(testModel, testExamples);
+      }
+
+      const testRows = testExamples.map((example, index) => ({
+        actual: example.target,
+        randomForest: testRandomForestPredictions[index] ?? null,
+        lastWeek: baselinePrediction(example, 'last-week'),
+        movingAverage4: baselinePrediction(example, 'moving-average-4'),
+      }));
+      const testMetricsRaw = metricsForPredictions(testRows);
+      const testMetrics = publicMetricSet(testMetricsRaw, selectedMethod);
+      const metrics = {
+        ...testMetrics,
+        baselineMethod,
+      };
+
+      const deploymentModel = selectedMethod === 'random-forest' && unitExamples.length > 0
         ? new RandomForestRegression({
           ...RANDOM_FOREST_OPTIONS,
           seed: seedForUnit(unit),
@@ -209,32 +279,24 @@ export class ForecastService {
         );
       }
 
-      for (let index = 0; index < holdoutExamples.length; index += 1) {
-        const example = holdoutExamples[index];
-        if (!testPredictions.has(example.key)) testPredictions.set(example.key, []);
-        testPredictions.get(example.key).push({
-          actual: example.target,
-          randomForest: evaluationPredictions[index] ?? null,
-          lastWeek: baselinePrediction(example, 'last-week'),
-          movingAverage4: baselinePrediction(example, 'moving-average-4'),
-        });
+      for (const [index, example] of validationExamples.entries()) {
+        predictionsBySeries.get(example.key).validation.push(validationRows[index]);
+      }
+      for (const [index, example] of testExamples.entries()) {
+        predictionsBySeries.get(example.key).test.push(testRows[index]);
       }
 
-      totalHoldoutObservations += holdoutExamples.length;
-      const metrics = {
-        selectedMethod,
-        selected: publicMetrics(selectedMethod === 'random-forest'
-          ? randomForestMetrics
-          : bestBaselineMetrics),
-        randomForest: publicMetrics(randomForestMetrics),
-        lastWeek: publicMetrics(lastWeekMetrics),
-        movingAverage4: publicMetrics(movingAverageMetrics),
-      };
+      totalTestObservations += testExamples.length;
       unitEvaluations.push({
         unit,
         selectedMethod,
         trainingObservations: trainingExamples.length,
-        holdoutObservations: holdoutExamples.length,
+        validationObservations: validationExamples.length,
+        testObservations: testExamples.length,
+        testModelTrainingObservations,
+        testSampleIsSmall: testSampleIsSmall(testExamples.length),
+        validationMetrics,
+        testMetrics,
         metrics,
       });
       unitModels.push({
@@ -242,56 +304,108 @@ export class ForecastService {
         selectedMethod,
         randomForest: deploymentModel,
         metrics,
-        trainingObservations: unitExamples.length,
-        holdoutObservations: holdoutExamples.length,
+        trainingObservations: trainingExamples.length,
+        validationObservations: validationExamples.length,
+        testObservations: testExamples.length,
+        deploymentTrainingObservations: deploymentModel ? unitExamples.length : 0,
       });
     }
 
     const perSeries = dataset.series.map(item => {
-      const examples = testPredictions.get(item.key) ?? [];
+      const predictions = predictionsBySeries.get(item.key) ?? { validation: [], test: [] };
       const unitModel = unitModels.find(model => model.unit === item.unit);
-      if (examples.length === 0 || !unitModel) {
-        seriesEvaluations.set(item.key, null);
-        return {
-          businessId: item.businessId,
-          productId: item.productId,
-          unit: item.unit,
-          status: 'insufficient-data',
-          historyObservations: item.history.length,
-          holdoutObservations: 0,
-        };
-      }
-
-      const actual = examples.map(example => example.actual);
-      const randomForestMetrics = examples.some(example => example.randomForest === null)
-        ? null
-        : calculateForecastMetrics(actual, examples.map(example => example.randomForest));
-      const lastWeekMetrics = calculateForecastMetrics(actual, examples.map(example => example.lastWeek));
-      const movingAverageMetrics = calculateForecastMetrics(actual, examples.map(example => example.movingAverage4));
-      const selectedMetrics = unitModel.selectedMethod === 'random-forest'
-        ? randomForestMetrics
-        : unitModel.selectedMethod === 'moving-average-4'
-          ? movingAverageMetrics
-          : lastWeekMetrics;
+      const counts = Object.fromEntries(['train', 'validation', 'test'].map(split => [
+        split,
+        item.examples.filter(example => example.split === split).length,
+      ]));
+      const selectedMethod = unitModel?.selectedMethod ?? null;
+      const validationMetrics = publicMetricSet(
+        metricsForPredictions(predictions.validation),
+        selectedMethod,
+      );
+      const testMetrics = publicMetricSet(
+        metricsForPredictions(predictions.test),
+        selectedMethod,
+      );
       const result = {
-        selectedMethod: unitModel.selectedMethod,
-        selected: publicMetrics(selectedMetrics),
-        randomForest: publicMetrics(randomForestMetrics),
-        lastWeek: publicMetrics(lastWeekMetrics),
-        movingAverage4: publicMetrics(movingAverageMetrics),
+        selectedMethod: unitModel ? selectedMethod : null,
+        validationMetrics,
+        testMetrics,
+        selected: testMetrics.selected,
+        randomForest: testMetrics.randomForest,
+        lastWeek: testMetrics.lastWeek,
+        movingAverage4: testMetrics.movingAverage4,
         historyObservations: item.history.length,
-        trainingObservations: item.examples.filter(example => example.split === 'train').length,
-        holdoutObservations: examples.length,
+        trainingObservations: counts.train,
+        validationObservations: counts.validation,
+        testObservations: counts.test,
+        testSampleIsSmall: testSampleIsSmall(counts.test),
       };
       seriesEvaluations.set(item.key, result);
       return {
         businessId: item.businessId,
+        businessName: item.businessName,
         productId: item.productId,
         unit: item.unit,
-        status: 'evaluated',
+        status: counts.test > 0 ? 'evaluated' : 'insufficient-test-data',
         ...result,
       };
     });
+
+    const businessUnitGroups = new Map();
+    for (const item of dataset.series) {
+      const key = `${item.businessId}\u001f${item.unit}`;
+      if (!businessUnitGroups.has(key)) {
+        businessUnitGroups.set(key, {
+          businessId: item.businessId,
+          businessName: item.businessName,
+          unit: item.unit,
+          trainingObservations: 0,
+          validationObservations: 0,
+          testObservations: 0,
+          validationRows: [],
+          testRows: [],
+        });
+      }
+      const group = businessUnitGroups.get(key);
+      for (const example of item.examples) {
+        if (example.split === 'train') group.trainingObservations += 1;
+        else if (example.split === 'validation') group.validationObservations += 1;
+        else group.testObservations += 1;
+      }
+      const predictions = predictionsBySeries.get(item.key);
+      group.validationRows.push(...predictions.validation);
+      group.testRows.push(...predictions.test);
+    }
+
+    const unitModelByName = new Map(unitModels.map(model => [model.unit, model]));
+    const metricsByBusinessAndUnit = [...businessUnitGroups.values()].map(group => {
+      const selectedMethod = unitModelByName.get(group.unit)?.selectedMethod ?? null;
+      const validationMetrics = publicMetricSet(
+        metricsForPredictions(group.validationRows),
+        selectedMethod,
+      );
+      const testMetrics = publicMetricSet(
+        metricsForPredictions(group.testRows),
+        selectedMethod,
+      );
+      return {
+        businessId: group.businessId,
+        businessName: group.businessName,
+        unit: group.unit,
+        selectedMethod,
+        trainingObservations: group.trainingObservations,
+        validationObservations: group.validationObservations,
+        testObservations: group.testObservations,
+        testSampleIsSmall: testSampleIsSmall(group.testObservations),
+        validationMetrics,
+        testMetrics,
+        metrics: testMetrics,
+      };
+    });
+
+    const totalTrainingObservations = dataset.examples.filter(example => example.split === 'train').length;
+    const totalValidationObservations = dataset.examples.filter(example => example.split === 'validation').length;
 
     return {
       modelKey: MODEL_KEY,
@@ -304,11 +418,19 @@ export class ForecastService {
       unitModels: unitModels.map(serializeUnitModel),
       evaluation: {
         protocol: {
-          split: 'chronological-by-series',
+          split: 'chronological-by-unit-calendar-date',
           trainRatio: TRAIN_RATIO,
+          validationRatio: VALIDATION_RATIO,
+          testRatio: 1 - TRAIN_RATIO - VALIDATION_RATIO,
           featureWindowWeeks: LAG_WEEKS,
           target: 'units_sold',
-          selectionMetric: 'MAE por unidad; Random Forest se selecciona solo si supera ambas líneas base.',
+          selectionMetric: 'MAE de validación por unidad; Random Forest se selecciona solo si supera ambas líneas base.',
+          testMetric: 'MAE y WAPE se calculan exclusivamente con observaciones de prueba.',
+          testPredictionProtocol: 'Evaluación rodante de un paso: cada predicción usa las cuatro ventas reales previas; nunca incluye la venta objetivo.',
+          testModelTraining: 'El modelo evaluado en prueba se entrena con entrenamiento y validación; el modelo de despliegue se reentrena con todo el histórico al cambiar la huella de datos.',
+          smallTestSampleThreshold: SMALL_TEST_SAMPLE_THRESHOLD,
+          smallTestSampleThresholdNote: 'El corte de 30 es una etiqueta operativa de este proyecto y no una regla estadística universal.',
+          limitations: ['Con historiales alineados de unas 50 semanas, cada serie aporta 10 observaciones de prueba; con fechas o longitudes distintas, el conteo por serie varía. En ambos casos, el tramo es limitado y no cubre un ciclo anual semanal.'],
           baselines: ['last-week', 'moving-average-4'],
         },
         modelName: 'RandomForestRegression con selección por unidad',
@@ -316,8 +438,11 @@ export class ForecastService {
         syntheticData: dataset.sourceOrigin !== 'operational',
         seriesCount: dataset.series.length,
         evaluatedSeriesCount: perSeries.filter(item => item.status === 'evaluated').length,
-        holdoutObservations: totalHoldoutObservations,
+        trainingObservations: totalTrainingObservations,
+        validationObservations: totalValidationObservations,
+        testObservations: totalTestObservations,
         metricsByUnit: unitEvaluations,
+        metricsByBusinessAndUnit,
         perSeries,
       },
     };

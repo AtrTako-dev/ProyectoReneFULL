@@ -80,19 +80,91 @@ test('prepara las cuatro demandas previas y excluye la semana objetivo de sus fe
   assert.equal(example.features.includes(example.target), false);
 });
 
-test('divide las observaciones en orden cronológico usando el corte de entrenamiento', () => {
+test('divide las observaciones cronológicamente en entrenamiento, validación y prueba', () => {
   const dataset = new ForecastDatasetService().build(makeSalesRepository(
     Array.from({ length: 12 }, (_value, index) => index + 1),
   ));
 
   assert.deepEqual(
     dataset.examples.filter(item => item.split === 'train').map(item => item.targetIndex),
-    [4, 5, 6, 7, 8],
+    [4, 5, 6],
   );
   assert.deepEqual(
-    dataset.examples.filter(item => item.split === 'holdout').map(item => item.targetIndex),
+    dataset.examples.filter(item => item.split === 'validation').map(item => item.targetIndex),
+    [7, 8],
+  );
+  assert.deepEqual(
+    dataset.examples.filter(item => item.split === 'test').map(item => item.targetIndex),
     [9, 10, 11],
   );
+});
+
+test('una serie de 50 semanas produce 26 ejemplos de entrenamiento, 10 de validación y 10 de prueba', () => {
+  const dataset = new ForecastDatasetService().build(makeSalesRepository(
+    Array.from({ length: 50 }, (_value, index) => index + 1),
+  ));
+
+  assert.deepEqual(
+    Object.fromEntries(['train', 'validation', 'test'].map(split => [
+      split,
+      dataset.examples.filter(example => example.split === split).length,
+    ])),
+    { train: 26, validation: 10, test: 10 },
+  );
+});
+
+test('comparte los cortes de fecha entre series de la misma unidad con inicios distintos', () => {
+  const definitions = [
+    { businessId: '201', productId: 'A001', firstDate: '2026-01-05' },
+    { businessId: '202', productId: 'A002', firstDate: '2026-01-19' },
+  ];
+  const businesses = definitions.map(({ businessId }) => ({
+    businessId,
+    businessName: `Negocio ${businessId}`,
+  }));
+  const products = definitions.map(definition => ({
+    ...definition,
+    productName: `Producto ${definition.productId}`,
+    unit: 'pieza',
+  }));
+  const histories = new Map(definitions.map(definition => {
+    const firstDate = new Date(`${definition.firstDate}T00:00:00.000Z`);
+    const values = Array.from({ length: 50 }, (_value, index) => index + 1);
+    const history = salesFor(values).map((sale, index) => {
+      const start = new Date(firstDate);
+      start.setUTCDate(start.getUTCDate() + index * 7);
+      const end = new Date(start);
+      end.setUTCDate(end.getUTCDate() + 6);
+      return {
+        ...sale,
+        businessId: definition.businessId,
+        productId: definition.productId,
+        startDate: start.toISOString().slice(0, 10),
+        endDate: end.toISOString().slice(0, 10),
+      };
+    });
+    return [`${definition.businessId}/${definition.productId}`, history];
+  }));
+  const repository = {
+    getBusinesses: () => businesses,
+    getProducts: businessId => products.filter(product => product.businessId === businessId),
+    getSeries: (businessId, productId) => histories.get(`${businessId}/${productId}`) ?? [],
+  };
+  const dataset = new ForecastDatasetService().build(repository);
+  const datesBySplit = Object.fromEntries(['train', 'validation', 'test'].map(split => [
+    split,
+    dataset.examples.filter(example => example.split === split).map(example => {
+      const series = dataset.series.find(item => item.key === example.key);
+      return series.history[example.targetIndex].startDate;
+    }),
+  ]));
+  const lastTrainingDate = datesBySplit.train.sort().at(-1);
+  const firstValidationDate = datesBySplit.validation.sort()[0];
+  const lastValidationDate = datesBySplit.validation.at(-1);
+  const firstTestDate = datesBySplit.test.sort()[0];
+
+  assert.ok(lastTrainingDate < firstValidationDate);
+  assert.ok(lastValidationDate < firstTestDate);
 });
 
 test('cambiar la demanda objetivo no filtra ese valor a sus propias features', () => {
@@ -122,6 +194,91 @@ test('el modelo entrenado produce métricas y pronósticos finitos no negativos'
   assert.ok(Number.isFinite(forecast.predictedDemand) && forecast.predictedDemand >= 0);
 });
 
+test('selecciona con validación y reporta métricas solo con la prueba sin entrenar en ella', async () => {
+  const originalValues = periodicDemandHistory(13).slice(0, 50);
+  const changedValues = [...originalValues];
+  changedValues[40] = 1000;
+
+  const originalArtifacts = inMemoryArtifactRepository();
+  const originalService = new ForecastService(makeSalesRepository(originalValues), {
+    artifactRepository: originalArtifacts,
+  });
+  const changedService = new ForecastService(makeSalesRepository(changedValues));
+  await originalService.initialize();
+  await changedService.initialize();
+
+  const original = originalService.getEvaluation();
+  const changed = changedService.getEvaluation();
+  const originalUnit = original.metricsByUnit.find(item => item.unit === UNIT);
+  const changedUnit = changed.metricsByUnit.find(item => item.unit === UNIT);
+  const originalSeries = original.perSeries[0];
+
+  assert.equal(originalUnit.trainingObservations, 26);
+  assert.equal(originalUnit.validationObservations, 10);
+  assert.equal(originalUnit.testObservations, 10);
+  assert.equal(originalUnit.testModelTrainingObservations, 36);
+  assert.equal(originalUnit.validationMetrics.selectedMethod, originalUnit.selectedMethod);
+  assert.equal(originalUnit.testMetrics.selected.observations, 10);
+  assert.deepEqual(changedUnit.validationMetrics, originalUnit.validationMetrics);
+  assert.equal(changedUnit.selectedMethod, originalUnit.selectedMethod);
+  assert.notDeepEqual(changedUnit.testMetrics, originalUnit.testMetrics);
+  assert.equal(originalSeries.trainingObservations, 26);
+  assert.equal(originalSeries.validationObservations, 10);
+  assert.equal(originalSeries.testObservations, 10);
+  assert.equal(originalSeries.testSampleIsSmall, true);
+  assert.equal(originalSeries.selected.observations, 10);
+  assert.equal(originalSeries.testMetrics.selected.observations, 10);
+  const savedUnitModel = originalArtifacts.getSavedArtifact().unitModels[0];
+  assert.equal(savedUnitModel.trainingObservations, 26);
+  assert.equal(savedUnitModel.validationObservations, 10);
+  assert.equal(savedUnitModel.testObservations, 10);
+  assert.equal(savedUnitModel.deploymentTrainingObservations,
+    savedUnitModel.selectedMethod === 'random-forest' ? 46 : 0);
+});
+
+test('resume métricas por negocio y unidad sin combinar unidades distintas', async () => {
+  const businesses = [
+    { businessId: '201', businessName: 'Tienda A' },
+    { businessId: '202', businessName: 'Tienda B' },
+  ];
+  const products = [
+    { businessId: '201', productId: 'K001', productName: 'Harina', unit: 'kg' },
+    { businessId: '201', productId: 'P001', productName: 'Pan', unit: 'pieza' },
+    { businessId: '202', productId: 'K002', productName: 'Arroz', unit: 'kg' },
+  ];
+  const histories = new Map(products.map(product => [
+    `${product.businessId}/${product.productId}`,
+    salesFor(Array.from({ length: 50 }, (_value, index) => (index % 7) + 1))
+      .map(sale => ({ ...sale, businessId: product.businessId, productId: product.productId })),
+  ]));
+  const repository = {
+    getBusinesses: () => businesses,
+    getBusiness: businessId => businesses.find(business => business.businessId === businessId) ?? null,
+    getProducts: businessId => products.filter(product => product.businessId === businessId),
+    getProduct: (businessId, productId) => products.find(product => (
+      product.businessId === businessId && product.productId === productId
+    )) ?? null,
+    getSeries: (businessId, productId) => histories.get(`${businessId}/${productId}`) ?? [],
+  };
+  const service = new ForecastService(repository);
+  await service.initialize();
+
+  const evaluation = service.getEvaluation();
+
+  assert.deepEqual(
+    evaluation.metricsByBusinessAndUnit.map(item => [item.businessId, item.unit, item.testObservations]),
+    [['201', 'kg', 10], ['201', 'pieza', 10], ['202', 'kg', 10]],
+  );
+  assert.deepEqual(
+    evaluation.metricsByUnit.map(item => [item.unit, item.testObservations]),
+    [['kg', 20], ['pieza', 10]],
+  );
+  assert.ok(evaluation.metricsByBusinessAndUnit.every(item => (
+    item.testMetrics.selected.wapePercent === null
+      || Number.isFinite(item.testMetrics.selected.wapePercent)
+  )));
+});
+
 test('calcula MAE y WAPE sobre demanda no nula', () => {
   const metrics = calculateForecastMetrics([10, 11, 12], [9, 10, 11]);
 
@@ -143,10 +300,16 @@ test('guardar y cargar el artefacto conserva las predicciones del Random Forest'
   const trainedService = new ForecastService(repository, { artifactRepository });
   await trainedService.initialize();
   const savedArtifact = artifactRepository.getSavedArtifact();
+  const unitEvaluation = trainedService.getEvaluation().metricsByUnit[0];
   const trainedForecast = trainedService.forecast({ businessId: BUSINESS_ID, productId: PRODUCT_ID });
 
   assert.equal(savedArtifact.unitModels[0].selectedMethod, 'random-forest');
   assert.ok(savedArtifact.unitModels[0].randomForest);
+  assert.equal(unitEvaluation.trainingObservations, 34);
+  assert.equal(unitEvaluation.validationObservations, 13);
+  assert.equal(unitEvaluation.testObservations, 13);
+  assert.equal(unitEvaluation.testModelTrainingObservations, 47);
+  assert.equal(savedArtifact.unitModels[0].deploymentTrainingObservations, 60);
 
   const loadedService = new ForecastService(repository, { artifactRepository });
   await loadedService.initialize();

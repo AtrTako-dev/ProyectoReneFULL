@@ -2,46 +2,75 @@
 
 ## Objetivo
 
-Preparar series temporales sin usar datos futuros, comparar modelos con una evaluación cronológica y guardar el modelo entrenado para reutilizarlo en las solicitudes de pronóstico.
+Preparar series temporales sin usar información futura, comparar métodos con validación cronológica, medir el resultado en un tramo reservado y reutilizar el modelo entrenado.
 
-## Preparación y evaluación
+## Variables y protocolo de evaluación
 
-Cada ejemplo predice las unidades vendidas en una semana usando únicamente la demanda de las cuatro semanas anteriores, su promedio, el tiempo transcurrido y la identidad de negocio y producto. Las filas se separan cronológicamente por serie: 80 % para entrenamiento y 20 % para validación. La evaluación recorre cada semana del bloque final con las semanas anteriores ya observadas. Las métricas se calculan por unidad para no sumar, por ejemplo, kilogramos con piezas.
+Cada ejemplo estima las unidades vendidas en una semana usando las cuatro semanas anteriores, su promedio, el tiempo transcurrido y la identidad de negocio y producto. La semana objetivo no forma parte de sus variables.
 
-Se comparan tres métodos:
+Las fechas del conjunto completo se ordenan y se comparten como cortes entre las series de una misma unidad: 60 % para entrenamiento, 20 % para validación y 20 % para prueba. Así, al combinar productos de una unidad, ninguna etiqueta posterior de una serie puede quedar en entrenamiento mientras otra serie ya está en validación o prueba. Los ejemplos que requieren cuatro semanas anteriores no pueden empezar en las primeras cuatro semanas; en una serie sincronizada de 50 semanas, quedan 26 ejemplos de entrenamiento, 10 de validación y 10 de prueba.
 
-- Última semana: repite la demanda observada más reciente.
-- Promedio móvil: usa la media de las cuatro semanas anteriores.
-- Random Forest: aprende patrones compartidos entre series de la misma unidad.
+La validación escoge el método por unidad usando MAE. Random Forest solo se selecciona si supera por MAE a las dos líneas base; de lo contrario se usa la mejor línea base. La prueba permanece reservada para informar el resultado final y no cambia esa decisión. La evaluación de prueba es de un paso rodante: para cada fecha se usan las cuatro ventas reales previas, como estarían disponibles al emitir el siguiente pronóstico.
 
-El candidato usa `RandomForestRegression` de [`ml-random-forest`](https://github.com/mljs/random-forest), cuya API proporciona entrenamiento, predicción y serialización del modelo.
+Los candidatos son:
 
-El Random Forest se elige para una unidad únicamente si su MAE de validación es menor que el de ambas líneas base. En las demás unidades, el pronóstico usa la línea base con menor MAE. Para varios pasos, el modelo actualiza los rezagos con predicciones anteriores.
+- **Última semana:** repite la demanda observada más reciente.
+- **Promedio móvil de cuatro semanas:** usa la media de las cuatro demandas anteriores.
+- **Random Forest:** aprende patrones compartidos entre series de la misma unidad con `RandomForestRegression` de [`ml-random-forest`](https://github.com/mljs/random-forest).
 
-## Resultados sobre el conjunto de demostración
+MAE conserva la unidad de medida. WAPE se expresa como porcentaje y solo se calcula cuando la suma de ventas reales del grupo es mayor que cero. Las métricas se agregan por unidad y por combinación de negocio y unidad; no se mezclan kilogramos, piezas u otras unidades. El conjunto de prueba no se usa para elegir el método.
 
-La evaluación incluyó **500 observaciones de validación**, correspondientes a las últimas 10 semanas de las 50 series. El MAE representa el promedio del error absoluto en la unidad indicada.
+## Ejecución y resultado de prueba
 
-| Unidad | MAE Random Forest | MAE última semana | MAE promedio de 4 semanas | Método seleccionado |
-|---|---:|---:|---:|---|
-| kg | 2.8444 | 3.3200 | 2.8550 | Random Forest |
-| paquete | 6.9108 | 9.4500 | 7.1542 | Random Forest |
-| pieza | 7.4059 | 5.9318 | 6.3545 | Última semana |
-| bolsa | 2.7795 | 3.8333 | 2.7917 | Random Forest |
-| botella | 3.6010 | 3.2667 | 3.1083 | Promedio de 4 semanas |
-| lata | 2.5281 | 2.9500 | 2.1750 | Promedio de 4 semanas |
-| envase | 3.1965 | 3.1500 | 2.5125 | Promedio de 4 semanas |
-| caja | 14.1014 | 5.8000 | 8.3250 | Última semana |
-| juego | 11.7602 | 3.9000 | 7.3750 | Última semana |
+La evaluación local se ejecutó con `SalesCsvRepository` y `ForecastService.initialize()`, sobre los CSV sintéticos del proyecto. No se conectó a MySQL. El conjunto contiene 50 series y 2,300 ejemplos evaluables después de reservar las cuatro semanas iniciales de cada serie.
 
-Los resultados muestran que el Random Forest no es el mejor método para todas las unidades; por eso la selección conserva las líneas base cuando tienen menor error.
+| Unidad | Entrenamiento | Validación | Prueba | MAE validación RF / última semana / promedio 4 semanas | Método elegido en validación | MAE de prueba del método elegido | WAPE de prueba |
+|---|---:|---:|---:|---:|---|---:|---:|
+| kg | 260 | 100 | 100 | 2.6251 / 3.2100 / 2.4650 | Promedio de 4 semanas | 2.8550 | 13.5629 % |
+| paquete | 156 | 60 | 60 | 7.2498 / 9.1000 / 7.3458 | Random Forest | 6.8046 | 13.1702 % |
+| pieza | 572 | 220 | 220 | 6.2029 / 6.4000 / 6.2080 | Random Forest | 7.5238 | 25.4809 % |
+| bolsa | 78 | 30 | 30 | 3.2286 / 4.7667 / 3.2750 | Random Forest | 2.6743 | 10.0287 % |
+| botella | 78 | 30 | 30 | 2.8550 / 3.4000 / 2.8917 | Random Forest | 3.4562 | 19.6375 % |
+| lata | 52 | 20 | 20 | 2.3246 / 4.1500 / 2.8375 | Random Forest | 2.5130 | 13.1569 % |
+| envase | 52 | 20 | 20 | 2.2054 / 3.0000 / 2.4125 | Random Forest | 3.3042 | 13.6538 % |
+| caja | 26 | 10 | 10 | 14.9056 / 6.9000 / 7.5750 | Última semana | 5.8000 | 25.2174 % |
+| juego | 26 | 10 | 10 | 14.3329 / 5.2000 / 6.4000 | Última semana | 3.9000 | 20.3125 % |
+| **Total** | **1,300** | **500** | **500** | — | — | — | — |
 
-## Persistencia y API
+La columna de selección refleja exclusivamente la validación. Por ello puede ocurrir que otra opción tenga menor MAE en la prueba reservada: por ejemplo, Random Forest fue seleccionado para `pieza`, `botella`, `lata` y `envase`, pero su MAE observado en la prueba fue mayor que alguna línea base. Se conserva la selección original para no usar el tramo final como una segunda oportunidad de ajuste.
 
-El artefacto guarda la configuración, los nombres de variables, las codificaciones, la huella de los datos, las métricas y el JSON de los modelos seleccionados en `forecast_model_artifacts`. Al iniciar, el backend reutiliza un artefacto solo cuando coincide la huella del conjunto; de lo contrario, vuelve a entrenar y sustituye la versión almacenada.
+### Resultado por negocio y unidad
 
-El endpoint de pronóstico expone el método seleccionado, sus métricas, el origen de los datos y el pronóstico por semana. El endpoint de evaluación informa métricas por unidad y por producto. Ambos permanecen bajo la autenticación y el acceso por membresía definidos en la fase 3.
+Esta segunda tabla informa las métricas de la prueba para cada negocio y unidad. Un negocio que vende varias unidades aparece en varias filas para no combinar magnitudes incompatibles.
+
+| Negocio | Unidad | Observaciones de prueba | Método seleccionado en validación | MAE de prueba | WAPE de prueba |
+|---|---|---:|---|---:|---:|
+| Frutería La Huerta | kg | 100 | Promedio de 4 semanas | 2.8550 | 13.5629 % |
+| Panadería La Espiga | paquete | 60 | Random Forest | 6.8046 | 13.1702 % |
+| Panadería La Espiga | pieza | 40 | Random Forest | 8.4056 | 10.4677 % |
+| Electrónica Punto Digital | pieza | 100 | Random Forest | 2.4583 | 20.5886 % |
+| Abarrotes El Puente | bolsa | 30 | Random Forest | 2.6743 | 10.0287 % |
+| Abarrotes El Puente | botella | 30 | Random Forest | 3.4562 | 19.6375 % |
+| Abarrotes El Puente | lata | 20 | Random Forest | 2.5130 | 13.1569 % |
+| Abarrotes El Puente | envase | 20 | Random Forest | 3.3042 | 13.6538 % |
+| Papel y Tinta | pieza | 80 | Random Forest | 13.4148 | 51.3486 % |
+| Papel y Tinta | caja | 10 | Última semana | 5.8000 | 25.2174 % |
+| Papel y Tinta | juego | 10 | Última semana | 3.9000 | 20.3125 % |
+
+Las cifras corresponden a una ejecución local del conjunto incluido en el proyecto; no representan ventas reales. Las métricas por negocio se calculan entre productos del mismo negocio y unidad.
+
+## Artefacto y solicitudes
+
+La huella SHA-256 del conjunto permite reutilizar el artefacto cuando la entrada no cambia. Cuando se inicializa el servicio, una huella nueva provoca evaluación, selección y entrenamiento de despliegue con el histórico completo. La selección se mantiene asociada a cada unidad. Las solicitudes HTTP consultan el modelo cargado y no entrenan otro.
+
+El artefacto conserva versión, huella, variables, codificaciones, métricas y modelos serializados. El cambio al protocolo de tres tramos sube la versión del artefacto para evitar cargar un resultado generado con el esquema anterior.
 
 ## Alcance y limitaciones
 
-La evaluación usa ventas sintéticas del proyecto. Sus métricas sirven para comparar modelos en la exposición escolar; no prueban precisión comercial con ventas reales. Las pruebas automatizadas de esta fase quedan pendientes para la etapa de pruebas del proyecto.
+- Los datos evaluados son sintéticos; estas métricas no demuestran precisión comercial con ventas reales.
+- Cada serie tiene 10 observaciones semanales en el tramo final. Aunque una unidad agregue varias series, esos errores pueden estar correlacionados y no equivalen a la misma cantidad de observaciones independientes.
+- Diez semanas no cubren un ciclo anual semanal de 52 semanas. El MAE y WAPE describen el tramo observado y pueden cambiar en otras temporadas o ante cambios de demanda.
+- El umbral operativo de 30 observaciones usado para etiquetar muestras pequeñas no es una regla estadística universal. Los conteos por serie y grupo se exponen para interpretar cada métrica.
+- La prueba estima el error de un pronóstico de un paso que se actualiza al observar la semana anterior; no estima un pronóstico emitido una sola vez para diez semanas futuras.
+
+La evaluación temporal responde a la pregunta de predecir períodos posteriores y evita mezclar semanas futuras en el entrenamiento. No es el único método válido para todos los problemas de series temporales; la elección depende del uso esperado y de las propiedades de los datos. La evaluación rodante también genera errores relacionados entre sí, no nuevos historiales independientes. La investigación y sus fuentes están en [FASE_9_RESEARCH.md](FASE_9_RESEARCH.md).
