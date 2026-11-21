@@ -22,7 +22,14 @@ MAE conserva la unidad de medida. WAPE se expresa como porcentaje y solo se calc
 
 ## Ejecución y resultado de prueba
 
-La evaluación local se ejecutó con `SalesCsvRepository` y `ForecastService.initialize()`, sobre los CSV sintéticos del proyecto. No se conectó a MySQL. El conjunto contiene 50 series y 2,300 ejemplos evaluables después de reservar las cuatro semanas iniciales de cada serie.
+La evaluación se puede reproducir desde `Backend/` con el comando siguiente. Se ejecutó localmente sobre los CSV sintéticos, sin conectar a MySQL ni configurar un repositorio de artefactos persistente:
+
+```sh
+cd Backend
+node --input-type=module -e 'import { salesRepository } from "./src/repositories/sales-csv.repository.js"; import { ForecastService } from "./src/services/forecast.service.js"; const service = new ForecastService(salesRepository); const evaluation = await service.initialize(); console.log(JSON.stringify(evaluation.metricsByUnit.map(({ unit, selectedMethod, trainingObservations, validationObservations, testObservations, validationMetrics, testMetrics }) => ({ unit, trainingObservations, validationObservations, testObservations, selectedMethod, validationMetrics, testMetrics })), null, 2));'
+```
+
+La corrida terminó y sus resultados coinciden con las tablas de este informe. El conjunto contiene 50 series y 2,300 ejemplos evaluables después de reservar las cuatro semanas iniciales de cada serie.
 
 | Unidad | Entrenamiento | Validación | Prueba | MAE validación RF / última semana / promedio 4 semanas | Método elegido en validación | MAE de prueba del método elegido | WAPE de prueba |
 |---|---:|---:|---:|---:|---|---:|---:|

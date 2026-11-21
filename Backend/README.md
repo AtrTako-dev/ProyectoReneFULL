@@ -1,35 +1,62 @@
 # More Stock API
 
-API REST de More Stock con Express y MySQL/TiDB. La configuración local se carga desde `Backend/.env`; ese archivo se mantiene fuera del control de versiones.
+API REST de inventario, ventas y pronósticos para More Stock. Está construida con Node.js, Express y MySQL/TiDB; el modelo organiza su lógica mediante servicios y repositorios.
 
-## Inicio local
+## Requisitos
 
-Instala las dependencias con `npm ci`, configura `Backend/.env` con los valores locales de MySQL y arranca la API con `npm start`. La aplicación escucha en `127.0.0.1` durante el desarrollo y publica la ruta de salud en `/api/v1/health`.
+- Node.js 22 o posterior.
+- MySQL local para iniciar la API.
+- Los archivos de `pulsostock_matriz_soriana_22500_v3/` para cargar el conjunto sintético de demostración.
+
+## Instalación y configuración local
+
+Desde esta carpeta, instala las versiones fijadas en el lockfile y crea la configuración local a partir del ejemplo:
+
+```sh
+npm ci
+cp .env.example .env
+```
+
+Edita `Backend/.env` en tu computadora con el host, usuario, contraseña y nombre de una base MySQL local ya creada. El archivo está excluido de Git y sus valores no deben pegarse en tickets, informes ni repositorios. Al iniciar, la API comprueba la conexión y crea o ajusta las tablas del esquema. Con `DEMO_MODE=false`, las ventas, los surtidos y las cuentas deben existir en MySQL antes de iniciar; la API no importa los CSV ni crea cuentas demo en ese modo.
+
+Para importar el conjunto sintético en una demostración local, usa `NODE_ENV=development` y `DEMO_MODE=true` en `.env`. Configura las cuentas demo mediante `DEMO_ACCOUNTS_JSON`; cada cuenta necesita correo, contraseña y `businessId`. El modo demo se bloquea fuera de `development`.
+
+Inicia la API con:
+
+```sh
+npm start
+```
+
+En desarrollo escucha en `127.0.0.1:3000`. La ruta `http://127.0.0.1:3000/api/v1/health` confirma que el proceso HTTP responde. No valida que MySQL siga disponible.
+
+## Pronóstico y entrenamiento
+
+Al arrancar, el proceso carga las ventas desde MySQL y ejecuta `ForecastService.initialize()`. El servicio reutiliza el artefacto cuya huella coincide con los datos; si la entrada cambió, evalúa los métodos, escoge por MAE de validación y entrena el modelo de despliegue con el histórico completo. Las solicitudes HTTP consultan el modelo cargado y no lo entrenan.
+
+Para reproducir la evaluación cronológica de los CSV sin MySQL, usa el comando y la tabla publicados en [`docs/FASE_5_INFORME.md`](../docs/FASE_5_INFORME.md). Esa ejecución crea el servicio sin repositorio de artefactos, así que no guarda un modelo en la base.
 
 ## Pruebas
 
-Ejecuta `npm test` para las pruebas locales. Las pruebas de persistencia MySQL solo se habilitan de forma explícita con `RUN_MYSQL_PERSISTENCE_TESTS=true`, un servidor local (`localhost`, `127.0.0.1` o `::1`) y una base cuyo nombre termine en `_test`. Configura una base separada como `more_stock_test` antes de ejecutarlas; después puedes usar `RUN_MYSQL_PERSISTENCE_TESTS=true DB_NAME=more_stock_test npm test -- --test-concurrency=1`. Las ejecuciones simultáneas sobre la misma base de prueba se bloquean. No apuntes esas pruebas a una base de desarrollo o producción porque inicializan el esquema y los datos de demostración.
+Ejecuta las pruebas automáticas sin habilitar persistencia MySQL:
 
-## Límite de intentos de inicio de sesión
+```sh
+npm test -- --test-concurrency=1
+```
 
-El inicio de sesión permite cinco intentos fallidos por combinación de correo e IP dentro de una ventana de 15 minutos. Las solicitudes en curso también reservan un espacio para que una ráfaga simultánea no rebase el límite. Al alcanzarlo, la respuesta es `429 LOGIN_RATE_LIMITED` e incluye `Retry-After`; el bloqueo dura 15 minutos. Un inicio de sesión correcto restablece el contador. Los valores pueden ajustarse con `LOGIN_RATE_LIMIT_MAX_ATTEMPTS`, `LOGIN_RATE_LIMIT_WINDOW_MS`, `LOGIN_RATE_LIMIT_BLOCK_MS` y `LOGIN_RATE_LIMIT_CLEANUP_INTERVAL_MS`; están listados en `.env.example`.
+Las pruebas de persistencia requieren `RUN_MYSQL_PERSISTENCE_TESTS=true`, host local, la base aislada `more_stock_codex_test` y una cuenta en `DEMO_ACCOUNTS_JSON` asociada al negocio `201`. Configura las credenciales en `.env` y ejecuta:
 
-En una conexión directa, la IP se obtiene de Express. El servicio de Render descrito en `render.yaml` debe configurar `LOGIN_RATE_LIMIT_CLIENT_IP_HEADER=CF-Connecting-IP` antes de desplegarlo y verificar que la entrada confiable sobrescriba el encabezado y que la aplicación no sea accesible por una ruta que permita falsificarlo. El valor predeterminado queda vacío y no confía en `X-Forwarded-For`, porque Express no puede asumir que un proxy lo saneó ([guía de Express](https://expressjs.com/en/guide/behind-proxies/); [guía de Render sobre IP del cliente](https://render.com/articles/how-render-handles-ddos-attacks); [guía de Render sobre `CF-Connecting-IP`](https://render.com/articles/host-pocketbase-on-render)).
+```sh
+RUN_MYSQL_PERSISTENCE_TESTS=true DB_NAME=more_stock_codex_test npm test -- --test-concurrency=1
+```
 
-El contador vive en memoria, guarda hasta 10,000 combinaciones activas, se limpia periódicamente y se borra al reiniciar el proceso. Cuando se llena, rechaza nuevas combinaciones con 429 hasta que expiren entradas; no elimina bloqueos vigentes para abrir espacio. El estado no se comparte entre varias instancias del backend, así que esta protección cubre una ejecución local o un proceso único y no reemplaza un limitador compartido en un despliegue con varias instancias.
+La suite usa esa base para verificar la persistencia y restaura los registros que modifica. Si las condiciones de seguridad no se cumplen, las pruebas MySQL se omiten. No apuntes la suite a una base de desarrollo o producción.
 
-## Despliegue preparado
+## Protección de inicio de sesión
 
-El archivo `../render.yaml` define un servicio Node para Render con raíz `Backend/`, instalación reproducible desde `package-lock.json`, inicio con `npm start` y chequeo HTTP en `/api/v1/health`. El despliegue automático está apagado.
+Por defecto, el inicio de sesión permite cinco fallos consecutivos por combinación de correo e IP dentro de 15 minutos. Al alcanzar el límite responde `429 LOGIN_RATE_LIMITED` e incluye `Retry-After`; un inicio de sesión correcto restablece el contador. Los valores se ajustan con `LOGIN_RATE_LIMIT_MAX_ATTEMPTS`, `LOGIN_RATE_LIMIT_WINDOW_MS`, `LOGIN_RATE_LIMIT_BLOCK_MS`, `LOGIN_RATE_LIMIT_CLEANUP_INTERVAL_MS` y `LOGIN_RATE_LIMIT_MAX_TRACKED_KEYS`.
 
-Para conectar TiDB Cloud, configura en el panel de Render `DB_HOST`, `DB_USER`, `DB_PASSWORD` y `DB_NAME` con los valores del clúster. La configuración del Blueprint usa el puerto MySQL/TiDB `4000`, activa TLS (`DB_SSL=true`) y desactiva la carga automática de datos demo (`DEMO_MODE=false`). Ajusta el puerto si el proveedor del clúster indica otro.
+El estado vive en memoria, con un máximo de 10,000 combinaciones, y se limpia periódicamente. Se borra al reiniciar y no se comparte entre procesos. En Render solo se debe configurar `LOGIN_RATE_LIMIT_CLIENT_IP_HEADER=CF-Connecting-IP` cuando una entrada confiable sobrescriba ese encabezado y no exista una ruta de acceso que permita falsificarlo. El valor predeterminado queda vacío y no confía en `X-Forwarded-For`. Consulta la [guía de Express](https://expressjs.com/en/guide/behind-proxies/), la [guía de Render sobre la IP del cliente](https://render.com/articles/how-render-handles-ddos-attacks) y la [referencia de `CF-Connecting-IP` de Render](https://render.com/articles/host-pocketbase-on-render).
 
-La inicialización de la base crea las tablas del esquema, pero el modo de producción no importa los CSV sintéticos ni crea cuentas demo. El usuario de base necesita permisos de lectura y escritura para la API, además de `CREATE` y `ALTER` porque el proceso prepara el esquema al arrancar. Los datos y cuentas para una demostración deben prepararse por separado antes de conectar la app.
+## Preparación de despliegue
 
-## Límites antes de una publicación
-
-- No hay valores de conexión ni contraseñas guardados en `render.yaml`.
-- Se debe usar un usuario de base con permisos mínimos, no `root`.
-- El endpoint de salud confirma que el proceso HTTP responde; no hace una consulta de disponibilidad a la base.
-- No se ejecutó integración Backend–Android–DB y no se publicó el servicio.
-- La cuenta de Render debe estar vinculada a un repositorio Git y a un clúster TiDB accesible antes de iniciar el Blueprint.
+`../render.yaml` describe un servicio de Node con despliegues automáticos apagados. No contiene secretos. Para conectar TiDB se configuran las variables del servicio en Render; el tipo de clúster, TLS y CA pendiente se detallan en [`docs/PENDIENTES_DESPLIEGUE.md`](../docs/PENDIENTES_DESPLIEGUE.md). No se ha creado ni desplegado un servicio.

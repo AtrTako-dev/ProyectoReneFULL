@@ -2,26 +2,40 @@
 
 Aplicación Android nativa construida con Kotlin, Jetpack Compose y MVVM. La interfaz consume la API REST del backend y no se conecta directamente a MySQL.
 
-## Abrir el proyecto
+## Requisitos y apertura
 
-Abre la carpeta `FrontEnd/` desde Android Studio. El proyecto requiere JDK 17 y Android SDK 37. Gradle sincroniza los plugins y bibliotecas declarados en los archivos del proyecto.
+Abre la carpeta `FrontEnd/` en Android Studio. El proyecto está configurado para JDK 17, `compileSdk` 37 y `minSdk` 26. Gradle descarga las versiones declaradas en el proyecto durante la primera sincronización.
 
-## Conectar con el backend local
+## Dirección del backend
 
-El valor predeterminado apunta al backend que corre en el puerto 3000 del equipo anfitrión cuando se usa el emulador Android:
+El valor predeterminado conecta el emulador Android con la API que se ejecuta en el equipo anfitrión en el puerto 3000:
 
 ```properties
 morestock.apiBaseUrl=http://10.0.2.2:3000/api/v1
 ```
 
-Para cambiarlo, agrega esa propiedad a `FrontEnd/local.properties`. En un teléfono físico, usa la dirección IP local de la computadora y asegúrate de que ambos dispositivos estén en la misma red. La configuración HTTP sin cifrar solo está habilitada en la variante `debug`; la variante `release` requiere HTTPS.
+Para cambiarlo, define la propiedad en `FrontEnd/local.properties` o pásala a Gradle con `-Pmorestock.apiBaseUrl=...`. En un teléfono físico se usa la IP local de la computadora y ambos dispositivos deben compartir la red.
 
-Para una compilación `release`, configura la propiedad Gradle `morestock.apiBaseUrl` con la URL HTTPS real de la API. Se puede pasar con `-Pmorestock.apiBaseUrl` al ejecutar Gradle o definirla en `local.properties`, que está excluido del control de versiones. La dirección predeterminada del emulador es solo para desarrollo local.
+HTTP sin cifrar está habilitado solo en `debug`. La variante `release` requiere HTTPS. Antes de compilar una versión release, configura la URL real de la API con `morestock.apiBaseUrl`; los pasos de URL HTTPS y firma están en [`docs/PENDIENTES_DESPLIEGUE.md`](../docs/PENDIENTES_DESPLIEGUE.md).
 
-## Flujo disponible
+## Ejecutar y compilar
 
-- Inicio y cierre de sesión mediante la API.
-- Selección de negocio según las membresías devueltas por el backend.
-- Resumen, catálogo, inventario y recomendaciones.
-- Detalle por producto con pronóstico semanal, historial reciente, métricas y explicación de recomendación.
-- Etiqueta visible cuando el backend identifica los datos como sintéticos.
+Inicia primero el backend local y luego selecciona la configuración `app` en Android Studio para ejecutarla en un emulador o teléfono conectado.
+
+Desde `FrontEnd/`, verifica las pruebas, lint y la compilación debug con:
+
+```sh
+./gradlew :app:testDebugUnitTest
+./gradlew :app:lintDebug
+./gradlew :app:assembleDebug
+```
+
+El APK debug se genera en `app/build/outputs/apk/debug/app-debug.apk`. La aplicación informa cuando el servidor tarda en responder y permite reintentar; los tiempos de conexión y lectura son 15 y 75 segundos.
+
+## Funciones
+
+- Inicio y cierre de sesión.
+- Selección de negocios disponibles para la cuenta.
+- Resumen, catálogo, inventario y recomendaciones con cantidad y explicación.
+- Detalle del producto con pronóstico semanal separado de las semanas históricas.
+- Etiqueta visible cuando el backend indica que el pronóstico o inventario usa datos sintéticos.
