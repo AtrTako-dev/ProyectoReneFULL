@@ -152,7 +152,11 @@ private fun RecommendationList(recommendations: List<Recommendation>, onSelectPr
         items(recommendations, key = Recommendation::sku) { recommendation ->
             InfoCard(
                 title = recommendation.productName,
-                detail = "${recommendation.status.replace('_', ' ')} · sugerencia: ${formatAmount(recommendation.suggestedQuantity)} ${recommendation.unit}",
+                detail = listOfNotNull(
+                    "${recommendation.status.replace('_', ' ')} · sugerencia: ${formatAmount(recommendation.suggestedQuantity)} ${recommendation.unit}",
+                    recommendation.explanation.takeIf(String::isNotBlank),
+                    "Pronóstico con datos sintéticos de demostración.".takeIf { recommendation.syntheticForecast },
+                ).joinToString(" · "),
                 onClick = { onSelectProduct(recommendation.sku) },
             )
         }

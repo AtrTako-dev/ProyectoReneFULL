@@ -24,7 +24,7 @@ Este informe conserva el diagnóstico del proyecto al cierre de la Fase 1. Las f
 | Documentación | `docs/adr/`, `docs/superpowers/plans/` y `GLOSSARY.md` |
 | Git | Hay un directorio `.git/`, pero `git status` no reconoce la carpeta como repositorio. No se detectó historial disponible para revisar o usar como punto de retorno. |
 
-Se conservaron las mayúsculas reales de `Backend/` y `FrontEnd/`. Los nombres históricos `PulsoStock` dentro del directorio y de los archivos del dataset se permiten como nombres de datos; la aplicación y la API se identifican como More Stock.
+Se conservaron las mayúsculas reales de `Backend/` y `FrontEnd/`. El nombre heredado solo permanece en la ruta del dataset; la aplicación y la API se identifican como More Stock.
 
 ### Archivos de datos canónicos
 

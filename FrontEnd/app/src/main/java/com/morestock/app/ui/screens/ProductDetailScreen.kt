@@ -85,7 +85,7 @@ private fun ForecastContent(forecast: Forecast) {
         }
         if (forecast.weeklyPredictions.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
-            Text("Demanda semanal", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("Pronóstico por semana", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             forecast.weeklyPredictions.forEach { point ->
                 Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(point.date, style = MaterialTheme.typography.bodySmall)
