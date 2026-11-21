@@ -21,6 +21,7 @@ export class LoginAttemptLimiter {
   #windowMs;
   #blockDurationMs;
   #cleanupIntervalMs;
+  #maxTrackedKeys;
   #clientIpHeader;
   #cleanupTimer;
 
@@ -29,6 +30,7 @@ export class LoginAttemptLimiter {
     windowMs = 15 * 60 * 1000,
     blockDurationMs = 15 * 60 * 1000,
     cleanupIntervalMs = 60 * 1000,
+    maxTrackedKeys = 10_000,
     clientIpHeader = null,
     clock = () => Date.now(),
   } = {}) {
@@ -36,11 +38,12 @@ export class LoginAttemptLimiter {
     this.#windowMs = positiveInteger(windowMs, 'windowMs');
     this.#blockDurationMs = positiveInteger(blockDurationMs, 'blockDurationMs');
     this.#cleanupIntervalMs = positiveInteger(cleanupIntervalMs, 'cleanupIntervalMs');
+    this.#maxTrackedKeys = positiveInteger(maxTrackedKeys, 'maxTrackedKeys');
     if (clientIpHeader !== null && clientIpHeader !== 'cf-connecting-ip') {
       throw new RangeError('clientIpHeader solo admite cf-connecting-ip o null.');
     }
-    this.#clientIpHeader = clientIpHeader;
     if (typeof clock !== 'function') throw new TypeError('clock debe ser una función.');
+    this.#clientIpHeader = clientIpHeader;
     this.#clock = clock;
     this.#cleanupTimer = setInterval(() => this.#removeExpiredEntries(), this.#cleanupIntervalMs);
     this.#cleanupTimer.unref?.();
@@ -56,66 +59,130 @@ export class LoginAttemptLimiter {
     return createHash('sha256').update(`${email}\u0000${ip}`).digest('hex');
   }
 
+  #entryExpiresAt(entry) {
+    return entry.blockedUntil ?? entry.windowStartedAt + this.#windowMs;
+  }
+
   #getActiveEntry(key, now) {
     const entry = this.#attempts.get(key);
     if (!entry) return null;
-    const expired = entry.blockedUntil !== null
-      ? entry.blockedUntil <= now
-      : now - entry.windowStartedAt >= this.#windowMs;
-    if (expired) {
+    if (this.#entryExpiresAt(entry) <= now) {
       this.#attempts.delete(key);
       return null;
     }
     return entry;
   }
 
-  #retryAfterSeconds(blockedUntil, now) {
-    return Math.max(1, Math.ceil((blockedUntil - now) / 1000));
+  #removeExpiredEntries() {
+    const now = this.#clock();
+    for (const [key, entry] of this.#attempts) {
+      if (this.#entryExpiresAt(entry) <= now) this.#attempts.delete(key);
+    }
   }
 
-  #respondBlocked(response, blockedUntil, now) {
-    response.set('Retry-After', String(this.#retryAfterSeconds(blockedUntil, now)));
+  #retryAfterUntil(expiresAt, now) {
+    return Math.max(1, Math.ceil((expiresAt - now) / 1000));
+  }
+
+  #retryAfterForEarliestEntry(now) {
+    const nextExpiry = Math.min(...[...this.#attempts.values()].map(entry => this.#entryExpiresAt(entry)));
+    return Number.isFinite(nextExpiry) ? this.#retryAfterUntil(nextExpiry, now) : 1;
+  }
+
+  #respondBlocked(response, retryAfterSeconds) {
+    response.set('Retry-After', String(retryAfterSeconds));
     return response.status(429).json(RATE_LIMITED_RESPONSE);
   }
 
-  #recordFailure(key) {
+  #reserveAttempt(key) {
     const now = this.#clock();
     let entry = this.#getActiveEntry(key, now);
     if (entry?.blockedUntil !== null && entry?.blockedUntil !== undefined) {
       return {
-        blocked: true,
-        retryAfterSeconds: this.#retryAfterSeconds(entry.blockedUntil, now),
+        allowed: false,
+        retryAfterSeconds: this.#retryAfterUntil(entry.blockedUntil, now),
       };
     }
-    if (!entry) entry = { windowStartedAt: now, failures: 0, blockedUntil: null };
-    entry.failures += 1;
-    if (entry.failures >= this.#maxAttempts) entry.blockedUntil = now + this.#blockDurationMs;
+
+    if (!entry) {
+      this.#removeExpiredEntries();
+      if (this.#attempts.size >= this.#maxTrackedKeys) {
+        return { allowed: false, retryAfterSeconds: this.#retryAfterForEarliestEntry(now) };
+      }
+      entry = {
+        windowStartedAt: now,
+        failures: 0,
+        reservations: new Set(),
+        blockedUntil: null,
+        provisionalBlock: false,
+      };
+    }
+
+    if (entry.failures + entry.reservations.size >= this.#maxAttempts) {
+      entry.blockedUntil = now + this.#blockDurationMs;
+      entry.provisionalBlock = true;
+      this.#attempts.set(key, entry);
+      return {
+        allowed: false,
+        retryAfterSeconds: this.#retryAfterUntil(entry.blockedUntil, now),
+      };
+    }
+
+    const reservation = Symbol('login-attempt');
+    entry.reservations.add(reservation);
     this.#attempts.set(key, entry);
-    return {
-      blocked: entry.blockedUntil !== null,
-      retryAfterSeconds: entry.blockedUntil === null
-        ? null
-        : this.#retryAfterSeconds(entry.blockedUntil, now),
-    };
+    return { allowed: true, reservation };
   }
 
-  #removeExpiredEntries() {
-    const now = this.#clock();
-    for (const [key] of this.#attempts) this.#getActiveEntry(key, now);
+  #completeAttempt(key, reservation, outcome) {
+    const entry = this.#attempts.get(key);
+    if (!entry || !entry.reservations.delete(reservation)) return { blocked: false };
+
+    if (outcome === 'success') {
+      this.#attempts.delete(key);
+      return { blocked: false };
+    }
+
+    if (outcome === 'failure') {
+      const now = this.#clock();
+      entry.failures += 1;
+      if (entry.failures >= this.#maxAttempts) {
+        if (entry.provisionalBlock || entry.blockedUntil === null) {
+          entry.blockedUntil = now + this.#blockDurationMs;
+        }
+        entry.provisionalBlock = false;
+      }
+      this.#attempts.set(key, entry);
+      return {
+        blocked: entry.blockedUntil !== null,
+        retryAfterSeconds: entry.blockedUntil === null
+          ? null
+          : this.#retryAfterUntil(entry.blockedUntil, now),
+      };
+    }
+
+    if (entry.provisionalBlock && entry.failures + entry.reservations.size < this.#maxAttempts) {
+      entry.blockedUntil = null;
+      entry.provisionalBlock = false;
+    }
+    if (entry.failures === 0 && entry.reservations.size === 0 && entry.blockedUntil === null) {
+      this.#attempts.delete(key);
+    } else {
+      this.#attempts.set(key, entry);
+    }
+    return { blocked: entry.blockedUntil !== null };
   }
 
   middleware() {
     return (request, response, next) => {
       const key = this.#requestKey(request);
-      const now = this.#clock();
-      const entry = this.#getActiveEntry(key, now);
-      if (entry?.blockedUntil !== null && entry?.blockedUntil !== undefined) {
-        return this.#respondBlocked(response, entry.blockedUntil, now);
-      }
+      const reservation = this.#reserveAttempt(key);
+      if (!reservation.allowed) return this.#respondBlocked(response, reservation.retryAfterSeconds);
 
       request.loginAttemptLimiter = {
-        recordFailure: () => this.#recordFailure(key),
-        reset: () => this.#attempts.delete(key),
+        recordFailure: () => this.#completeAttempt(key, reservation.reservation, 'failure'),
+        reset: () => this.#completeAttempt(key, reservation.reservation, 'success'),
+        cancel: () => this.#completeAttempt(key, reservation.reservation, 'cancel'),
       };
       return next();
     };

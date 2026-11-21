@@ -46,6 +46,8 @@ export function createAuthController(authService) {
             });
             return;
           }
+        } else {
+          request.loginAttemptLimiter?.cancel();
         }
         throw error;
       }

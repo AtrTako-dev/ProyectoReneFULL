@@ -59,6 +59,7 @@ export const loginAttemptLimiterConfig = Object.freeze({
   windowMs: positiveEnvironmentInteger('LOGIN_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
   blockDurationMs: positiveEnvironmentInteger('LOGIN_RATE_LIMIT_BLOCK_MS', 15 * 60 * 1000),
   cleanupIntervalMs: positiveEnvironmentInteger('LOGIN_RATE_LIMIT_CLEANUP_INTERVAL_MS', 60 * 1000),
+  maxTrackedKeys: positiveEnvironmentInteger('LOGIN_RATE_LIMIT_MAX_TRACKED_KEYS', 10_000),
   clientIpHeader: readLoginRateLimitClientIpHeader(),
 });
 
