@@ -194,6 +194,14 @@ class MoreStockViewModelTest {
         }
 
         override suspend fun getInventory(token: String, businessId: String) = emptyList<InventoryItem>()
+        override suspend fun updateInventory(
+            token: String,
+            businessId: String,
+            productId: String,
+            quantity: Double,
+            unit: String,
+            note: String?,
+        ): InventoryItem = error("No se usa en esta prueba.")
         override suspend fun getRecommendations(token: String, businessId: String) = emptyList<Recommendation>()
         override suspend fun getForecast(token: String, businessId: String, productId: String): Forecast =
             error("No se usa en esta prueba.")
@@ -216,6 +224,14 @@ class MoreStockViewModelTest {
             Product("PS001", "Manzana", "Fruta", "A granel", "pieza", 10.0),
         )
         override suspend fun getInventory(token: String, businessId: String) = emptyList<InventoryItem>()
+        override suspend fun updateInventory(
+            token: String,
+            businessId: String,
+            productId: String,
+            quantity: Double,
+            unit: String,
+            note: String?,
+        ): InventoryItem = error("No se usa en esta prueba.")
         override suspend fun getRecommendations(token: String, businessId: String) = emptyList<Recommendation>()
 
         override suspend fun getForecast(token: String, businessId: String, productId: String): Forecast {

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.morestock.app.data.Business
 import com.morestock.app.data.Forecast
 import com.morestock.app.data.InventoryItem
+import com.morestock.app.data.MoreStockApiException
 import com.morestock.app.data.MoreStockDataSource
 import com.morestock.app.data.Product
 import com.morestock.app.data.Recommendation
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import java.io.IOException
 
 enum class BusinessTab {
     SUMMARY,
@@ -39,10 +41,11 @@ data class MoreStockUiState(
     val isLoginLoading: Boolean = false,
     val isBusinessLoading: Boolean = false,
     val isForecastLoading: Boolean = false,
+    val isInventoryUpdating: Boolean = false,
     val error: String? = null,
 ) {
     val isLoading: Boolean
-        get() = isLoginLoading || isBusinessLoading || isForecastLoading
+        get() = isLoginLoading || isBusinessLoading || isForecastLoading || isInventoryUpdating
 }
 
 class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewModel() {
@@ -73,7 +76,7 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                mutableState.update { it.copy(isLoginLoading = false, error = error.message ?: "No se pudo iniciar sesión.") }
+                mutableState.update { it.copy(isLoginLoading = false, error = readableError(error, "No se pudo iniciar sesión.")) }
             }
         }
     }
@@ -184,6 +187,43 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
         mutableState.value.selectedBusiness?.let(::selectBusiness)
     }
 
+    fun updateInventory(productId: String, quantity: Double) {
+        val current = mutableState.value
+        val token = current.token
+        val business = current.selectedBusiness
+        val product = current.products.firstOrNull { it.sku == productId }
+        if (token == null || business == null || product == null) {
+            mutableState.update { it.copy(error = "Selecciona un producto de un negocio antes de actualizar el inventario.") }
+            return
+        }
+        if (!quantity.isValidInventoryQuantity()) {
+            mutableState.update {
+                it.copy(error = "La cantidad debe ser un número válido, mayor o igual a cero y con hasta tres decimales.")
+            }
+            return
+        }
+        if (current.isInventoryUpdating) return
+
+        mutableState.update { it.copy(isInventoryUpdating = true, error = null) }
+        viewModelScope.launch {
+            try {
+                val updated = repository.updateInventory(token, business.id, product.sku, quantity, product.unit)
+                if (mutableState.value.selectedBusiness?.id != business.id) return@launch
+                mutableState.update { state ->
+                    state.copy(inventory = state.inventory.filterNot { it.sku == updated.sku } + updated)
+                }
+                refresh()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (mutableState.value.selectedBusiness?.id != business.id) return@launch
+                mutableState.update { it.copy(error = readableError(error, "No se pudo actualizar el inventario.")) }
+            } finally {
+                mutableState.update { it.copy(isInventoryUpdating = false) }
+            }
+        }
+    }
+
     fun logout() {
         businessLoadJob?.cancel()
         forecastLoadJob?.cancel()
@@ -197,4 +237,16 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
         val inventory: List<InventoryItem>,
         val recommendations: List<Recommendation>,
     )
+
+    private fun readableError(error: Exception, fallback: String): String = when (error) {
+        is MoreStockApiException -> when (error.statusCode) {
+            429 -> "El servidor limitó temporalmente las solicitudes. Espera un momento e inténtalo de nuevo."
+            else -> error.message?.takeIf(String::isNotBlank) ?: fallback
+        }
+        is IOException -> "No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo."
+        else -> error.message?.takeIf(String::isNotBlank) ?: fallback
+    }
 }
+
+private fun Double.isValidInventoryQuantity(): Boolean =
+    isFinite() && this >= 0 && kotlin.math.abs(this * 1000.0 - kotlin.math.round(this * 1000.0)) < 0.0000001

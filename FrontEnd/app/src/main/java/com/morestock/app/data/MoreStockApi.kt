@@ -47,6 +47,24 @@ class MoreStockApi(baseUrl: String) {
         return response.optJSONArray("inventario").toInventoryItems()
     }
 
+    suspend fun updateInventory(
+        token: String,
+        businessId: String,
+        productId: String,
+        quantity: Double,
+        unit: String,
+        note: String? = null,
+    ): InventoryItem = request(
+        path = "businesses/${pathSegment(businessId)}/inventory/${pathSegment(productId)}",
+        method = "PUT",
+        token = token,
+        body = JSONObject()
+            .put("cantidad", quantity)
+            .put("unidad", unit)
+            .put("motivo", note),
+    ).optJSONObject("inventario")?.toInventoryItem()
+        ?: throw IllegalStateException("La respuesta no contiene el inventario actualizado.")
+
     suspend fun getRecommendations(token: String, businessId: String): List<Recommendation> {
         val response = request(path = "businesses/${pathSegment(businessId)}/recommendations", token = token)
         return response.optJSONArray("recomendaciones").toRecommendations()
@@ -163,18 +181,18 @@ private fun JSONArray?.toInventoryItems(): List<InventoryItem> = buildList {
     if (this@toInventoryItems == null) return@buildList
     for (index in 0 until length()) {
         val item = optJSONObject(index) ?: continue
-        add(
-            InventoryItem(
-                sku = item.optString("producto_id"),
-                productName = item.optString("producto", "Producto"),
-                quantity = item.optDouble("cantidad", 0.0),
-                unit = item.optString("unidad"),
-                synthetic = item.optBoolean("sintetico", false),
-                source = item.optString("fuente"),
-            ),
-        )
+        add(item.toInventoryItem())
     }
 }
+
+private fun JSONObject.toInventoryItem(): InventoryItem = InventoryItem(
+    sku = optString("producto_id"),
+    productName = optString("producto", "Producto"),
+    quantity = optDouble("cantidad", 0.0),
+    unit = optString("unidad"),
+    synthetic = optBoolean("sintetico", false),
+    source = optString("fuente"),
+)
 
 private fun JSONArray?.toRecommendations(): List<Recommendation> = buildList {
     if (this@toRecommendations == null) return@buildList
