@@ -11,7 +11,7 @@ El proyecto está preparado localmente. No se creó un clúster, no se configur�
 
 ## Render
 
-El Blueprint `render.yaml` tiene `autoDeployTrigger` desactivado. Cuando se decida desplegar, completar en la configuración del servicio las variables `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` y `DB_SSL`. El Blueprint fija `DB_PORT=4000`, `DB_SSL=true`, `NODE_ENV=production` y `DEMO_MODE=false`; las contraseñas se ingresan en el panel y no se guardan en Git.
+El Blueprint `render.yaml` tiene `autoDeployTrigger` desactivado y el plan gratuito explícito. Render suspende los servicios gratuitos tras 15 minutos sin tráfico, así que la primera solicitud posterior puede tardar en despertar el servicio. Cuando se cree el servicio, completar en la configuración las variables `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` y `DB_SSL`. El Blueprint fija `DB_PORT=4000`, `DB_SSL=true`, `NODE_ENV=production` y `DEMO_MODE=false`; las contraseñas se ingresan en el panel y no se guardan en Git.
 
 Antes de activar el límite de intentos detrás de un proxy, verificar la ruta real de entrada. Solo si un proxy confiable sobrescribe `CF-Connecting-IP` y no existe un acceso alterno falsificable, configurar `LOGIN_RATE_LIMIT_CLIENT_IP_HEADER=CF-Connecting-IP`. No usar `X-Forwarded-For` sin verificar cómo se sanea.
 
