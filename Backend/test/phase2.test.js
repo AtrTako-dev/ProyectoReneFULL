@@ -4,12 +4,13 @@ import { once } from 'node:events';
 import { Business } from '../src/models/business.model.js';
 import { BusinessMembership } from '../src/models/business-membership.model.js';
 import { LinearRegressionModel } from '../src/models/linear-regression.model.js';
-import app from '../src/app.js';
+import { createApp } from '../src/app.js';
 
 let server;
 let baseUrl;
 
 before(async () => {
+  const app = createApp({ databasePool: { query: async () => [] } });
   server = app.listen(0, '127.0.0.1');
   await once(server, 'listening');
   baseUrl = `http://127.0.0.1:${server.address().port}`;
@@ -29,7 +30,35 @@ test('la ruta de salud responde con el estado del servicio', async () => {
   assert.deepEqual(await response.json(), {
     status: 'ok',
     service: 'more-stock-api',
+    database: 'ok',
   });
+});
+
+test('la ruta de salud informa indisponibilidad sin exponer detalles de MySQL', async () => {
+  const app = createApp({
+    databasePool: {
+      query: async () => {
+        throw new Error('detalle interno confidencial');
+      },
+    },
+  });
+  const failingServer = app.listen(0, '127.0.0.1');
+  await once(failingServer, 'listening');
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${failingServer.address().port}/api/v1/health`);
+
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), {
+      status: 'unavailable',
+      service: 'more-stock-api',
+      database: 'unavailable',
+    });
+  } finally {
+    await new Promise((resolve, reject) => {
+      failingServer.close(error => (error ? reject(error) : resolve()));
+    });
+  }
 });
 
 test('una ruta inexistente devuelve un error 404 en JSON', async () => {

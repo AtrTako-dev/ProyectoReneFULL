@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { getHealth } from '../controllers/health.controller.js';
+import { createHealthController } from '../controllers/health.controller.js';
 
-const healthRouter = Router();
-
-healthRouter.get('/health', getHealth);
-
-export default healthRouter;
+export function createHealthRouter(databasePool) {
+  const healthRouter = Router();
+  healthRouter.get('/health', createHealthController(databasePool));
+  return healthRouter;
+}

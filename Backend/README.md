@@ -27,7 +27,7 @@ Inicia la API con:
 npm start
 ```
 
-En desarrollo escucha en `127.0.0.1:3000`. La ruta `http://127.0.0.1:3000/api/v1/health` confirma que el proceso HTTP responde. No valida que MySQL siga disponible.
+En desarrollo escucha en `127.0.0.1:3000`. La ruta `http://127.0.0.1:3000/api/v1/health` ejecuta `SELECT 1` y devuelve el estado de la API y de MySQL/TiDB. Si la base no responde, devuelve HTTP 503 sin exponer detalles de conexión.
 
 ## Pronóstico y entrenamiento
 
@@ -59,4 +59,4 @@ El estado vive en memoria, con un máximo de 10,000 combinaciones, y se limpia p
 
 ## Preparación de despliegue
 
-`../render.yaml` describe un servicio de Node con despliegues automáticos apagados. No contiene secretos. Para conectar TiDB se configuran las variables del servicio en Render; el tipo de clúster, TLS y CA pendiente se detallan en [`docs/PENDIENTES_DESPLIEGUE.md`](../docs/PENDIENTES_DESPLIEGUE.md). No se ha creado ni desplegado un servicio.
+`../render.yaml` describe un servicio de Node con despliegues automáticos apagados. No contiene secretos. En Render, abre **more-stock-api → Environment** y configura `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` y `DB_NAME` con los datos de conexión de TiDB Cloud; conserva `DB_SSL=true`. Crea la base antes de iniciar el servicio y usa un usuario limitado a esa base con permisos de lectura, escritura, `CREATE` y `ALTER` para el inicializador del esquema. Guarda esos valores solo en el panel de Render, nunca en Kotlin, JavaScript, `render.yaml`, Git ni el APK. La guía de clúster y TLS está en [`docs/PENDIENTES_DESPLIEGUE.md`](../docs/PENDIENTES_DESPLIEGUE.md).

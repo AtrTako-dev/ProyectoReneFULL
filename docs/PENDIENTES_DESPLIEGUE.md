@@ -15,7 +15,7 @@ El Blueprint `render.yaml` tiene `autoDeployTrigger` desactivado. Cuando se deci
 
 Antes de activar el límite de intentos detrás de un proxy, verificar la ruta real de entrada. Solo si un proxy confiable sobrescribe `CF-Connecting-IP` y no existe un acceso alterno falsificable, configurar `LOGIN_RATE_LIMIT_CLIENT_IP_HEADER=CF-Connecting-IP`. No usar `X-Forwarded-For` sin verificar cómo se sanea.
 
-Después de configurar los secretos, iniciar manualmente el servicio y comprobar la ruta de salud, el inicio de sesión, los permisos por negocio, los datos y la conexión TLS. El endpoint de salud solo confirma que responde el proceso HTTP; no demuestra disponibilidad de MySQL.
+Después de configurar los secretos, iniciar manualmente el servicio y comprobar la ruta de salud, el inicio de sesión, los permisos por negocio, los datos y la conexión TLS. `/api/v1/health` ejecuta `SELECT 1` y devuelve `503` si no puede consultar MySQL/TiDB; una respuesta `200` comprueba el proceso y una consulta real a la base.
 
 ## URL HTTPS y APK release
 
