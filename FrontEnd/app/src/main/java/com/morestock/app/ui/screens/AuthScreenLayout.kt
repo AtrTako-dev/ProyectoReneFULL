@@ -18,6 +18,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -92,11 +95,16 @@ internal fun AuthCooldownNotice(seconds: Long) {
             modifier = Modifier.padding(MoreStockSpacing.medium),
             verticalArrangement = Arrangement.spacedBy(MoreStockSpacing.xSmall),
         ) {
-            Text("Espera antes de intentarlo de nuevo", style = MaterialTheme.typography.titleSmall)
             Text(
-                "El servidor limitó temporalmente los intentos. Podrás probar en $seconds segundos.",
+                "Espera antes de intentarlo de nuevo",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            )
+            Text(
+                "El servidor limitó temporalmente los intentos.",
                 style = MaterialTheme.typography.bodyMedium,
             )
+            Text("Podrás probar en $seconds segundos.", style = MaterialTheme.typography.bodySmall)
         }
     }
 }

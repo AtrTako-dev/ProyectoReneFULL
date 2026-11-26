@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.morestock.app.data.Forecast
@@ -172,9 +173,14 @@ private fun ForecastPointList(title: String, points: List<ForecastPoint>, unit: 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         points.forEach { point ->
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(point.date, style = MaterialTheme.typography.bodySmall)
-                Text("${formatAmount(point.demand)} $unit", style = MaterialTheme.typography.bodySmall)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(point.date, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "${formatAmount(point.demand)} $unit",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.End,
+                )
             }
         }
     }
@@ -210,9 +216,23 @@ private fun RecommendationContent(recommendation: Recommendation) {
 
 @Composable
 private fun DataRow(label: String, value: Double, unit: String) {
-    Row(modifier = Modifier.fillMaxWidth().padding(top = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("${formatAmount(value)} $unit", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 5.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            label,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            "${formatAmount(value)} $unit",
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.End,
+        )
     }
 }
 

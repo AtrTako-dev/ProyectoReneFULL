@@ -30,6 +30,8 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.morestock.app.data.ForecastPoint
 import com.morestock.app.ui.presentation.ForecastChartPresentation
@@ -57,7 +59,7 @@ internal fun ForecastChart(
     val maxValue = if (rawMaxValue > minValue) rawMaxValue else minValue + 1.0
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             ChartLegend(color = primary, label = "Histórico", dashed = false)
             ChartLegend(color = forecastColor, label = "Pronóstico (estimado)", dashed = true)
         }
@@ -149,9 +151,24 @@ internal fun ForecastChart(
         if (samples.size == 1) {
             Text(samples.single().date, style = MaterialTheme.typography.labelSmall, color = labelColor)
         } else {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(samples.first().date, style = MaterialTheme.typography.labelSmall, color = labelColor)
-                Text(samples.last().date, style = MaterialTheme.typography.labelSmall, color = labelColor)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    samples.first().date,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = labelColor,
+                )
+                Text(
+                    samples.last().date,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = labelColor,
+                    textAlign = TextAlign.End,
+                )
             }
         }
         selected?.let {
@@ -173,7 +190,7 @@ internal fun ForecastChart(
 
 @Composable
 private fun ChartLegend(color: androidx.compose.ui.graphics.Color, label: String, dashed: Boolean) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Canvas(Modifier.width(22.dp).height(14.dp)) {
             val y = size.height / 2f
             if (dashed) {
@@ -183,7 +200,7 @@ private fun ChartLegend(color: androidx.compose.ui.graphics.Color, label: String
                 drawLine(color, Offset(0f, y), Offset(size.width, y), strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
             }
         }
-        Text(label, style = MaterialTheme.typography.labelSmall)
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
     }
 }
 

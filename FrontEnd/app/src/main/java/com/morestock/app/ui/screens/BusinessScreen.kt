@@ -44,6 +44,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
@@ -144,7 +145,15 @@ fun BusinessScreen(
                         selected = selectedTab == tab,
                         onClick = { onSelectTab(tab) },
                         icon = { BusinessTabGlyph(tab, selectedTab == tab) },
-                        label = { Text(tab.label) },
+                        label = {
+                            Text(
+                                tab.label,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        },
                     )
                 }
             }

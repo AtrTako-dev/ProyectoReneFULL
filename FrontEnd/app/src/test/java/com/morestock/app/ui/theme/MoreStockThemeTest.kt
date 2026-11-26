@@ -13,6 +13,8 @@ class MoreStockThemeTest {
                 scheme.primary to scheme.onPrimary,
                 scheme.primaryContainer to scheme.onPrimaryContainer,
                 scheme.background to scheme.onBackground,
+                scheme.background to scheme.onSurfaceVariant,
+                scheme.surface to scheme.onSurfaceVariant,
                 scheme.background to scheme.secondary,
                 scheme.surface to scheme.onSurface,
                 scheme.surfaceVariant to scheme.onSurfaceVariant,
@@ -52,6 +54,15 @@ class MoreStockThemeTest {
         palettes.forEach { palette ->
             listOf(palette.buy, palette.maintain, palette.noBuy).forEach { colors ->
                 assertTrue(contrastRatio(colors.icon, colors.background) >= 3.0)
+            }
+        }
+    }
+
+    @Test
+    fun forecastChartLinesMeetNonTextContrastInLightAndDarkThemes() {
+        listOf(MoreStockLightColorScheme, MoreStockDarkColorScheme).forEach { scheme ->
+            listOf(scheme.primary, scheme.tertiary).forEach { lineColor ->
+                assertTrue(contrastRatio(lineColor, scheme.surface) >= 3.0)
             }
         }
     }
