@@ -22,6 +22,8 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -76,13 +78,21 @@ fun BusinessScreen(
     recommendations: List<Recommendation>,
     selectedTab: BusinessTab,
     isLoading: Boolean,
+    isInventoryUpdating: Boolean,
+    isInventoryCheckingLatest: Boolean,
+    inventoryUpdateVersion: Int,
     error: String?,
     canRetry: Boolean,
     onSelectTab: (BusinessTab) -> Unit,
     onSelectProduct: (String) -> Unit,
+    onUpdateInventory: (String, Double, String, Double, String) -> Unit,
+    onClearError: () -> Unit,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
 ) {
+    var editingInventory by remember { mutableStateOf<InventoryItem?>(null) }
+    var pendingInventoryRevision by remember { mutableStateOf<Int?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
     var search by rememberSaveable { mutableStateOf("") }
     var selectedCategory by rememberSaveable { mutableStateOf("") }
     var selectedRecommendationName by rememberSaveable { mutableStateOf(RecommendationFilter.ALL.name) }
@@ -93,6 +103,14 @@ fun BusinessScreen(
     LaunchedEffect(categories) {
         if (selectedCategory.isNotBlank() && categories.none { it.equals(selectedCategory, ignoreCase = true) }) {
             selectedCategory = ""
+        }
+    }
+    LaunchedEffect(inventoryUpdateVersion) {
+        val pendingRevision = pendingInventoryRevision
+        if (pendingRevision != null && inventoryUpdateVersion > pendingRevision) {
+            editingInventory = null
+            pendingInventoryRevision = null
+            snackbarHostState.showSnackbar("Existencia actualizada")
         }
     }
     val filteredProducts by remember(products, inventory, recommendations, search, selectedCategory, selectedRecommendation, selectedSort) {
@@ -106,6 +124,7 @@ fun BusinessScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             BusinessHeader(
                 businessName = business.name,
@@ -137,7 +156,7 @@ fun BusinessScreen(
             verticalArrangement = Arrangement.spacedBy(MoreStockSpacing.medium),
         ) {
             when {
-                error != null -> item {
+                error != null && editingInventory == null -> item {
                     ErrorState(error, onRetry = if (canRetry) onRefresh else null)
                 }
                 isLoading -> item { LoadingState("Cargando información del negocio…") }
@@ -172,11 +191,38 @@ fun BusinessScreen(
                         },
                         onSelectProduct = onSelectProduct,
                     )
-                    BusinessTab.INVENTORY -> inventoryContent(inventory, products, onSelectProduct)
+                    BusinessTab.INVENTORY -> inventoryContent(
+                        inventory = inventory,
+                        products = products,
+                        onSelectProduct = onSelectProduct,
+                        onEditInventory = { item ->
+                            editingInventory = item
+                            onClearError()
+                        },
+                    )
                     BusinessTab.RECOMMENDATIONS -> recommendationContent(recommendations, onSelectProduct)
                 }
             }
         }
+    }
+    editingInventory?.let { item ->
+        InventoryEditDialog(
+            item = item,
+            latestItem = inventory.firstOrNull { it.sku == item.sku },
+            isProcessing = isInventoryUpdating,
+            isCheckingLatest = isInventoryCheckingLatest,
+            error = error,
+            onDismiss = {
+                editingInventory = null
+                pendingInventoryRevision = null
+                onClearError()
+            },
+            onSave = { quantity, unit, expectedQuantity, expectedUnit ->
+                pendingInventoryRevision = inventoryUpdateVersion
+                onUpdateInventory(item.sku, quantity, unit, expectedQuantity, expectedUnit)
+            },
+            onClearError = onClearError,
+        )
     }
 }
 
@@ -369,6 +415,7 @@ private fun LazyListScope.inventoryContent(
     inventory: List<InventoryItem>,
     products: List<Product>,
     onSelectProduct: (String) -> Unit,
+    onEditInventory: (InventoryItem) -> Unit,
 ) {
     val productBySku = products.associateBy(Product::sku)
     item {
@@ -382,13 +429,19 @@ private fun LazyListScope.inventoryContent(
     } else {
         items(inventory, key = InventoryItem::sku) { item ->
             val product = productBySku[item.sku]
-            ProductCard(
-                name = item.productName,
-                stockLabel = "${formatAmount(item.quantity)} ${item.unit}",
-                category = product?.category,
-                isSynthetic = item.synthetic,
-                onClick = { onSelectProduct(item.sku) },
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MoreStockSpacing.small)) {
+                ProductCard(
+                    name = item.productName,
+                    stockLabel = "${formatAmount(item.quantity)} ${item.unit}",
+                    modifier = Modifier.weight(1f),
+                    category = product?.category,
+                    isSynthetic = item.synthetic,
+                    onClick = { onSelectProduct(item.sku) },
+                )
+                TextButton(onClick = { onEditInventory(item) }, enabled = product != null) {
+                    Text("Editar")
+                }
+            }
         }
     }
 }

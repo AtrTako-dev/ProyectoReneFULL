@@ -261,20 +261,45 @@ class MoreStockViewModelBehaviorTest {
     @Test
     fun validInventoryUpdateReloadsBusinessData() = runTest {
         withMainDispatcher(testScheduler) {
-            val source = ControlledDataSource()
+            val source = ControlledDataSource().apply {
+                inventory = listOf(InventoryItem("PS001", "Manzana", 5.0, "caja", false, "actual"))
+            }
             val viewModel = signedInViewModel(source)
             runCurrent()
             viewModel.selectBusiness(BUSINESS)
             runCurrent()
             assertEquals(5.0, viewModel.state.value.inventory.single().quantity, 0.0)
 
-            viewModel.updateInventory("PS001", 9.0)
+            viewModel.updateInventory("PS001", 9.0, "caja", 5.0, "caja")
             runCurrent()
 
             assertEquals(1, source.updateCalls)
-            assertEquals(2, source.inventoryLoads)
+            assertEquals("caja", source.updatedUnit)
+            assertEquals(3, source.inventoryLoads)
+            assertEquals(1, viewModel.state.value.inventoryUpdateVersion)
             assertEquals(9.0, viewModel.state.value.inventory.single().quantity, 0.0)
             assertNull(viewModel.state.value.error)
+            assertFalse(viewModel.state.value.isLoading)
+        }
+    }
+
+    @Test
+    fun inventoryUpdateStopsWhenServerValueChangedAndKeepsLatestValue() = runTest {
+        withMainDispatcher(testScheduler) {
+            val source = ControlledDataSource()
+            val viewModel = signedInViewModel(source)
+            runCurrent()
+            viewModel.selectBusiness(BUSINESS)
+            runCurrent()
+            source.inventory = listOf(InventoryItem("PS001", "Manzana", 8.0, "pieza", false, "actual"))
+
+            viewModel.updateInventory("PS001", 9.0, "pieza", 5.0, "pieza")
+            runCurrent()
+
+            assertEquals(0, source.updateCalls)
+            assertEquals(8.0, viewModel.state.value.inventory.single().quantity, 0.0)
+            assertTrue(viewModel.state.value.error.orEmpty().contains("cambió"))
+            assertEquals(0, viewModel.state.value.inventoryUpdateVersion)
             assertFalse(viewModel.state.value.isLoading)
         }
     }
@@ -314,6 +339,11 @@ class MoreStockViewModelBehaviorTest {
             viewModel.updateInventory("PS001", 1.2345)
             runCurrent()
             assertEquals(0, source.updateCalls)
+
+            viewModel.updateInventory("PS001", 1.5, "pieza")
+            runCurrent()
+            assertEquals(0, source.updateCalls)
+            assertTrue(viewModel.state.value.error.orEmpty().contains("entera"))
         }
     }
 
@@ -343,6 +373,7 @@ class MoreStockViewModelBehaviorTest {
         var loginCalls = 0
         var inventoryLoads = 0
         var updateCalls = 0
+        var updatedUnit: String? = null
 
         override suspend fun login(email: String, password: String): UserSession {
             loginCalls += 1
@@ -383,6 +414,7 @@ class MoreStockViewModelBehaviorTest {
             note: String?,
         ): InventoryItem {
             updateCalls += 1
+            updatedUnit = unit
             return InventoryItem(productId, "Manzana", quantity, unit, false, "actual").also {
                 inventory = listOf(it)
             }

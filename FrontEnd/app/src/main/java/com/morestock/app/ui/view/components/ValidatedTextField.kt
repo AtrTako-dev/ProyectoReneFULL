@@ -8,6 +8,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.VisualTransformation
 
 @Composable
@@ -33,7 +36,13 @@ fun ValidatedTextField(
         enabled = enabled,
         isError = errorMessage != null,
         supportingText = errorMessage?.let { message ->
-            { Text(message, color = MaterialTheme.colorScheme.error) }
+            {
+                Text(
+                    message,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive },
+                )
+            }
         },
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions,

@@ -9,6 +9,7 @@ import com.morestock.app.data.MoreStockApiException
 import com.morestock.app.data.MoreStockDataSource
 import com.morestock.app.data.Product
 import com.morestock.app.data.Recommendation
+import com.morestock.app.domain.validation.InventoryQuantityRules
 import kotlinx.coroutines.async
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
@@ -44,6 +45,8 @@ data class MoreStockUiState(
     val isBusinessLoading: Boolean = false,
     val isForecastLoading: Boolean = false,
     val isInventoryUpdating: Boolean = false,
+    val isInventoryCheckingLatest: Boolean = false,
+    val inventoryUpdateVersion: Int = 0,
     val error: String? = null,
     val canRetry: Boolean = false,
     val authRetryAfterSeconds: Long? = null,
@@ -135,6 +138,7 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
                 isBusinessLoading = false,
                 isForecastLoading = false,
                 isInventoryUpdating = false,
+                isInventoryCheckingLatest = false,
                 error = null,
                 canRetry = false,
                 authRetryAfterSeconds = null,
@@ -266,7 +270,13 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
         mutableState.value.selectedBusiness?.let(::selectBusiness)
     }
 
-    fun updateInventory(productId: String, quantity: Double) {
+    fun updateInventory(
+        productId: String,
+        quantity: Double,
+        unit: String? = null,
+        expectedQuantity: Double? = null,
+        expectedUnit: String? = null,
+    ) {
         val current = mutableState.value
         val token = current.token
         val business = current.selectedBusiness
@@ -277,24 +287,55 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
             }
             return
         }
-        if (!quantity.isValidInventoryQuantity()) {
+        val unitToSave = unit?.takeIf(String::isNotBlank)
+            ?: current.inventory.firstOrNull { it.sku == productId }?.unit
+            ?: product.unit
+        val validationError = InventoryQuantityRules.error(quantity, unitToSave)
+        if (validationError != null) {
             mutableState.update {
-                it.copy(
-                    error = "La cantidad debe ser un número válido, mayor o igual a cero y con hasta tres decimales.",
-                    canRetry = false,
-                )
+                it.copy(error = validationError, canRetry = false)
             }
             return
         }
         if (current.isInventoryUpdating) return
+        val shouldCheckLatest = expectedQuantity != null && expectedUnit != null
 
-        mutableState.update { it.copy(isInventoryUpdating = true, error = null, canRetry = false) }
+        mutableState.update {
+            it.copy(
+                isInventoryUpdating = true,
+                isInventoryCheckingLatest = shouldCheckLatest,
+                error = null,
+                canRetry = false,
+            )
+        }
         viewModelScope.launch {
             try {
-                val updated = repository.updateInventory(token, business.id, product.sku, quantity, product.unit)
+                if (shouldCheckLatest) {
+                    val latestInventory = repository.getInventory(token, business.id)
+                    if (mutableState.value.selectedBusiness?.id != business.id) return@launch
+                    val latestItem = latestInventory.firstOrNull { it.sku == product.sku }
+                    mutableState.update { it.copy(inventory = latestInventory, isInventoryCheckingLatest = false) }
+                    if (latestItem == null || latestItem.quantity != expectedQuantity || latestItem.unit != expectedUnit) {
+                        mutableState.update {
+                            it.copy(
+                                error = if (latestItem == null) {
+                                    "Este producto ya no tiene una existencia registrada. Actualiza la lista antes de continuar."
+                                } else {
+                                    "El inventario cambió mientras editabas. Revisa el dato actualizado y vuelve a guardar si quieres conservar tu cantidad."
+                                },
+                                canRetry = false,
+                            )
+                        }
+                        return@launch
+                    }
+                }
+                val updated = repository.updateInventory(token, business.id, product.sku, quantity, unitToSave)
                 if (mutableState.value.selectedBusiness?.id != business.id) return@launch
                 mutableState.update { state ->
-                    state.copy(inventory = state.inventory.filterNot { it.sku == updated.sku } + updated)
+                    state.copy(
+                        inventory = state.inventory.filterNot { it.sku == updated.sku } + updated,
+                        inventoryUpdateVersion = state.inventoryUpdateVersion + 1,
+                    )
                 }
                 refresh()
             } catch (error: CancellationException) {
@@ -308,7 +349,7 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
                     )
                 }
             } finally {
-                mutableState.update { it.copy(isInventoryUpdating = false) }
+                mutableState.update { it.copy(isInventoryUpdating = false, isInventoryCheckingLatest = false) }
             }
         }
     }
@@ -338,6 +379,3 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
         else -> error.message?.takeIf(String::isNotBlank) ?: fallback
     }
 }
-
-private fun Double.isValidInventoryQuantity(): Boolean =
-    isFinite() && this >= 0 && kotlin.math.abs(this * 1000.0 - kotlin.math.round(this * 1000.0)) < 0.0000001
