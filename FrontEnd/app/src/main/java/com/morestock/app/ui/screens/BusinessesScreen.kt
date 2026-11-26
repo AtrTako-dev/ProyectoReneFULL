@@ -17,6 +17,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -37,11 +41,12 @@ fun BusinessesScreen(
     onSelect: (Business) -> Unit,
     onLogout: () -> Unit,
 ) {
+    var showLogoutConfirmation by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("More Stock", style = MaterialTheme.typography.titleLarge) },
-                actions = { TextButton(onClick = onLogout) { Text("Salir") } },
+                actions = { TextButton(onClick = { showLogoutConfirmation = true }) { Text("Salir") } },
             )
         },
     ) { padding ->
@@ -72,6 +77,15 @@ fun BusinessesScreen(
                 }
             }
         }
+    }
+    if (showLogoutConfirmation) {
+        ConfirmLogoutDialog(
+            onDismiss = { showLogoutConfirmation = false },
+            onConfirm = {
+                showLogoutConfirmation = false
+                onLogout()
+            },
+        )
     }
 }
 

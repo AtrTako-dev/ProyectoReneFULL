@@ -15,6 +15,7 @@ private fun BusinessSummaryLightPreview() {
     MoreStockTheme(darkTheme = false) {
         BusinessScreen(
             business = demoBusiness,
+            email = "encargada@abarrotes.demo",
             products = demoProducts,
             inventory = demoInventory,
             recommendations = demoRecommendations,
@@ -29,6 +30,7 @@ private fun BusinessSummaryLightPreview() {
             onSelectProduct = {},
             onUpdateInventory = { _, _, _, _, _ -> },
             onClearError = {},
+            onLogout = {},
             onBack = {},
             onRefresh = {},
         )
@@ -41,6 +43,7 @@ private fun BusinessSummaryDarkPreview() {
     MoreStockTheme(darkTheme = true) {
         BusinessScreen(
             business = demoBusiness,
+            email = "encargada@abarrotes.demo",
             products = demoProducts,
             inventory = demoInventory,
             recommendations = demoRecommendations,
@@ -55,6 +58,7 @@ private fun BusinessSummaryDarkPreview() {
             onSelectProduct = {},
             onUpdateInventory = { _, _, _, _, _ -> },
             onClearError = {},
+            onLogout = {},
             onBack = {},
             onRefresh = {},
         )
@@ -67,6 +71,7 @@ private fun BusinessEmptyPreview() {
     MoreStockTheme {
         BusinessScreen(
             business = demoBusiness,
+            email = "encargada@abarrotes.demo",
             products = emptyList(),
             inventory = emptyList(),
             recommendations = emptyList(),
@@ -81,6 +86,7 @@ private fun BusinessEmptyPreview() {
             onSelectProduct = {},
             onUpdateInventory = { _, _, _, _, _ -> },
             onClearError = {},
+            onLogout = {},
             onBack = {},
             onRefresh = {},
         )
@@ -93,6 +99,7 @@ private fun BusinessErrorPreview() {
     MoreStockTheme {
         BusinessScreen(
             business = demoBusiness,
+            email = "encargada@abarrotes.demo",
             products = emptyList(),
             inventory = emptyList(),
             recommendations = emptyList(),
@@ -107,6 +114,7 @@ private fun BusinessErrorPreview() {
             onSelectProduct = {},
             onUpdateInventory = { _, _, _, _, _ -> },
             onClearError = {},
+            onLogout = {},
             onBack = {},
             onRefresh = {},
         )
@@ -134,3 +142,31 @@ private val demoRecommendations = listOf(
     Recommendation("P-002", "Concha", "pieza", 12.0, 10.0, 10.0, 0.0, 12.0, "MANTENER", "La existencia actual cubre la demanda esperada.", "Modelo de demostración", null, null, true),
     Recommendation("P-003", "Leche entera", "litro", 3.0, 2.0, 2.0, 0.0, 3.0, "NO_COMPRAR", "La existencia actual es suficiente.", "Modelo de demostración", null, null, true),
 )
+
+@Preview(name = "Cuenta de negocio · datos de demostración", showBackground = true, showSystemUi = true)
+@Composable
+private fun BusinessProfilePreview() {
+    MoreStockTheme {
+        BusinessScreen(
+            business = demoBusiness,
+            email = "encargada@abarrotes.demo",
+            products = demoProducts,
+            inventory = demoInventory,
+            recommendations = demoRecommendations,
+            selectedTab = BusinessTab.PROFILE,
+            isLoading = false,
+            isInventoryUpdating = false,
+            isInventoryCheckingLatest = false,
+            inventoryUpdateVersion = 0,
+            error = null,
+            canRetry = false,
+            onSelectTab = {},
+            onSelectProduct = {},
+            onUpdateInventory = { _, _, _, _, _ -> },
+            onClearError = {},
+            onLogout = {},
+            onBack = {},
+            onRefresh = {},
+        )
+    }
+}

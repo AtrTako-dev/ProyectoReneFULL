@@ -42,6 +42,7 @@ fun MoreStockApp(viewModel: MoreStockViewModel) {
 
         selectedProduct == null -> BusinessScreen(
             business = selectedBusiness,
+            email = state.email,
             products = state.products,
             inventory = state.inventory,
             recommendations = state.recommendations,
@@ -56,6 +57,7 @@ fun MoreStockApp(viewModel: MoreStockViewModel) {
             onSelectProduct = viewModel::selectProduct,
             onUpdateInventory = viewModel::updateInventory,
             onClearError = viewModel::clearError,
+            onLogout = viewModel::logout,
             onBack = viewModel::goBackToBusinesses,
             onRefresh = viewModel::refresh,
         )

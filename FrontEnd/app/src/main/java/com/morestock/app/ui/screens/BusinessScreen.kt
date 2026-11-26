@@ -73,6 +73,7 @@ import java.util.Locale
 @Composable
 fun BusinessScreen(
     business: Business,
+    email: String,
     products: List<Product>,
     inventory: List<InventoryItem>,
     recommendations: List<Recommendation>,
@@ -87,10 +88,12 @@ fun BusinessScreen(
     onSelectProduct: (String) -> Unit,
     onUpdateInventory: (String, Double, String, Double, String) -> Unit,
     onClearError: () -> Unit,
+    onLogout: () -> Unit,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
 ) {
     var editingInventory by remember { mutableStateOf<InventoryItem?>(null) }
+    var showLogoutConfirmation by remember { mutableStateOf(false) }
     var pendingInventoryRevision by remember { mutableStateOf<Int?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     var search by rememberSaveable { mutableStateOf("") }
@@ -201,6 +204,14 @@ fun BusinessScreen(
                         },
                     )
                     BusinessTab.RECOMMENDATIONS -> recommendationContent(recommendations, onSelectProduct)
+                    BusinessTab.PROFILE -> item {
+                        ProfilePanel(
+                            email = email,
+                            business = business,
+                            onChangeBusiness = onBack,
+                            onRequestLogout = { showLogoutConfirmation = true },
+                        )
+                    }
                 }
             }
         }
@@ -222,6 +233,15 @@ fun BusinessScreen(
                 onUpdateInventory(item.sku, quantity, unit, expectedQuantity, expectedUnit)
             },
             onClearError = onClearError,
+        )
+    }
+    if (showLogoutConfirmation) {
+        ConfirmLogoutDialog(
+            onDismiss = { showLogoutConfirmation = false },
+            onConfirm = {
+                showLogoutConfirmation = false
+                onLogout()
+            },
         )
     }
 }
@@ -541,6 +561,7 @@ private val BusinessTab.label: String
         BusinessTab.CATALOG -> "Productos"
         BusinessTab.INVENTORY -> "Inventario"
         BusinessTab.RECOMMENDATIONS -> "Sugerencias"
+        BusinessTab.PROFILE -> "Cuenta"
     }
 
 @Composable
@@ -588,6 +609,18 @@ private fun BusinessTabGlyph(tab: BusinessTab, selected: Boolean) {
                     lineTo(size.width * 0.84f, size.height * 0.25f)
                 }
                 drawPath(check, color, style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round))
+            }
+            BusinessTab.PROFILE -> {
+                drawCircle(color, radius = size.width * 0.16f, center = Offset(size.width * 0.5f, size.height * 0.34f), style = stroke)
+                drawArc(
+                    color = color,
+                    startAngle = 205f,
+                    sweepAngle = 130f,
+                    useCenter = false,
+                    topLeft = Offset(size.width * 0.16f, size.height * 0.43f),
+                    size = androidx.compose.ui.geometry.Size(size.width * 0.68f, size.height * 0.58f),
+                    style = stroke,
+                )
             }
         }
     }

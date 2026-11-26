@@ -28,6 +28,7 @@ enum class BusinessTab {
     CATALOG,
     INVENTORY,
     RECOMMENDATIONS,
+    PROFILE,
 }
 
 data class MoreStockUiState(
