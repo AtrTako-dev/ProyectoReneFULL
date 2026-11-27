@@ -26,7 +26,7 @@ Abre `FrontEnd/` en Android Studio. El código se compila con compatibilidad Jav
 
 ## Dirección del backend
 
-El emulador Android usa la API del equipo anfitrión en `http://10.0.2.2:3000/api/v1`. Puedes cambiar la URL mediante `FrontEnd/local.properties` o `-Pmorestock.apiBaseUrl=...`.
+La configuración predeterminada usa la API desplegada en Render: `https://more-stock-api.onrender.com/api/v1`. Para desarrollo local, puedes cambiarla mediante `FrontEnd/local.properties` o `-Pmorestock.apiBaseUrl=http://10.0.2.2:3000/api/v1` en el emulador Android.
 
 HTTP sin cifrar está habilitado solo en `debug`; la variante `release` requiere HTTPS. Antes de compilar una versión release, configura la URL real de la API. Los pendientes de publicación están descritos en [`docs/PENDIENTES_DESPLIEGUE.md`](../docs/PENDIENTES_DESPLIEGUE.md).
 

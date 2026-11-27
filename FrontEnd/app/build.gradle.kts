@@ -12,7 +12,7 @@ val localProperties = Properties().apply {
     }
 }
 val configuredApiUrl = providers.gradleProperty("morestock.apiBaseUrl")
-    .orElse(localProperties.getProperty("morestock.apiBaseUrl") ?: "http://10.0.2.2:3000/api/v1")
+    .orElse(localProperties.getProperty("morestock.apiBaseUrl") ?: "https://more-stock-api.onrender.com/api/v1")
     .get()
 val escapedApiUrl = configuredApiUrl
     .replace("\\", "\\\\")
