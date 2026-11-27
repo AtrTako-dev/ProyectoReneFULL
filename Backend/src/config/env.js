@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
 
 try {
   process.loadEnvFile(fileURLToPath(new URL('../../.env', import.meta.url)));
@@ -16,9 +17,18 @@ export const port = Number(configuredPort);
 
 export const nodeEnvironment = process.env.NODE_ENV ?? 'development';
 export const demoModeEnabled = process.env.DEMO_MODE === 'true';
+const allowProductionDemoMode = process.env.ALLOW_PRODUCTION_DEMO_MODE === 'true';
 
-if (demoModeEnabled && nodeEnvironment !== 'development') {
+if (demoModeEnabled && nodeEnvironment !== 'development' && !allowProductionDemoMode) {
   throw new Error('DEMO_MODE solo puede habilitarse con NODE_ENV=development.');
+}
+
+if (allowProductionDemoMode && (nodeEnvironment !== 'production' || !demoModeEnabled)) {
+  throw new Error('ALLOW_PRODUCTION_DEMO_MODE requiere NODE_ENV=production y DEMO_MODE=true.');
+}
+
+if (allowProductionDemoMode && !process.env.DEMO_ACCOUNTS_FILE) {
+  throw new Error('El modo demo en producción requiere DEMO_ACCOUNTS_FILE como archivo secreto.');
 }
 
 export const serverHost = nodeEnvironment === 'development'
@@ -73,7 +83,20 @@ function readLoginRateLimitClientIpHeader() {
 }
 
 function readDemoAccounts() {
-  const source = process.env.DEMO_ACCOUNTS_JSON;
+  const accountsFile = process.env.DEMO_ACCOUNTS_FILE;
+  const inlineAccounts = process.env.DEMO_ACCOUNTS_JSON;
+  if (accountsFile && inlineAccounts) {
+    throw new Error('Configura DEMO_ACCOUNTS_FILE o DEMO_ACCOUNTS_JSON, no ambos.');
+  }
+
+  let source = inlineAccounts;
+  if (accountsFile) {
+    try {
+      source = readFileSync(accountsFile, 'utf8');
+    } catch {
+      throw new Error('No se pudo leer el archivo DEMO_ACCOUNTS_FILE.');
+    }
+  }
   if (!source) return [];
 
   let accounts;
