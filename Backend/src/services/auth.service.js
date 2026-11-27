@@ -144,19 +144,15 @@ export class AuthService {
       }
 
       const existingUser = await this.#repository.findUserByEmail(email);
-      if (existingUser) {
-        const membership = await this.#repository.findMembership(existingUser.id, businessId);
-        if (!membership) {
-          await this.#repository.createMembership({ userId: existingUser.id, businessId, role });
-        }
-        continue;
-      }
-
-      const user = await User.create({ email, password });
+      const user = await User.create({ id: existingUser?.id, email, password });
       try {
         await this.#repository.transaction(async repository => {
-          await repository.createUser(user.toStorageObject());
-          await repository.createMembership({ userId: user.id, businessId, role });
+          if (existingUser) {
+            await repository.updateUserPassword(user.toStorageObject());
+          } else {
+            await repository.createUser(user.toStorageObject());
+          }
+          await repository.upsertMembership({ userId: user.id, businessId, role });
         });
       } catch (error) {
         if (!isDuplicateError(error)) throw error;
