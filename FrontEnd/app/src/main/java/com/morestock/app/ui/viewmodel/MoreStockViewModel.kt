@@ -172,19 +172,21 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
                 val overview = coroutineScope {
                     val products = async { repository.getProducts(token, business.id) }
                     val inventory = async { repository.getInventory(token, business.id) }
-                    val recommendations = async { repository.getRecommendations(token, business.id) }
-                    BusinessOverview(products.await(), inventory.await(), recommendations.await())
+                    BusinessOverview(products.await(), inventory.await())
                 }
                 if (mutableState.value.selectedBusiness?.id != business.id) return@launch
                 mutableState.update {
                     it.copy(
                         products = overview.products,
                         inventory = overview.inventory,
-                        recommendations = overview.recommendations,
+                        recommendations = emptyList(),
                         selectedForecast = null,
                         isBusinessLoading = false,
                     )
                 }
+                val recommendations = loadRecommendationsWhenReady(token, business.id)
+                if (mutableState.value.selectedBusiness?.id != business.id) return@launch
+                mutableState.update { it.copy(recommendations = recommendations) }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -367,8 +369,26 @@ class MoreStockViewModel(private val repository: MoreStockDataSource) : ViewMode
     private data class BusinessOverview(
         val products: List<Product>,
         val inventory: List<InventoryItem>,
-        val recommendations: List<Recommendation>,
     )
+
+    private suspend fun loadRecommendationsWhenReady(
+        token: String,
+        businessId: String,
+    ): List<Recommendation> {
+        repeat(12) { attempt ->
+            try {
+                return repository.getRecommendations(token, businessId)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: MoreStockApiException) {
+                if (error.statusCode != 503 || attempt == 11) return emptyList()
+                delay((error.retryAfterSeconds ?: 10).coerceIn(1, 30) * 1_000)
+            } catch (_: Exception) {
+                return emptyList()
+            }
+        }
+        return emptyList()
+    }
 
     private fun readableError(error: Exception, fallback: String): String = when (error) {
         is SocketTimeoutException -> "El servidor está tardando en responder. Revisa tu conexión e inténtalo de nuevo."
