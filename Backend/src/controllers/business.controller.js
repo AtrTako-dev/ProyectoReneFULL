@@ -31,6 +31,12 @@ function assertDatasetBusiness(salesRepository, businessId) {
   return business;
 }
 
+function requireForecastReady(forecastService) {
+  if (typeof forecastService.isReady === 'function' && !forecastService.isReady()) {
+    throw new HttpError(503, 'FORECAST_INITIALIZING', 'El pronóstico se está preparando. Inténtalo en un momento.');
+  }
+}
+
 function assertProduct(salesRepository, businessId, productId) {
   assertDatasetBusiness(salesRepository, businessId);
   const product = salesRepository.getProduct(businessId, productId);
@@ -91,6 +97,7 @@ export function createBusinessController({
   calendarService,
 }) {
   const getForecast = (businessId, productId, horizonWeeks = 1) => {
+    requireForecastReady(forecastService);
     assertProduct(salesRepository, businessId, productId);
     return forecastService.forecast({ businessId, productId, horizonWeeks });
   };
@@ -354,6 +361,7 @@ export function createBusinessController({
     },
 
     getModelEvaluation: async (request, response) => {
+      requireForecastReady(forecastService);
       assertDatasetBusiness(salesRepository, request.params.businessId);
       const evaluation = forecastService.getEvaluation();
       const series = evaluation.perSeries.filter(item => String(item.businessId) === request.params.businessId);

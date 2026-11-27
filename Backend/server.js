@@ -1,6 +1,10 @@
 import { createApp } from './src/app.js';
 import { port, serverHost } from './src/config/env.js';
-import { closeDemoRuntime, initializeDemoRuntime } from './src/config/demo-runtime.js';
+import {
+  closeDemoRuntime,
+  initializeDemoRuntime,
+  initializeForecastRuntime,
+} from './src/config/demo-runtime.js';
 
 let runtimeState = 'initializing';
 const app = createApp({ readiness: () => runtimeState });
@@ -32,6 +36,11 @@ initializeDemoRuntime().then(seeded => {
   console.log(
     `MySQL listo; ${seeded.availableBusinesses} negocios y ${seeded.availableSales} ventas disponibles.`,
   );
+  initializeForecastRuntime().then(evaluation => {
+    console.log(`Pronóstico disponible para ${evaluation.seriesCount} series.`);
+  }).catch(() => {
+    console.error('No se pudo preparar el pronóstico; el catálogo y el inventario siguen disponibles.');
+  });
 }).catch(error => {
   runtimeState = 'failed';
   console.error(`No se pudo preparar More Stock: ${error.message}`);

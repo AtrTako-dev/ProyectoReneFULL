@@ -471,6 +471,10 @@ export class ForecastService {
     return structuredClone(this.evaluation);
   }
 
+  isReady() {
+    return Boolean(this.evaluation && this.dataset);
+  }
+
   forecast({ businessId, productId, horizonWeeks = 1 }) {
     if (!this.evaluation || !this.dataset) throw new Error('ForecastService no se ha inicializado.');
     if (!Number.isSafeInteger(horizonWeeks) || horizonWeeks < 1) {

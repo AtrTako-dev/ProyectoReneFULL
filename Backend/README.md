@@ -25,7 +25,7 @@ Para la demostración escolar desplegada, el modo demo de producción requiere h
 
 La matriz `matriz_soriana_simulada_20000.csv` es referencia y no se asigna como tienda de una cuenta. Las cinco cuentas usan sus archivos `tienda_*_500.csv`, el catálogo global y `surtido_por_negocio.csv`. El stock inicial de cada tienda se obtiene del `inventario_final` de su semana más reciente y se guarda por negocio y producto; no hay un `stock.json` canónico en el repositorio. Si la base ya contiene las 5 tiendas, el catálogo, los 50 pares de surtido y las 2,500 ventas demo, el importador reutiliza esos datos y sincroniza el inventario sin volver a importar el histórico.
 
-El servidor abre el puerto de Render antes de preparar la base. Mientras carga el esquema, las cuentas y los datos, las rutas de la API responden `503 SERVICE_INITIALIZING`; cuando finaliza, quedan disponibles para la app. Así el despliegue no espera a que termine la importación para detectar el puerto y la app no recibe un catálogo vacío durante la carga.
+El servidor abre el puerto de Render antes de preparar la base. Mientras carga el esquema, las cuentas y los datos, la API responde `503 SERVICE_INITIALIZING`. Al terminar esa carga quedan disponibles el catálogo y el inventario; el pronóstico se inicializa en un proceso separado y sus rutas responden `503 FORECAST_INITIALIZING` hasta que el modelo está listo. Así el cálculo de ML no retrasa la consulta de productos y stock.
 
 Inicia la API con:
 

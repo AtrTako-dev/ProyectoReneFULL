@@ -64,7 +64,8 @@ export function createApp({
     }
 
     const status = error.status;
-    if (Number.isInteger(status) && status >= 400 && status < 500) {
+    if (Number.isInteger(status) && ((status >= 400 && status < 500) || status === 503)) {
+      if (status === 503) response.set('Retry-After', '10');
       return response.status(status).json({
         error: {
           code: error.code ?? (status === 400 ? 'BAD_REQUEST' : 'REQUEST_ERROR'),

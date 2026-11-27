@@ -1,3 +1,4 @@
+import { Worker } from 'node:worker_threads';
 import { demoAccounts, demoModeEnabled } from './env.js';
 import { mysqlPool, requireMysqlPool } from './mysql-pool.js';
 import { MySqlAuthRepository } from '../repositories/mysql-auth.repository.js';
@@ -27,6 +28,35 @@ const databaseInitializer = new DatabaseInitializer(mysqlPool);
 const demoDataSeeder = mysqlPool
   ? new DemoDataSeeder({ pool: mysqlPool })
   : null;
+let forecastWorker = null;
+let forecastInitialization = null;
+
+function createForecastSnapshot() {
+  const businesses = salesRepository.getBusinesses();
+  const products = businesses.flatMap(business => salesRepository.getProducts(business.businessId));
+  const sales = products.flatMap(product => salesRepository.getSeries(product.businessId, product.productId));
+  return { businesses, products, sales };
+}
+
+async function initializeForecastInWorker() {
+  const snapshot = createForecastSnapshot();
+  const result = await new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('../workers/forecast-initializer.worker.js', import.meta.url), {
+      workerData: snapshot,
+    });
+    forecastWorker = worker;
+    worker.once('message', resolve);
+    worker.once('error', reject);
+    worker.once('exit', code => {
+      forecastWorker = null;
+      if (code !== 0) reject(new Error('El proceso de pronóstico terminó inesperadamente.'));
+    });
+  });
+
+  if (!result?.ready) throw new Error('No se pudo inicializar el modelo de pronóstico.');
+  await forecastService.initialize();
+  return forecastService.getEvaluation();
+}
 
 export async function initializeDemoRuntime() {
   const pool = requireMysqlPool();
@@ -47,8 +77,6 @@ export async function initializeDemoRuntime() {
   if (demoModeEnabled && loadedSales.sales < seedSummary.sales) {
     throw new Error('MySQL contiene menos ventas que el conjunto de demostración esperado.');
   }
-  console.log('Preparando el modelo de pronóstico...');
-  await forecastService.initialize();
   return {
     ...seedSummary,
     availableBusinesses: salesRepository.getBusinesses().length,
@@ -56,7 +84,18 @@ export async function initializeDemoRuntime() {
   };
 }
 
+export function initializeForecastRuntime() {
+  if (!forecastInitialization) {
+    forecastInitialization = initializeForecastInWorker().catch(error => {
+      forecastInitialization = null;
+      throw error;
+    });
+  }
+  return forecastInitialization;
+}
+
 export async function closeDemoRuntime() {
+  if (forecastWorker) await forecastWorker.terminate();
   if (mysqlPool) await mysqlPool.end();
 }
 
