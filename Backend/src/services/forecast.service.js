@@ -5,17 +5,18 @@ import { calculateForecastMetrics, chooseForecastMethod } from './forecast-evalu
 import { ForecastDatasetService } from './forecast-dataset.service.js';
 
 const MODEL_KEY = 'weekly-demand-forecast-v1';
-const MODEL_VERSION = '2.0.0';
+const MODEL_VERSION = '2.1.0';
 const TRAIN_RATIO = 0.6;
 const VALIDATION_RATIO = 0.2;
 const LAG_WEEKS = 4;
 const SMALL_TEST_SAMPLE_THRESHOLD = 30;
 const WEEK_MILLISECONDS = 7 * 24 * 60 * 60 * 1000;
 const RANDOM_FOREST_OPTIONS = Object.freeze({
-  nEstimators: 80,
+  nEstimators: 12,
   maxFeatures: 0.7,
   replacement: false,
   useSampleBagging: true,
+  noOOB: true,
   treeOptions: { maxDepth: 5, minNumSamples: 5 },
 });
 
