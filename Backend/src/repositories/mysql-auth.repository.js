@@ -61,6 +61,15 @@ export class MySqlAuthRepository {
     );
   }
 
+  async updateUserPassword(storageUser) {
+    await this.executor.execute(
+      `UPDATE users
+       SET password_salt = ?, password_hash = ?
+       WHERE id = ?`,
+      [storageUser.passwordSalt, storageUser.passwordHash, String(storageUser.id)],
+    );
+  }
+
   async createBusiness(business) {
     await this.executor.execute(
       `INSERT INTO businesses (id, name, is_reference_only)
@@ -81,6 +90,15 @@ export class MySqlAuthRepository {
     await this.executor.execute(
       `INSERT INTO business_memberships (business_id, user_id, role)
        VALUES (?, ?, ?)`,
+      [String(businessId), String(userId), role],
+    );
+  }
+
+  async upsertMembership({ userId, businessId, role }) {
+    await this.executor.execute(
+      `INSERT INTO business_memberships (business_id, user_id, role)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE role = VALUES(role)`,
       [String(businessId), String(userId), role],
     );
   }
