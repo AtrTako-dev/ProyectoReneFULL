@@ -23,6 +23,10 @@ Para importar el conjunto sintético en una demostración local, usa `NODE_ENV=d
 
 Para la demostración escolar desplegada, el modo demo de producción requiere habilitar explícitamente `ALLOW_PRODUCTION_DEMO_MODE=true` junto con `DEMO_MODE=true`. Guarda las cuentas en un archivo secreto JSON y configura `DEMO_ACCOUNTS_FILE` con su ruta; en Render, los Secret Files están disponibles en `/etc/secrets/<nombre>`. No incluyas contraseñas en el repositorio ni en archivos normales del proyecto. En este modo, cada inicio importa de forma idempotente el catálogo, los surtidos, las ventas y el inventario sintéticos, y sincroniza las contraseñas y roles de las cuentas demo configuradas. Usa esta opción solo para una instancia de demostración: las credenciales de esas cuentas se restablecen desde el archivo secreto cuando el servicio reinicia.
 
+La matriz `matriz_soriana_simulada_20000.csv` es referencia y no se asigna como tienda de una cuenta. Las cinco cuentas usan sus archivos `tienda_*_500.csv`, el catálogo global y `surtido_por_negocio.csv`. El stock inicial de cada tienda se obtiene del `inventario_final` de su semana más reciente y se guarda por negocio y producto; no hay un `stock.json` canónico en el repositorio. Si la base ya contiene las 5 tiendas, el catálogo, los 50 pares de surtido y las 2,500 ventas demo, el importador reutiliza esos datos y sincroniza el inventario sin volver a importar el histórico.
+
+El servidor abre el puerto de Render antes de preparar la base. Mientras carga el esquema, las cuentas y los datos, las rutas de la API responden `503 SERVICE_INITIALIZING`; cuando finaliza, quedan disponibles para la app. Así el despliegue no espera a que termine la importación para detectar el puerto y la app no recibe un catálogo vacío durante la carga.
+
 Inicia la API con:
 
 ```sh

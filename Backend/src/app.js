@@ -5,19 +5,40 @@ import { createAuthRouter } from './routes/auth.routes.js';
 import { createBusinessRouter } from './routes/business.routes.js';
 import { createHealthRouter } from './routes/health.routes.js';
 
-export function createApp({ databasePool = mysqlPool, services = demoServices } = {}) {
+export function createApp({
+  databasePool = mysqlPool,
+  services = demoServices,
+  readiness = () => 'ready',
+} = {}) {
   const app = express();
 
   app.use(express.json({ limit: '1mb' }));
   app.get('/', (_request, response) => {
+    const runtimeState = readiness();
     response.json({
       servicio: 'MoreStock API',
-      estado: 'disponible',
+      estado: runtimeState === 'ready' ? 'disponible' : 'inicializando',
       api: '/api/v1',
       salud: '/api/v1/health',
     });
   });
-  app.use('/api/v1', createHealthRouter(databasePool));
+  app.use('/api/v1', createHealthRouter(databasePool, readiness));
+
+  app.use((_request, response, next) => {
+    const runtimeState = readiness();
+    if (runtimeState === 'ready') return next();
+
+    const failed = runtimeState === 'failed';
+    response.set('Retry-After', '15').status(503).json({
+      error: {
+        code: failed ? 'SERVICE_INITIALIZATION_FAILED' : 'SERVICE_INITIALIZING',
+        message: failed
+          ? 'El servidor no pudo preparar los datos de la tienda.'
+          : 'El servidor está cargando el catálogo y el inventario. Inténtalo de nuevo en un momento.',
+      },
+    });
+  });
+
   app.use('/api/v1/auth', createAuthRouter(services.authService));
   app.use('/api/v1/businesses', createBusinessRouter(services));
 

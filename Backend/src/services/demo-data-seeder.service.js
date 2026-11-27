@@ -17,24 +17,53 @@ const STORE_FILES = Object.freeze([
 
 const CATALOG_FILE = 'catalogo_100_productos.csv';
 const ASSORTMENT_FILE = 'surtido_por_negocio.csv';
-const INVENTORY_BATCH_SIZE = 100;
+const BUSINESS_IDS = Object.freeze(['201', '202', '203', '204', '205']);
+const EXPECTED_DATASET = Object.freeze({ businesses: 5, products: 100, businessProducts: 50, sales: 2500 });
+const businessIdPlaceholders = BUSINESS_IDS.map(() => '?').join(', ');
 
-async function initializeSyntheticInventory(executor, pairs) {
-  for (let offset = 0; offset < pairs.length; offset += INVENTORY_BATCH_SIZE) {
-    const batch = pairs.slice(offset, offset + INVENTORY_BATCH_SIZE);
-    const placeholders = batch.map(() => '(?, ?, ?, ?)').join(', ');
-    await executor.execute(
-      `INSERT IGNORE INTO current_inventory
-         (business_id, product_sku, quantity_on_hand, data_origin)
-       VALUES ${placeholders}`,
-      batch.flatMap(({ businessId, productId }) => [
-        businessId,
-        productId,
-        businessId === '201' && productId === 'PS001' ? 15 : 0,
-        'synthetic',
-      ]),
-    );
-  }
+async function hasCompleteDataset(executor) {
+  const [rows] = await executor.execute(
+    `SELECT
+       (SELECT COUNT(*) FROM businesses
+        WHERE id IN (${businessIdPlaceholders}) AND is_reference_only = FALSE) AS business_count,
+       (SELECT COUNT(*) FROM products) AS product_count,
+       (SELECT COUNT(*) FROM business_products
+        WHERE business_id IN (${businessIdPlaceholders})) AS assortment_count,
+       (SELECT COUNT(*) FROM weekly_sales
+        WHERE business_id IN (${businessIdPlaceholders}) AND data_origin = 'synthetic') AS sales_count`,
+    [...BUSINESS_IDS, ...BUSINESS_IDS, ...BUSINESS_IDS],
+  );
+  const counts = rows[0] ?? {};
+  return Number(counts.business_count) >= EXPECTED_DATASET.businesses
+    && Number(counts.product_count) >= EXPECTED_DATASET.products
+    && Number(counts.assortment_count) >= EXPECTED_DATASET.businessProducts
+    && Number(counts.sales_count) >= EXPECTED_DATASET.sales;
+}
+
+async function synchronizeSyntheticInventory(executor) {
+  await executor.execute(
+    `INSERT INTO current_inventory
+       (business_id, product_sku, quantity_on_hand, data_origin)
+     SELECT latest.business_id, latest.product_sku, latest.closing_stock, 'synthetic'
+     FROM weekly_sales latest
+     JOIN (
+       SELECT business_id, product_sku, MAX(week_start) AS latest_week
+       FROM weekly_sales
+       WHERE data_origin = 'synthetic' AND business_id IN (${businessIdPlaceholders})
+       GROUP BY business_id, product_sku
+     ) latest_period
+       ON latest_period.business_id = latest.business_id
+      AND latest_period.product_sku = latest.product_sku
+      AND latest_period.latest_week = latest.week_start
+     JOIN business_products assortment
+       ON assortment.business_id = latest.business_id
+      AND assortment.product_sku = latest.product_sku
+     WHERE latest.data_origin = 'synthetic'
+     ON DUPLICATE KEY UPDATE
+       quantity_on_hand = IF(current_inventory.data_origin = 'synthetic',
+         VALUES(quantity_on_hand), current_inventory.quantity_on_hand)`,
+    BUSINESS_IDS,
+  );
 }
 
 export class DemoDataSeeder {
@@ -54,30 +83,38 @@ export class DemoDataSeeder {
 
     try {
       await connection.beginTransaction();
-      const businesses = await this.businessImporter.importFromStoreFiles(connection);
-      const products = await this.catalogImporter.import(
-        connection,
-        path.join(this.directory, CATALOG_FILE),
-      );
-      const assortment = await this.assortmentImporter.import(
-        connection,
-        path.join(this.directory, ASSORTMENT_FILE),
-        { businesses, products },
-      );
-      const sales = await this.salesImporter.import(connection, {
-        businesses,
-        products,
-        assortment: assortment.keys,
-      });
-      await initializeSyntheticInventory(connection, assortment.pairs);
+      let summary = { ...EXPECTED_DATASET };
+      const datasetAlreadyLoaded = await hasCompleteDataset(connection);
+      if (!datasetAlreadyLoaded) {
+        const businesses = await this.businessImporter.importFromStoreFiles(connection);
+        const products = await this.catalogImporter.import(
+          connection,
+          path.join(this.directory, CATALOG_FILE),
+        );
+        const assortment = await this.assortmentImporter.import(
+          connection,
+          path.join(this.directory, ASSORTMENT_FILE),
+          { businesses, products },
+        );
+        const sales = await this.salesImporter.import(connection, {
+          businesses,
+          products,
+          assortment: assortment.keys,
+        });
+        summary = {
+          businesses: businesses.size,
+          products: products.size,
+          businessProducts: assortment.pairs.length,
+          sales,
+        };
+      }
+      await synchronizeSyntheticInventory(connection);
       await connection.commit();
 
       return {
-        businesses: businesses.size,
-        products: products.size,
-        businessProducts: assortment.pairs.length,
-        sales,
-        inventoryItems: assortment.pairs.length,
+        ...summary,
+        inventoryItems: EXPECTED_DATASET.businessProducts,
+        datasetAlreadyLoaded,
       };
     } catch (error) {
       await connection.rollback();

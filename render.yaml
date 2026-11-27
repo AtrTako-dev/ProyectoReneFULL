@@ -16,7 +16,11 @@ services:
       - key: HOST
         value: 0.0.0.0
       - key: DEMO_MODE
-        value: "false"
+        value: "true"
+      - key: ALLOW_PRODUCTION_DEMO_MODE
+        value: "true"
+      - key: DEMO_ACCOUNTS_FILE
+        value: /etc/secrets/morestock-demo-accounts.json
       - key: DB_HOST
         sync: false
       - key: DB_PORT

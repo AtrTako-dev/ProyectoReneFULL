@@ -30,15 +30,24 @@ const demoDataSeeder = mysqlPool
 
 export async function initializeDemoRuntime() {
   const pool = requireMysqlPool();
+  console.log('Inicializando el esquema de la base de datos...');
   await databaseInitializer.initialize();
-  const seedSummary = demoModeEnabled
-    ? await demoDataSeeder.seed()
-    : { businesses: 0, products: 0, businessProducts: 0, sales: 0, inventoryItems: 0 };
+  let seedSummary = { businesses: 0, products: 0, businessProducts: 0, sales: 0, inventoryItems: 0 };
+  if (demoModeEnabled) {
+    console.log('Importando el catálogo, surtidos, ventas e inventario demo...');
+    seedSummary = await demoDataSeeder.seed();
+    console.log(
+      `Datos demo listos: ${seedSummary.businesses} negocios, ${seedSummary.products} productos y ${seedSummary.sales} ventas${seedSummary.datasetAlreadyLoaded ? ' (carga existente)' : ''}.`,
+    );
+  }
+  console.log('Sincronizando cuentas demo...');
   await authService.initialize();
+  console.log('Cargando el historial de ventas...');
   const loadedSales = await salesRepository.load();
   if (demoModeEnabled && loadedSales.sales < seedSummary.sales) {
     throw new Error('MySQL contiene menos ventas que el conjunto de demostración esperado.');
   }
+  console.log('Preparando el modelo de pronóstico...');
   await forecastService.initialize();
   return {
     ...seedSummary,
