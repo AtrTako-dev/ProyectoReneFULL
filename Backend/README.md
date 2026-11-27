@@ -19,7 +19,9 @@ cp .env.example .env
 
 Edita `Backend/.env` en tu computadora con el host, usuario, contraseña y nombre de una base MySQL local ya creada. El archivo está excluido de Git y sus valores no deben pegarse en tickets, informes ni repositorios. Al iniciar, la API comprueba la conexión y crea o ajusta las tablas del esquema. Con `DEMO_MODE=false`, las ventas, los surtidos y las cuentas deben existir en MySQL antes de iniciar; la API no importa los CSV ni crea cuentas demo en ese modo.
 
-Para importar el conjunto sintético en una demostración local, usa `NODE_ENV=development` y `DEMO_MODE=true` en `.env`. Configura las cuentas demo mediante `DEMO_ACCOUNTS_JSON`; cada cuenta necesita correo, contraseña y `businessId`. El modo demo se bloquea fuera de `development`.
+Para importar el conjunto sintético en una demostración local, usa `NODE_ENV=development` y `DEMO_MODE=true` en `.env`. Configura las cuentas demo mediante `DEMO_ACCOUNTS_JSON`; cada cuenta necesita correo, contraseña y `businessId`.
+
+Para la demostración escolar desplegada, el modo demo de producción requiere habilitar explícitamente `ALLOW_PRODUCTION_DEMO_MODE=true` junto con `DEMO_MODE=true`. Guarda las cuentas en un archivo secreto JSON y configura `DEMO_ACCOUNTS_FILE` con su ruta; en Render, los Secret Files están disponibles en `/etc/secrets/<nombre>`. No incluyas contraseñas en el repositorio ni en archivos normales del proyecto. En este modo, cada inicio importa de forma idempotente el catálogo, los surtidos, las ventas y el inventario sintéticos, y sincroniza las contraseñas y roles de las cuentas demo configuradas. Usa esta opción solo para una instancia de demostración: las credenciales de esas cuentas se restablecen desde el archivo secreto cuando el servicio reinicia.
 
 Inicia la API con:
 
